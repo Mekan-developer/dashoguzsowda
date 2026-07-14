@@ -6,10 +6,10 @@ export default defineConfig({
     server: {
         host: '0.0.0.0',
         port: 5173,
-        origin: 'http://192.168.31.64:5173',
+        origin: 'http://192.168.1.226:5173',
         cors: true,
         hmr: {
-            host: '192.168.31.64',
+            host: '192.168.1.226',
         },
     },
     plugins: [

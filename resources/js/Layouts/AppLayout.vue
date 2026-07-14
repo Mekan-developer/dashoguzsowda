@@ -120,8 +120,8 @@ function logout() {
     >
       <!-- Brand -->
       <div class="flex items-center gap-2.5 px-1.5 pt-1 pb-[22px]">
-        <div class="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[9px] bg-[var(--accent)] text-white dark:shadow-[0_0_0_4px_var(--accent-tint)]">
-          <Icon kind="menu" :size="17" />
+        <div class="flex h-[60px] w-[60px] flex-none items-center justify-center rounded-[9px] dark:bg-white text-white dark:shadow-[0_0_0_4px_var(--accent-tint)]">
+          <img src="/icons/logo.png" alt="Logo" class="h-auto w-[56px]" />
         </div>
         <div v-if="!collapsed" class="flex flex-col leading-[1.18]">
           <span class="text-[14.5px] font-bold text-[var(--sidebar-text-strong)]">{{ t('layout.brandTitle') }}</span>
