@@ -29,6 +29,7 @@ Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group
         Route::get('/', [ProfileController::class, 'show']);
         Route::get('/tariff', [TariffController::class, 'show']);
         Route::put('/', [ProfileController::class, 'update']);
+        Route::put('/fcm-token', [ProfileController::class, 'updateFcmToken']);
         Route::post('/avatar', [ProfileController::class, 'updateAvatar']);
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar']);
         Route::post('/phone/send-code', [ProfileController::class, 'sendPhoneCode'])->middleware('throttle:5,1');

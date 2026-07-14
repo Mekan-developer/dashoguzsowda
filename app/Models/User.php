@@ -37,6 +37,7 @@ class User extends Authenticatable
     public function videos()    { return $this->hasMany(Video::class); }
     public function messages()  { return $this->hasMany(Message::class); }
     public function favorites() { return $this->hasMany(Favorite::class); }
+    public function fcmTokens() { return $this->hasMany(FcmToken::class); }
 
     public function isAdmin()   { return $this->role === 'admin'; }
     public function isManager() { return $this->role === 'manager'; }

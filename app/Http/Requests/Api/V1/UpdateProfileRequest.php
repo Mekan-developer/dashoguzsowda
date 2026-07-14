@@ -19,7 +19,6 @@ class UpdateProfileRequest extends FormRequest
             'birth_date' => ['sometimes', 'nullable', 'date', 'before:today'],
             'region_id'  => ['sometimes', 'nullable', 'exists:regions,id'],
             'city_id'    => ['sometimes', 'nullable', 'exists:cities,id'],
-            'fcm_token'  => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 }

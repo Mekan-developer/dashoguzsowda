@@ -6,7 +6,7 @@ meta {
 
 post {
   url: {{base_url}}/v1/auth/logout
-  body: none
+  body: json
 }
 
 headers {
@@ -15,8 +15,21 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+body:json {
+  {
+    "fcm_token": null
+  }
+}
+
 tests {
   test("status is 200", function() {
     expect(res.getStatus()).to.equal(200);
   });
+}
+
+docs {
+  fcm_token необязателен. Если передан — этот токен устройства дополнительно
+  удаляется из таблицы fcm_tokens (мобильный клиент уже вызвал
+  FirebaseMessaging.deleteToken() локально). Пустое тело — отзывается только
+  Sanctum-токен, FCM-токены пользователя не трогаются.
 }

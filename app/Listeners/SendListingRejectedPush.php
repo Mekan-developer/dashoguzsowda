@@ -3,25 +3,27 @@
 namespace App\Listeners;
 
 use App\Events\ListingRejected;
-use App\Jobs\SendPushNotificationJob;
+use App\Services\PushNotificationService;
 
 class SendListingRejectedPush
 {
+    public function __construct(
+        private readonly PushNotificationService $pushNotificationService,
+    ) {}
+
     public function handle(ListingRejected $event): void
     {
         $user = $event->listing->user;
 
-        if (! $user?->fcm_token) {
+        if (! $user) {
             return;
         }
 
-        SendPushNotificationJob::dispatch(
-            $user->fcm_token,
+        $this->pushNotificationService->sendToUser(
+            $user,
             __('messages.push_listing_rejected_title'),
             __('messages.push_listing_rejected_body', ['title' => $event->listing->title]),
-            'listing_rejected',
-            'listing',
-            $event->listing->id,
+            ['type' => 'listing', 'id' => $event->listing->id],
         );
     }
 }

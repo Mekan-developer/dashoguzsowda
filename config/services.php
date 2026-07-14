@@ -31,4 +31,9 @@ return [
         ],
     ],
 
+    // Firebase Cloud Messaging (см. также config/firebase.php — service account берётся оттуда)
+    'fcm' => [
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+    ],
+
 ];

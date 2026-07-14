@@ -67,6 +67,10 @@ return [
     'push_listing_approved_body'  => 'Siziň «:title» bildiryşiňiz moderasiýadan geçdi',
     'push_listing_rejected_title' => 'Bildiriş ret edildi',
     'push_listing_rejected_body'  => 'Siziň «:title» bildiryşiňiz ret edildi',
+    'push_chat_reply_title'       => 'Goldaw gullugyndan täze habar',
+    'push_chat_reply_body'        => 'Size goldaw gullugynyň çatynda jogap berdiler',
+    'push_queued'                 => 'Habarnama nobata goýuldy (:count alyjy)',
+    'fcm_token_updated'           => 'FCM-token täzelendi',
 
     'manager_permission_updated' => 'Dolandyryjynyň hukuklary üýtgedildi',
     'localization_updated'       => 'Lokalizasiýa sazlamalary saklandy',

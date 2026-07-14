@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Actions\RegisterFcmTokenAction;
+use App\Actions\RemoveFcmTokenAction;
 use App\Actions\SendSmsCodeAction;
 use App\Actions\VerifySmsCodeAction;
 use App\Models\User;
@@ -17,6 +19,8 @@ class AuthService
         private readonly UserRepositoryInterface $userRepository,
         private readonly SendSmsCodeAction $sendSmsCode,
         private readonly VerifySmsCodeAction $verifySmsCode,
+        private readonly RegisterFcmTokenAction $registerFcmToken,
+        private readonly RemoveFcmTokenAction $removeFcmToken,
     ) {}
 
     /**
@@ -63,7 +67,7 @@ class AuthService
         }
 
         if ($fcmToken) {
-            $this->userRepository->updateFcmToken($user, $fcmToken);
+            $this->registerFcmToken->execute($user, $fcmToken);
         }
 
         return [
@@ -73,9 +77,13 @@ class AuthService
         ];
     }
 
-    public function logout(User $user): void
+    public function logout(User $user, ?string $fcmToken = null): void
     {
         $user->currentAccessToken()?->delete();
+
+        if ($fcmToken) {
+            $this->removeFcmToken->execute($user, $fcmToken);
+        }
     }
 
     /**

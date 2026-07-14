@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\LogoutRequest;
 use App\Http\Requests\Api\V1\SendCodeRequest;
 use App\Http\Requests\Api\V1\VerifyCodeRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Services\AuthService;
-use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
@@ -55,14 +55,15 @@ class AuthController extends Controller
     }
 
     /**
-     * Отзыв текущего токена.
+     * Отзыв текущего токена. Опционально принимает fcm_token — если передан,
+     * дополнительно удаляет его из таблицы device-токенов (см. prompt_fcm_backend.md §2.3).
      * POST /api/v1/auth/logout
      *
      * @authenticated
      */
-    public function logout(Request $request)
+    public function logout(LogoutRequest $request)
     {
-        $this->authService->logout($request->user());
+        $this->authService->logout($request->user(), $request->validated('fcm_token'));
 
         return response()->json([
             'data'    => null,

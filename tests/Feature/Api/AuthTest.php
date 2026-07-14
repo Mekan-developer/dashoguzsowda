@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\FcmToken;
 use App\Models\SmsCode;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
@@ -74,8 +75,28 @@ it('logs in an existing user on verify', function () {
         ->assertJsonPath('data.is_new', false)
         ->assertJsonPath('data.user.id', $user->id);
 
-    expect(User::count())->toBe(1)
-        ->and($user->fresh()->fcm_token)->toBe('fcm-123');
+    expect(User::count())->toBe(1);
+
+    $token = FcmToken::where('user_id', $user->id)->first();
+    expect($token)->not->toBeNull()
+        ->and($token->token)->toBe('fcm-123');
+});
+
+it('registers multiple fcm tokens for the same user (multi-device)', function () {
+    $user = User::factory()->create(['phone' => PHONE]);
+
+    $this->postJson('/api/v1/auth/verify', [
+        'phone' => PHONE, 'code' => requestCode(), 'fcm_token' => 'device-a',
+    ])->assertOk();
+
+    $this->travel(config('sms.resend_cooldown') + 1)->seconds();
+
+    $this->postJson('/api/v1/auth/verify', [
+        'phone' => PHONE, 'code' => requestCode(), 'fcm_token' => 'device-b',
+    ])->assertOk();
+
+    expect(FcmToken::where('user_id', $user->id)->pluck('token')->sort()->values()->all())
+        ->toBe(['device-a', 'device-b']);
 });
 
 it('rejects a wrong code', function () {
@@ -143,6 +164,34 @@ it('revokes the token on logout', function () {
     // Guard кеширует пользователя между запросами одного теста — сбрасываем
     $this->app['auth']->forgetGuards();
     $this->getJson('/api/v1/profile', $headers)->assertStatus(401);
+});
+
+it('removes the fcm token on logout when provided', function () {
+    $code = requestCode();
+    $response = $this->postJson('/api/v1/auth/verify', ['phone' => PHONE, 'code' => $code, 'fcm_token' => 'fcm-123'])
+        ->json('data');
+
+    $headers = ['Authorization' => "Bearer {$response['token']}"];
+    $user = User::where('phone', PHONE)->first();
+
+    expect(FcmToken::where('user_id', $user->id)->where('token', 'fcm-123')->exists())->toBeTrue();
+
+    $this->postJson('/api/v1/auth/logout', ['fcm_token' => 'fcm-123'], $headers)->assertOk();
+
+    expect(FcmToken::where('user_id', $user->id)->where('token', 'fcm-123')->exists())->toBeFalse();
+});
+
+it('keeps the fcm token on logout when not provided', function () {
+    $code = requestCode();
+    $response = $this->postJson('/api/v1/auth/verify', ['phone' => PHONE, 'code' => $code, 'fcm_token' => 'fcm-123'])
+        ->json('data');
+
+    $headers = ['Authorization' => "Bearer {$response['token']}"];
+    $user = User::where('phone', PHONE)->first();
+
+    $this->postJson('/api/v1/auth/logout', [], $headers)->assertOk();
+
+    expect(FcmToken::where('user_id', $user->id)->where('token', 'fcm-123')->exists())->toBeTrue();
 });
 
 it('requires auth for profile endpoints', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\AdminReplied;
 use App\Events\NewMessageEvent;
 use App\Models\Message;
 use App\Models\User;
@@ -44,6 +45,7 @@ class ChatService
         ]);
 
         broadcast(new NewMessageEvent($message))->toOthers();
+        event(new AdminReplied($message));
 
         return $message;
     }

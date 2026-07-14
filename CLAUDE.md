@@ -206,8 +206,17 @@ storage/
 id, phone (unique), name, gender (nullable), birth_date (nullable),
 region_id (fk, nullable), city_id (fk, nullable), avatar (nullable),
 is_blocked (bool, default false), block_reason (nullable), blocked_at (nullable),
-fcm_token (nullable), created_at, updated_at
+fcm_token (nullable, LEGACY — не используется новой логикой, см. fcm_tokens), created_at, updated_at
 ```
+
+### fcm_tokens
+```
+id, user_id (fk), token (unique), platform (android|ios, nullable),
+last_used_at (nullable), created_at, updated_at
+```
+- Несколько токенов на пользователя (мультидевайс). `token` уникален глобально —
+  повторная регистрация того же токена под другим пользователем перепривязывает его (upsert по `token`).
+- Пишется только через `FcmTokenRepository` (`App\Actions\RegisterFcmTokenAction` / `RemoveFcmTokenAction`).
 
 ### sms_codes
 ```
@@ -407,10 +416,15 @@ sent_at, created_at
 
 ## Push-уведомления (FCM)
 
-- FCM token хранится в `users.fcm_token`, обновляется при каждом логине.
-- Отправка: `SendPushNotificationJob` → queue `notifications`.
-- Deep-link payload: `{ "type": "listing"|"user"|"news", "id": 123 }`
-- Типы: `phone_confirm`, `listing_approved`, `listing_rejected`, `advertisement`, `system`
+- FCM HTTP v1 API через `kreait/laravel-firebase`. Service account: `FIREBASE_CREDENTIALS`
+  в `.env` (файл `storage/app/firebase/service-account.json`, не коммитится), проект — `FIREBASE_PROJECT_ID`.
+- Токены — таблица `fcm_tokens` (несколько на пользователя, мультидевайс). `users.fcm_token` — legacy, не читается и не пишется.
+- Регистрация токена: `App\Actions\RegisterFcmTokenAction` (при `auth/verify` и `PUT /api/v1/profile/fcm-token`).
+- Удаление токена: `App\Actions\RemoveFcmTokenAction` (при `auth/logout`, если передан `fcm_token`).
+- Отправка: `App\Services\PushNotificationService::sendToUser()` / `sendToUsers()` → по одной `SendPushNotificationJob` на каждый токен получателя → queue `notifications`.
+- Невалидные токены (`NotFound`/`InvalidArgument` от FCM) чистятся из `fcm_tokens` автоматически в самой job.
+- Deep-link payload (`data`, все значения — строки): `{ "type": "listing"|"news"|"chat"|"external"|"url", "id": "123" }` (для `external`/`url` — `"url"` вместо `"id"`). Неизвестный `type` или отсутствующий `id` → мобильный клиент открывает `/home`.
+- Типы push-событий: одобрение/отклонение объявления (`ListingApproved`/`ListingRejected` → Listener), ответ администратора в чате (`AdminReplied` → Listener), ручная рассылка из админки (`/admin/push`).
 
 ---
 
@@ -556,6 +570,6 @@ php artisan storage:link         # линк публичного хранили�
 - Любой WebSocket провайдер кроме Reverb
 - Хардкодные строки в UI — только через `__()` и `vue-i18n`
 - Загрузка видеофайла целиком в память — только StreamedResponse
-- Прямая запись в `users.fcm_token` вне `UserRepository`
+- Прямая запись в `fcm_tokens` вне `FcmTokenRepository`
 
 ! Na kazhdom session-e answer in russian language

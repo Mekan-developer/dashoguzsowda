@@ -10,12 +10,14 @@ use App\Repositories\CategoryRepository;
 use App\Repositories\ChatRepository;
 use App\Repositories\ComplaintRepository;
 use App\Repositories\FavoriteRepository;
+use App\Repositories\FcmTokenRepository;
 use App\Repositories\Interfaces\BannerRepositoryInterface;
 use App\Repositories\Interfaces\CategoryIconRepositoryInterface;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ChatRepositoryInterface;
 use App\Repositories\Interfaces\ComplaintRepositoryInterface;
 use App\Repositories\Interfaces\FavoriteRepositoryInterface;
+use App\Repositories\Interfaces\FcmTokenRepositoryInterface;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
 use App\Repositories\Interfaces\NewsRepositoryInterface;
 use App\Repositories\Interfaces\NotificationRepositoryInterface;
@@ -60,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(NotificationRepositoryInterface::class, NotificationRepository::class);
         $this->app->bind(BannerRepositoryInterface::class, BannerRepository::class);
         $this->app->bind(FavoriteRepositoryInterface::class, FavoriteRepository::class);
+        $this->app->bind(FcmTokenRepositoryInterface::class, FcmTokenRepository::class);
 
         // Dev: OTP пишется в laravel.log; прод — заменить на LocalModemSmsService
         $this->app->bind(SmsSenderInterface::class, LogSmsService::class);

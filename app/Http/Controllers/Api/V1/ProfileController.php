@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Actions\RegisterFcmTokenAction;
 use App\Http\Requests\Api\V1\ChangePhoneRequest;
 use App\Http\Requests\Api\V1\ConfirmPhoneRequest;
 use App\Http\Requests\Api\V1\UpdateAvatarRequest;
+use App\Http\Requests\Api\V1\UpdateFcmTokenRequest;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Services\AuthService;
@@ -17,6 +19,7 @@ class ProfileController extends Controller
     public function __construct(
         private readonly UserService $userService,
         private readonly AuthService $authService,
+        private readonly RegisterFcmTokenAction $registerFcmToken,
     ) {}
 
     /**
@@ -46,6 +49,28 @@ class ProfileController extends Controller
         return response()->json([
             'data'    => new UserResource($user->load('region', 'city')),
             'message' => __('messages.updated'),
+        ]);
+    }
+
+    /**
+     * Обновление FCM-токена без повторного логина (см. prompt_fcm_backend.md §2.2).
+     * Пустой/null fcm_token игнорируется — удалить конкретный токен устройства без
+     * его значения невозможно, а удалять все токены пользователя из-за одного
+     * устройства небезопасно для мультидевайса.
+     * PUT /api/v1/profile/fcm-token
+     *
+     * @authenticated
+     */
+    public function updateFcmToken(UpdateFcmTokenRequest $request)
+    {
+        $token = $request->validated('fcm_token');
+
+        if ($token) {
+            $this->registerFcmToken->execute($request->user(), $token, $request->validated('platform'));
+        }
+
+        return response()->json([
+            'message' => __('messages.fcm_token_updated'),
         ]);
     }
 

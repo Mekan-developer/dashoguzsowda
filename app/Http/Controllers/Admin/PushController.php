@@ -3,16 +3,20 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\SendPushRequest;
 use App\Models\PushNotification;
 use App\Models\Region;
 use App\Models\Tariff;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use App\Services\PushNotificationService;
 use Inertia\Inertia;
 
 class PushController extends Controller
 {
+    public function __construct(
+        private readonly PushNotificationService $pushNotificationService,
+    ) {}
+
     public function index()
     {
         return Inertia::render('Push/Index', [
@@ -22,31 +26,21 @@ class PushController extends Controller
         ]);
     }
 
-    public function send(Request $request)
+    public function send(SendPushRequest $request)
     {
-        $data = $request->validate([
-            'title'     => 'required|string|max:255',
-            'body'      => 'required|string',
-            'target'    => 'required|in:all,selected,filtered',
-            'user_ids'  => 'nullable|array',
-            'filters'   => 'nullable|array',
-            'link_type' => 'nullable|string',
-            'link_id'   => 'nullable|integer',
-        ]);
+        $data = $request->validated();
 
         $users = $this->resolveTargetUsers($data);
-        $tokens = $users->whereNotNull('fcm_token')->pluck('fcm_token');
 
-        if ($tokens->isNotEmpty() && config('services.fcm.server_key')) {
-            foreach ($tokens->chunk(500) as $batch) {
-                Http::withToken(config('services.fcm.server_key'))
-                    ->post('https://fcm.googleapis.com/fcm/send', [
-                        'registration_ids' => $batch->values(),
-                        'notification'     => ['title' => $data['title'], 'body' => $data['body']],
-                        'data'             => ['link_type' => $data['link_type'] ?? null, 'link_id' => $data['link_id'] ?? null],
-                    ]);
-            }
-        }
+        $reachedCount = $this->pushNotificationService->sendToUsers(
+            $users,
+            $data['title'],
+            $data['body'],
+            [
+                'type' => $data['link_type'] ?? 'system',
+                'id'   => $data['link_id'] ?? null,
+            ],
+        );
 
         PushNotification::create([
             'title'      => $data['title'],
@@ -56,12 +50,15 @@ class PushController extends Controller
             'filters'    => $data['filters'] ?? null,
             'link_type'  => $data['link_type'] ?? null,
             'link_id'    => $data['link_id'] ?? null,
-            'sent_count' => $users->count(),
+            'sent_count' => $reachedCount,
             'sent_at'    => now(),
             'created_by' => $request->user()->id,
         ]);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Уведомление отправлено (' . $users->count() . ' получателей)']);
+        return back()->with('toast', [
+            'type'    => 'success',
+            'message' => __('messages.push_queued', ['count' => $reachedCount]),
+        ]);
     }
 
     private function resolveTargetUsers(array $data)

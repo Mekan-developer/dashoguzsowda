@@ -1,0 +1,37 @@
+meta {
+  name: Обновить FCM-токен
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{base_url}}/v1/profile/fcm-token
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "fcm_token": "dXhY...new-firebase-token...",
+    "platform": "android"
+  }
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+docs {
+  Вызывается мобильным клиентом при FcmService.onTokenRefresh (без повторного
+  логина). platform: android|ios, необязателен.
+  fcm_token: null или пустая строка — запрос игнорируется (200 OK, без изменений):
+  без значения токена нельзя безопасно определить, какой из нескольких
+  токенов пользователя удалять.
+}

@@ -67,6 +67,10 @@ return [
     'push_listing_approved_body'  => 'Ваше объявление «:title» успешно прошло модерацию',
     'push_listing_rejected_title' => 'Объявление отклонено',
     'push_listing_rejected_body'  => 'Ваше объявление «:title» было отклонено',
+    'push_chat_reply_title'       => 'Новое сообщение от поддержки',
+    'push_chat_reply_body'        => 'Вам ответили в чате поддержки',
+    'push_queued'                 => 'Уведомление поставлено в очередь (:count получателей)',
+    'fcm_token_updated'           => 'FCM-токен обновлён',
 
     'manager_permission_updated' => 'Права менеджера обновлены',
     'localization_updated'       => 'Настройки локализации сохранены',

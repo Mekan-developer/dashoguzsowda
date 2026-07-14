@@ -62,11 +62,6 @@ class UserRepository implements UserRepositoryInterface
         $user->delete();
     }
 
-    public function updateFcmToken(User $user, string $token): void
-    {
-        $user->update(['fcm_token' => $token]);
-    }
-
     public function updateLocale(User $user, ?string $locale): void
     {
         $user->update(['locale' => $locale]);
