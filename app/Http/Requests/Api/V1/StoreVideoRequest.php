@@ -39,7 +39,12 @@ class StoreVideoRequest extends FormRequest
                 return;
             }
 
-            $this->duration = app(VideoProbeInterface::class)->duration($file->getRealPath());
+            $probe = app(VideoProbeInterface::class);
+
+            // Нет ffprobe — это не битый файл пользователя, а misconfiguration сервера
+            abort_unless($probe->available(), 503, __('messages.video_service_unavailable'));
+
+            $this->duration = $probe->duration($file->getRealPath());
 
             if ($this->duration === null) {
                 $v->errors()->add('video', __('messages.video_unreadable'));

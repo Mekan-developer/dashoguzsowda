@@ -30,6 +30,11 @@ return [
     'video_unliked'  => 'Halamak aýryldy',
     'video_too_long' => 'Wideonyň dowamlylygy 1 minutdan geçmeli däl',
     'video_unreadable' => 'Wideo faýly okap bolmady',
+    'video_service_unavailable'      => 'Wideo işleýän hyzmat serwerde elýeterli däl',
+    'video_too_large'                => 'Faýl rugsat berlen ölçegden uly',
+    'video_chunk_out_of_order'       => 'Ýükleme bölekleriniň tertibi bozuldy',
+    'video_upload_session_not_found' => 'Ýükleme sessiýasy tapylmady ýa-da möhleti geçdi',
+    'video_upload_incomplete'        => 'Faýl doly ýüklenmedi',
 
     'message_sent'        => 'Habar iberildi',
     'chat_marked_read'    => 'Okalan diýip bellenildi',

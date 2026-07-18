@@ -30,6 +30,11 @@ return [
     'video_unliked'  => 'Лайк снят',
     'video_too_long' => 'Длительность ролика не должна превышать 1 минуту',
     'video_unreadable' => 'Не удалось прочитать видеофайл',
+    'video_service_unavailable'      => 'Сервис обработки видео недоступен на сервере',
+    'video_too_large'                => 'Файл превышает допустимый размер',
+    'video_chunk_out_of_order'       => 'Нарушен порядок частей загрузки',
+    'video_upload_session_not_found' => 'Сессия загрузки не найдена или истекла',
+    'video_upload_incomplete'        => 'Файл не был загружен полностью',
 
     'message_sent'        => 'Сообщение отправлено',
     'chat_marked_read'    => 'Отмечено как прочитанное',

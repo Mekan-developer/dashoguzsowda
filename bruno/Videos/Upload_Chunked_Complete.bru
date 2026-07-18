@@ -1,0 +1,37 @@
+meta {
+  name: Chunked — 3. Complete
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{base_url}}/v1/videos/upload/{{upload_id}}/complete
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Шаг 3 из 3 — финализация после отправки всех частей.
+  Сервер проверяет собранный файл через ffprobe (валидность + длительность ≤60 сек),
+  переносит его в хранилище, создаёт ролик (status=pending) и ставит сжатие в очередь.
+  Ошибки: 422 video_unreadable (битый файл), 422 video_too_long (>60 сек),
+  503 video_service_unavailable (на сервере нет ffprobe), 404 (сессия истекла).
+  Успех: 201 с данными ролика (processing=true — сжатие идёт в фоне).
+
+  Отмена незавершённой загрузки: DELETE {{base_url}}/v1/videos/upload/{{upload_id}}
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("video is pending", function() {
+    expect(res.getBody().data.status).to.equal("pending");
+  });
+}

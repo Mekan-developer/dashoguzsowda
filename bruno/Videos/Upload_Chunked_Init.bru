@@ -1,0 +1,43 @@
+meta {
+  name: Chunked — 1. Init
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/v1/videos/upload/init
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "title": "Ролик, собранный по частям",
+    "tags": ["Недвижимость", "Аренда"],
+    "filename": "reel.mp4"
+  }
+}
+
+docs {
+  Шаг 1 из 3 (загрузка видео ЛЮБОГО размера через streaming).
+  Открывает сессию загрузки. Сразу проверяет квоту тарифа (videos_limit) — при
+  исчерпании 403, чтобы не гнать мегабайты частей зря.
+  Ответ: { data: { upload_id, chunk_size, max_bytes } }.
+  upload_id подставляй в шаги 2 и 3; chunk_size — рекомендованный размер части.
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("returns upload_id", function() {
+    expect(res.getBody().data.upload_id).to.be.a("string");
+    bru.setEnvVar("upload_id", res.getBody().data.upload_id);
+  });
+}

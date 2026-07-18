@@ -16,9 +16,16 @@ class FakeVideoProbe implements VideoProbeInterface
 {
     public static ?float $duration = 30.0;
 
+    public static bool $available = true;
+
     public function duration(string $absolutePath): ?float
     {
         return static::$duration;
+    }
+
+    public function available(): bool
+    {
+        return static::$available;
     }
 }
 

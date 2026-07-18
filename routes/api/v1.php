@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\RegionController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\TariffController;
 use App\Http\Controllers\Api\V1\VideoController;
+use App\Http\Controllers\Api\V1\VideoUploadController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group(function () {
@@ -94,7 +95,15 @@ Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group
     Route::middleware('auth:sanctum')->group(function () {
         // /videos/my объявлен ДО /videos/{video}, иначе «my» уйдёт в model binding
         Route::get('/videos/my', [VideoController::class, 'my']);
-        // Загрузка ролика — заблокированному пользователю недоступна (ТЗ 13.3)
+
+        // Chunked / streaming-загрузка (видео любого размера) — заблокированному недоступна (ТЗ 13.3).
+        // Статические сегменты «upload/...» не конфликтуют с model binding /videos/{video}.
+        Route::post('/videos/upload/init', [VideoUploadController::class, 'init'])->middleware('not_blocked');
+        Route::post('/videos/upload/{uploadId}/chunk', [VideoUploadController::class, 'chunk'])->middleware('not_blocked');
+        Route::post('/videos/upload/{uploadId}/complete', [VideoUploadController::class, 'complete'])->middleware('not_blocked');
+        Route::delete('/videos/upload/{uploadId}', [VideoUploadController::class, 'destroy']);
+
+        // Загрузка ролика одним запросом (для мелких файлов) — заблокированному недоступна (ТЗ 13.3)
         Route::post('/videos', [VideoController::class, 'store'])->middleware('not_blocked');
         Route::post('/videos/{video}/like', [VideoController::class, 'like'])->middleware('throttle:60,1');
         Route::delete('/videos/{video}', [VideoController::class, 'destroy'])->can('delete', 'video');

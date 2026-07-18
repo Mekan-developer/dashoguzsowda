@@ -21,4 +21,18 @@ class FfprobeVideoProbe implements VideoProbeInterface
 
         return (float) $duration;
     }
+
+    /** Проверяем наличие бинарника один раз за запрос */
+    public function available(): bool
+    {
+        static $available = null;
+
+        if ($available !== null) {
+            return $available;
+        }
+
+        exec('ffprobe -version 2>&1', $output, $code);
+
+        return $available = ($code === 0);
+    }
 }

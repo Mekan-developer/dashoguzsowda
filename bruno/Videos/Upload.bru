@@ -23,7 +23,9 @@ body:multipart-form {
 }
 
 docs {
-  Экран 10: multipart с видеофайлом (mp4/mov/webm, ≤100 МБ), названием и тегами.
+  Экран 10: загрузка ОДНИМ запросом (multipart), для мелких файлов ≤100 МБ.
+  Для файлов любого размера используй chunked-загрузку: Upload_Chunked_Init →
+  Chunk (×N) → Complete (обходит лимит post_max_size PHP через streaming).
   Длительность проверяется на сервере (ffprobe): >60 сек — 422.
   Квота тарифа (videos_limit, занято = pending+approved): при исчерпании 403.
   Статус после загрузки — pending (на модерации), сжатие уходит в очередь media.

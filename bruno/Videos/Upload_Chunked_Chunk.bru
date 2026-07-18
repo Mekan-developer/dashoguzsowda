@@ -1,0 +1,41 @@
+meta {
+  name: Chunked — 2. Chunk
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{base_url}}/v1/videos/upload/{{upload_id}}/chunk?index=0
+  body: file
+}
+
+params:query {
+  index: 0
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/octet-stream
+  Authorization: Bearer {{token}}
+}
+
+body:file {
+  file: @file() @contentType(application/octet-stream)
+}
+
+docs {
+  Шаг 2 из 3 — повторяется для каждой части файла.
+  Тело запроса — СЫРОЙ бинарный кусок файла (application/octet-stream), сервер
+  дописывает его в собираемый файл потоком (в память целиком не грузит).
+  index (query) — порядковый номер части с нуля; должен идти строго по порядку
+  (0, 1, 2, ...), иначе 422. Ответ: { data: { bytes_received, chunks_received } }.
+
+  В Bruno укажи в body:file реальный кусок файла. В приложении (Flutter) файл
+  режется на части по chunk_size из шага 1 и каждая часть шлётся этим запросом.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
