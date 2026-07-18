@@ -379,7 +379,7 @@ export default {
         testSendHint: 'Häzirlikçe birikdirilmedi',
         sending: 'Iberilýär…',
         preview: 'Deslapky görnüş',
-        previewApp: 'Bildiriş tagtasy',
+        previewApp: 'Daşoguz söwda',
         previewNow: 'häzir',
         previewBody: 'Ulanyjynyň gulplama ekranynda görjek bildiriş teksti.',
         previewNote: 'Bildiriş alyjynyň enjamynda şeýle görner.',

@@ -124,8 +124,8 @@ function logout() {
           <img src="/icons/logo.png" alt="Logo" class="h-auto w-[56px]" />
         </div>
         <div v-if="!collapsed" class="flex flex-col leading-[1.18]">
-          <span class="text-[14.5px] font-bold text-[var(--sidebar-text-strong)]">{{ t('layout.brandTitle') }}</span>
-          <span class="text-[11px] text-[var(--sidebar-muted)]">{{ t('layout.brandSubtitle') }}</span>
+          <span class="text-[14.5px] font-bold text-[var(--sidebar-text-strong)]">Daşoguz söwda </span>
+          <span class="text-[11px] text-[var(--sidebar-muted)]">meýdançasy</span>
         </div>
       </div>
 

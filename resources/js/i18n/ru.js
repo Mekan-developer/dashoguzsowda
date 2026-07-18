@@ -379,7 +379,7 @@ export default {
         testSendHint: 'Пока не подключено',
         sending: 'Отправка…',
         preview: 'Предпросмотр',
-        previewApp: 'Доска объявлений',
+        previewApp: 'Daşoguz söwda',
         previewNow: 'сейчас',
         previewBody: 'Текст уведомления, который увидит пользователь на экране блокировки.',
         previewNote: 'Так уведомление будет выглядеть на устройстве получателя.',
