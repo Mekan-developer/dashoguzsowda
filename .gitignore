@@ -19,3 +19,6 @@ yarn-error.log
 /.vscode
 
 local_zapusk.md
+
+# Windows NTFS alternate-data-stream metadata (leaks in when copying from a Windows drive into WSL)
+*:Zone.Identifier
