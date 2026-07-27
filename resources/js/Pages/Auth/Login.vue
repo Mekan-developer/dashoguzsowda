@@ -121,7 +121,7 @@ const submitNewPwd = () => {
 </script>
 
 <template>
-    <Head title="Войти — Rootboard" />
+    <Head title="Войти — " />
 
     <div class="flex h-screen overflow-hidden" :style="{ background: isDark ? '#0f1623' : '#f8fafc' }">
 
@@ -223,7 +223,7 @@ const submitNewPwd = () => {
                         Добро пожаловать 👋
                     </h2>
                     <p class="mb-6 text-sm" style="font-family:'Nunito',sans-serif;color:#718096;">
-                        Войдите в свой аккаунт Rootboard, чтобы продолжить.
+                        Войдите в свой аккаунт, чтобы продолжить.
                     </p>
 
                     <form @submit.prevent="submitLogin" novalidate>
