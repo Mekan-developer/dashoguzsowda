@@ -1,0 +1,15 @@
+{
+  "name": "dasoguz-sowda-otp-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Socket.IO мост между Laravel backend и телефоном Flutter SMS-шлюза",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

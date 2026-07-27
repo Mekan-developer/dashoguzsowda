@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OTP Gateway — Smoke Test</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:24px}
+  h1{font-size:1.25rem;font-weight:700;color:#f8fafc;margin-bottom:4px}
+  .sub{font-size:.8rem;color:#64748b;margin-bottom:24px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px}
+  .card h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:14px}
+  .row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  label{display:block;font-size:.75rem;color:#94a3b8;margin-bottom:4px}
+  input{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:.85rem;width:100%;outline:none;transition:.15s}
+  input:focus{border-color:#6366f1}
+  .field{flex:1;min-width:180px}
+  button{padding:9px 18px;border-radius:8px;border:none;font-size:.85rem;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+  #btn-connect{background:#6366f1;color:#fff}
+  #btn-connect:hover{background:#4f46e5}
+  #btn-connect.connected{background:#ef4444}
+  #btn-connect.connected:hover{background:#dc2626}
+  #btn-emit{background:#0f766e;color:#fff}
+  #btn-emit:hover{background:#0d9488}
+  #btn-clear{background:#1e293b;color:#94a3b8;border:1px solid #334155}
+  #btn-clear:hover{color:#e2e8f0}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:.75rem;font-weight:600}
+  .badge.ok{background:#052e16;color:#4ade80;border:1px solid #166534}
+  .badge.err{background:#2d0a0a;color:#f87171;border:1px solid #7f1d1d}
+  .badge.idle{background:#1e293b;color:#64748b;border:1px solid #334155}
+  .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .dot.ok{background:#22c55e}
+  .dot.err{background:#ef4444}
+  .dot.idle{background:#475569}
+  #status-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  #log{background:#020617;border:1px solid #1e293b;border-radius:8px;height:360px;overflow-y:auto;padding:12px;font-family:'Courier New',monospace;font-size:.78rem;line-height:1.6}
+  .log-entry{padding:3px 0;border-bottom:1px solid #0f172a}
+  .log-entry:last-child{border-bottom:none}
+  .log-time{color:#475569;margin-right:8px}
+  .log-connect{color:#38bdf8}
+  .log-disconnect{color:#f87171}
+  .log-otp{color:#4ade80}
+  .log-emit{color:#a78bfa}
+  .log-error{color:#fb923c}
+  .otp-box{margin-top:6px;margin-left:60px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:8px 12px}
+  .otp-label{font-size:.7rem;color:#64748b;margin-bottom:2px}
+  .otp-val{font-size:1rem;color:#4ade80;font-weight:700;letter-spacing:.1em}
+  .phone-val{font-size:.8rem;color:#94a3b8;margin-top:4px}
+  .hint{font-size:.72rem;color:#475569;margin-top:6px}
+  .divider{border:none;border-top:1px solid #1e293b;margin:12px 0}
+  #emit-result{font-size:.75rem;margin-top:8px;color:#94a3b8;min-height:1.2em}
+</style>
+</head>
+<body>
+
+<h1>OTP Gateway — Smoke Test</h1>
+<p class="sub">Симуляция Flutter SMS-gateway приложения в браузере</p>
+
+<!-- Status -->
+<div id="status-bar">
+  <span class="badge idle" id="badge"><span class="dot idle" id="dot"></span><span id="badge-text">Не подключён</span></span>
+  <span style="font-size:.75rem;color:#475569" id="socket-id"></span>
+</div>
+
+<!-- Settings -->
+<div class="card">
+  <h2>⚙ Настройки подключения</h2>
+  <div class="row">
+    <div class="field">
+      <label>Server URL (socket-server)</label>
+      <input type="text" id="server-url" value="http://127.0.0.1:3000">
+    </div>
+    <div class="field" style="max-width:160px">
+      <label>Имя события</label>
+      <input type="text" id="event-name" value="otp">
+    </div>
+    <button id="btn-connect">Подключиться</button>
+  </div>
+  <p class="hint">Server URL = поле "Server URL" в настройках Flutter-приложения. Имя события должно совпадать с OTP_EVENT_NAME в socket-server/.env (сейчас: <code>otp</code>).</p>
+</div>
+
+<!-- Direct bridge test -->
+<div class="card">
+  <h2>⚡ Прямой тест моста (без Laravel)</h2>
+  <div class="row">
+    <div class="field">
+      <label>Bridge URL</label>
+      <input type="text" id="emit-url" value="http://127.0.0.1:3000/emit-otp">
+    </div>
+    <div class="field" style="max-width:140px">
+      <label>GATEWAY_SECRET</label>
+      <input type="text" id="emit-secret" value="changeme">
+    </div>
+    <div class="field" style="max-width:120px">
+      <label>phone_number</label>
+      <input type="text" id="emit-phone" value="61000000">
+    </div>
+    <div class="field" style="max-width:100px">
+      <label>otp</label>
+      <input type="text" id="emit-otp-code" value="123456">
+    </div>
+    <button id="btn-emit">Отправить</button>
+  </div>
+  <div id="emit-result"></div>
+  <p class="hint">Напрямую вызывает POST /emit-otp на мосту — без Laravel. Если событие появляется в логе ниже, мост работает. Для полного теста — дёрни POST /api/v1/auth/request-code через Bruno/curl.</p>
+</div>
+
+<!-- Log -->
+<div class="card">
+  <h2>📋 Лог событий <button id="btn-clear" style="float:right;padding:3px 10px;font-size:.7rem">Очистить</button></h2>
+  <div id="log"><span style="color:#334155">— Здесь появятся события —</span></div>
+</div>
+
+<script>
+let socket = null;
+let eventName = 'otp';
+
+const log = document.getElementById('log');
+const badge = document.getElementById('badge');
+const dot = document.getElementById('dot');
+const badgeText = document.getElementById('badge-text');
+const socketIdEl = document.getElementById('socket-id');
+const btnConnect = document.getElementById('btn-connect');
+
+function ts() {
+  return new Date().toLocaleTimeString('ru-RU', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function addLog(html) {
+  const was = log.innerHTML === '<span style="color:#334155">— Здесь появятся события —</span>';
+  if (was) log.innerHTML = '';
+  log.innerHTML += `<div class="log-entry">${html}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function setStatus(state) {
+  const states = {
+    idle:   { cls:'idle', dotCls:'idle', text:'Не подключён' },
+    ok:     { cls:'ok',   dotCls:'ok',   text:'Подключён' },
+    err:    { cls:'err',  dotCls:'err',  text:'Ошибка' },
+  };
+  const s = states[state] || states.idle;
+  badge.className = `badge ${s.cls}`;
+  dot.className   = `dot ${s.dotCls}`;
+  badgeText.textContent = s.text;
+}
+
+btnConnect.addEventListener('click', () => {
+  if (socket && socket.connected) {
+    socket.disconnect();
+    return;
+  }
+  const url = document.getElementById('server-url').value.trim();
+  eventName  = document.getElementById('event-name').value.trim() || 'otp';
+
+  if (socket) { socket.off(); socket.disconnect(); }
+
+  addLog(`<span class="log-time">${ts()}</span><span class="log-connect">→ Подключаюсь к ${url} (событие: "${eventName}")</span>`);
+
+  socket = io(url, { transports: ['websocket'], reconnection: true, reconnectionDelay: 2000 });
+
+  socket.on('connect', () => {
+    setStatus('ok');
+    socketIdEl.textContent = `socket.id: ${socket.id}`;
+    btnConnect.textContent = 'Отключиться';
+    btnConnect.className   = 'connected';
+    addLog(`<span class="log-time">${ts()}</span><span class="log-connect">✓ Подключён — id: ${socket.id}</span>`);
+  });
+
+  socket.on('disconnect', reason => {
+    setStatus('idle');
+    socketIdEl.textContent = '';
+    btnConnect.textContent = 'Подключиться';
+    btnConnect.className   = '';
+    addLog(`<span class="log-time">${ts()}</span><span class="log-disconnect">✗ Отключён (${reason})</span>`);
+  });
+
+  socket.on('connect_error', err => {
+    setStatus('err');
+    addLog(`<span class="log-time">${ts()}</span><span class="log-error">⚠ Ошибка подключения: ${err.message}</span>`);
+  });
+
+  socket.on(eventName, payload => {
+    const phone = payload.phone_number ?? '—';
+    const otp   = payload.otp ?? '—';
+    const full  = `+993${phone}`;
+    addLog(`
+      <span class="log-time">${ts()}</span><span class="log-otp">📨 СОБЫТИЕ "${eventName}" получено</span>
+      <div class="otp-box">
+        <div class="otp-label">OTP-код</div>
+        <div class="otp-val">${otp}</div>
+        <div class="phone-val">phone_number: <b>${phone}</b> → SMS на <b>${full}</b></div>
+        <div class="otp-label" style="margin-top:6px">Raw payload</div>
+        <div style="color:#64748b">${JSON.stringify(payload)}</div>
+      </div>`);
+  });
+});
+
+// Direct bridge test
+document.getElementById('btn-emit').addEventListener('click', async () => {
+  const url    = document.getElementById('emit-url').value.trim();
+  const secret = document.getElementById('emit-secret').value.trim();
+  const phone  = document.getElementById('emit-phone').value.trim();
+  const code   = document.getElementById('emit-otp-code').value.trim();
+  const res    = document.getElementById('emit-result');
+
+  res.textContent = 'Отправляю…';
+  addLog(`<span class="log-time">${ts()}</span><span class="log-emit">→ POST ${url} {phone_number: "${phone}", otp: "${code}"}</span>`);
+
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Gateway-Secret': secret },
+      body: JSON.stringify({ phone_number: phone, otp: code }),
+    });
+    const body = await r.json();
+    if (r.ok) {
+      res.style.color = '#4ade80';
+      res.textContent = `✓ ${r.status} — ${JSON.stringify(body)}`;
+      addLog(`<span class="log-time">${ts()}</span><span class="log-emit">✓ Мост ответил: ${JSON.stringify(body)}</span>`);
+    } else {
+      res.style.color = '#f87171';
+      res.textContent = `✗ ${r.status} — ${JSON.stringify(body)}`;
+      addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ Мост вернул ${r.status}: ${JSON.stringify(body)}</span>`);
+    }
+  } catch(e) {
+    res.style.color = '#fb923c';
+    res.textContent = `✗ Сеть: ${e.message}`;
+    addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ Ошибка сети: ${e.message}</span>`);
+  }
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  log.innerHTML = '<span style="color:#334155">— Здесь появятся события —</span>';
+});
+</script>
+</body>
+</html>
