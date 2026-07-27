@@ -142,35 +142,38 @@ function destroy(n) {
         class="flex items-center gap-[7px] rounded-[9px] bg-[var(--accent)] px-4 py-[10px] text-[13px] font-bold text-white shadow-[0_8px_18px_-6px_var(--accent)] transition-colors hover:bg-[var(--accent-hover)]"
       >
         <Icon kind="plus" :size="14" />
-        {{ t('actions.add') }}
+        {{ t('news.addNew') }}
       </button>
     </template>
 
     <div class="space-y-4">
-      <!-- Поиск на всю ширину -->
-      <SearchInput
-        :model-value="searchQuery"
-        @update:model-value="onSearchInput"
-        @submit="applyFilters"
-        :placeholder="t('news.searchPlaceholder')"
-        class="w-full"
-      />
+      <!-- Панель: поиск + сегментированный фильтр + счётчик показанных/всего -->
+      <div class="flex flex-wrap items-center gap-3">
+        <SearchInput
+          :model-value="searchQuery"
+          @update:model-value="onSearchInput"
+          @submit="applyFilters"
+          :placeholder="t('news.searchPlaceholder')"
+          class="min-w-[220px] flex-1 sm:max-w-[340px]"
+        />
 
-      <!-- Фильтр по статусу — чипы со своим счётчиком -->
-      <div class="flex flex-wrap items-center gap-2">
-        <button
-          v-for="chip in statusChips" :key="chip.value"
-          type="button"
-          @click="setStatusFilter(chip.value)"
-          class="flex items-center gap-1.5 rounded-pill border border-[var(--field-border)] py-1.5 pl-[13px] pr-2 text-[12.5px] font-semibold transition-colors"
-          :class="statusFilter === chip.value ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
-        >
-          {{ chip.label }}
-          <span
-            class="rounded-pill px-[7px] py-0.5 text-[11px] font-bold"
-            :class="statusFilter === chip.value ? 'bg-white/20' : 'bg-[var(--nav-hover)]'"
-          >{{ chip.count }}</span>
-        </button>
+        <!-- Фильтр по статусу — сегментированный контрол -->
+        <div class="inline-flex gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
+          <button
+            v-for="chip in statusChips" :key="chip.value"
+            type="button"
+            @click="setStatusFilter(chip.value)"
+            class="rounded-[8px] px-[15px] py-[7px] text-[12.5px] font-semibold transition-colors"
+            :class="statusFilter === chip.value
+              ? 'bg-[var(--accent)] text-white shadow-[0_4px_10px_-3px_var(--accent)]'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
+          >{{ chip.label }}</button>
+        </div>
+
+        <!-- Показано из всего -->
+        <span class="ml-auto text-[12.5px] font-semibold text-[var(--text-muted)]">
+          {{ t('dataTable.countOf', { shown: news.data.length, total: news.total }) }}
+        </span>
       </div>
 
       <!-- Используем компонент DataTable -->

@@ -91,7 +91,6 @@ export default {
         darkTheme: 'тёмная тема',
         notifications: 'уведомления',
         noNotifications: 'Новых уведомлений нет',
-        searchSection: 'Поиск по разделу…',
         logout: 'Выйти',
     },
     notifications: {
@@ -293,6 +292,7 @@ export default {
         confirmDeleteDistrict: 'Удалить район «{name}»?',
     },
     news: {
+        addNew: 'Добавить новость',
         typeRegular: 'Обычная',
         typeAd: 'Рекламная',
         adLinkProfile: 'Профиль пользователя',

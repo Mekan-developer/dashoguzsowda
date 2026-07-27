@@ -91,7 +91,6 @@ export default {
         darkTheme: 'garaňky tema',
         notifications: 'bildirişler',
         noNotifications: 'Täze bildiriş ýok',
-        searchSection: 'Bölümde gözleg…',
         logout: 'Çykmak',
     },
     notifications: {
@@ -293,6 +292,7 @@ export default {
         confirmDeleteDistrict: '«{name}» etrabyny pozmalymy?',
     },
     news: {
+        addNew: 'Habar goşmak',
         typeRegular: 'Adaty',
         typeAd: 'Mahabat',
         adLinkProfile: 'Ulanyjynyň profili',

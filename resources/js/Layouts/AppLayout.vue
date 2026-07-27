@@ -172,13 +172,8 @@ function logout() {
     <!-- ── MAIN AREA ─────────────────────────────────────────────────────── -->
     <div class="flex flex-1 flex-col min-w-0 overflow-hidden bg-[var(--content-bg)]">
 
-      <!-- Top bar: search + lang/theme/notifications/profile cluster -->
-      <div class="flex h-[68px] flex-none items-center justify-between border-b border-[var(--card-border)] bg-[var(--card-bg)] dark:bg-[#14172A] px-[26px]">
-        <div class="flex w-[280px] items-center gap-2.5 rounded-[9px] border border-[var(--field-border)] bg-[var(--field-bg)] px-3 py-2">
-          <Icon kind="search" :size="16" class="text-[var(--text-muted)]" />
-          <span class="text-[13px] text-[var(--text-muted)]">{{ t('topbar.searchSection') }}</span>
-        </div>
-
+      <!-- Top bar: lang/theme/notifications/profile cluster -->
+      <div class="flex h-[68px] flex-none items-center justify-end border-b border-[var(--card-border)] bg-[var(--card-bg)] dark:bg-[#14172A] px-[26px]">
         <div class="flex items-center gap-3.5">
           <!-- Язык -->
           <div class="flex flex-col items-center gap-1">

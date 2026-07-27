@@ -69,22 +69,32 @@ function categoryPath(category) {
   <AppLayout>
     <template #header>{{ t('nav.listings') }}</template>
 
-    <!-- Tabs -->
-    <div class="mb-4 flex gap-2 flex-wrap">
-      <button v-for="tab in tabs" :key="tab.value"
-        @click="setStatus(tab.value)"
-        class="rounded-btn px-4 py-2 text-[13px] font-bold transition"
-        :class="statusFil === tab.value ? 'bg-blue text-white' : 'bg-white text-muted hover:text-ink shadow-soft dark:bg-dcard dark:hover:text-slate-200'"
-      >{{ tab.label }}</button>
-    </div>
-
-    <!-- Filters -->
+    <!-- Панель: поиск + сегментированный фильтр статусов + категория + счётчик -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
-      <SearchInput v-model="search" @submit="applyFilters" :placeholder="t('listings.searchPlaceholder')" class="w-64" />
-      <select v-model="catId" @change="applyFilters" class="rounded-btn border-2 border-line bg-surface py-[9px] px-[14px] text-[13px] font-semibold text-ink outline-none transition focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200">
+      <SearchInput v-model="search" @submit="applyFilters" :placeholder="t('listings.searchPlaceholder')" class="min-w-[220px] flex-1 sm:max-w-[300px]" />
+
+      <!-- Статус — сегментированный контрол -->
+      <div class="inline-flex gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
+        <button v-for="tab in tabs" :key="tab.value"
+          type="button"
+          @click="setStatus(tab.value)"
+          class="rounded-[8px] px-[15px] py-[7px] text-[12.5px] font-semibold transition-colors"
+          :class="statusFil === tab.value
+            ? 'bg-[var(--accent)] text-white shadow-[0_4px_10px_-3px_var(--accent)]'
+            : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
+        >{{ tab.label }}</button>
+      </div>
+
+      <!-- Категория -->
+      <select v-model="catId" @change="applyFilters" class="rounded-[9px] border border-[var(--field-border)] bg-[var(--field-bg)] py-[9px] px-[13px] text-[13px] font-semibold text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]">
         <option value="">{{ t('listings.allCategories') }}</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name_ru }}</option>
       </select>
+
+      <!-- Показано из всего -->
+      <span class="ml-auto text-[12.5px] font-semibold text-[var(--text-muted)]">
+        {{ t('dataTable.countOf', { shown: listings.data.length, total: listings.total }) }}
+      </span>
     </div>
 
     <!-- Table -->

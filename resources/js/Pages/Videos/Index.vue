@@ -97,9 +97,9 @@ function doDelete() {
 <template>
   <AppLayout>
     <template #header>
-      <div class="flex items-center gap-2.5">
-        {{ t('nav.videos') }}
-        <span class="rounded-pill bg-[var(--accent-tint)] px-2.5 py-0.5 text-[12px] font-bold text-[var(--accent)]">
+      <div class="flex items-center gap-3">
+        <span class="text-[28px] font-extrabold leading-none tracking-[-.01em]">{{ t('nav.videos') }}</span>
+        <span class="rounded-pill bg-[var(--accent-tint)] px-2.5 py-1 text-[12px] font-bold text-[var(--accent)]">
           {{ t('videos.countPill', totalCount) }}
         </span>
       </div>
@@ -128,13 +128,13 @@ function doDelete() {
           @click="setStatus(chip.value)"
           class="flex items-center gap-1.5 rounded-[20px] px-3.5 py-1.5 text-[13px] font-bold transition"
           :class="statusFil === chip.value
-            ? 'bg-blue text-white'
+            ? 'bg-[var(--accent)] text-white shadow-[0_4px_12px_var(--accent-tint)]'
             : 'bg-white dark:bg-dcard border border-line dark:border-dline text-ink dark:text-slate-200 hover:bg-surface dark:hover:bg-white/5'"
         >
           {{ chip.label }}
           <span
             class="rounded-pill px-1.5 py-px text-[11px] font-extrabold"
-            :class="statusFil === chip.value ? 'bg-white/20 text-white' : chip.tint"
+            :class="statusFil === chip.value ? 'bg-white/25 text-white' : chip.tint"
           >{{ chip.count ?? 0 }}</span>
         </button>
       </div>
