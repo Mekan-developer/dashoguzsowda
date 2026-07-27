@@ -11,6 +11,7 @@ class MonitoringService
         return [
             'queues' => $this->queuesStatus(),
             'ws'     => $this->wsStatus(),
+            'fcm'    => $this->fcmStatus(),
         ];
     }
 
@@ -53,6 +54,43 @@ class MonitoringService
             'host'       => $host,
             'port'       => $port,
             'checked_at' => now()->toIso8601String(),
+        ];
+    }
+
+    private function fcmStatus(): array
+    {
+        $checkedAt       = now()->toIso8601String();
+        $credentialsPath = config('firebase.projects.app.credentials');
+
+        $configured = false;
+        $projectId  = null;
+
+        if (filled($credentialsPath)) {
+            $path = str_starts_with($credentialsPath, '/') ? $credentialsPath : base_path($credentialsPath);
+
+            if (is_file($path)) {
+                $decoded    = json_decode((string) file_get_contents($path), true);
+                $configured = isset($decoded['project_id'], $decoded['private_key'], $decoded['client_email']);
+                $projectId  = $decoded['project_id'] ?? null;
+            }
+        }
+
+        $ok = false;
+        if ($configured) {
+            try {
+                app(\Kreait\Firebase\Contract\Messaging::class);
+                $ok = true;
+            } catch (\Throwable) {
+                $ok = false;
+            }
+        }
+
+        return [
+            'ok'         => $ok,
+            'configured' => $configured,
+            'project_id' => $projectId ?? config('services.fcm.project_id'),
+            'tokens'     => DB::table('fcm_tokens')->count(),
+            'checked_at' => $checkedAt,
         ];
     }
 }

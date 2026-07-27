@@ -51,6 +51,20 @@ const secondsAgo = computed(() => Math.max(0, Math.floor((now.value - lastFetche
 function dotClass(ok) { return ok ? 'bg-green' : 'bg-red' }
 function badgeClass(ok) { return ok ? 'bg-green/10 text-green' : 'bg-red/10 text-red' }
 
+// FCM — третье, «не настроено» состояние (нет service account) в дополнение к ok/недоступно
+function fcmDotClass(fcm) {
+    if (fcm.ok) return 'bg-green'
+    return fcm.configured ? 'bg-red' : 'bg-orange'
+}
+function fcmBadgeClass(fcm) {
+    if (fcm.ok) return 'bg-green/10 text-green'
+    return fcm.configured ? 'bg-red/10 text-red' : 'bg-orange/10 text-orange'
+}
+function fcmStatusLabel(fcm) {
+    if (fcm.ok) return t('settings.working')
+    return fcm.configured ? t('settings.unavailable') : t('settings.notConfigured')
+}
+
 // ── Роли и права доступа ───────────────────────────────────
 const permissionRows = computed(() => [
     { label: t('settings.permViewContent'), manager: true },
@@ -163,7 +177,7 @@ function sendTestSms() {
       <!-- 1. Мониторинг -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.monitoring') }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
@@ -205,6 +219,29 @@ function sendTestSms() {
               <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
                 <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.ws.port }}</div>
                 <div class="text-[11px] text-muted">{{ t('settings.port') }}</div>
+              </div>
+            </div>
+            <div class="mt-3 text-[11px] text-muted">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</div>
+          </div>
+
+          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 rounded-full" :class="fcmDotClass(monitoring.fcm)"></span>
+                <span class="font-extrabold text-ink dark:text-slate-100">FCM</span>
+              </div>
+              <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="fcmBadgeClass(monitoring.fcm)">
+                {{ fcmStatusLabel(monitoring.fcm) }}
+              </span>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-3 text-center">
+              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
+                <div class="truncate text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.fcm.project_id || '—' }}</div>
+                <div class="text-[11px] text-muted">{{ t('settings.projectId') }}</div>
+              </div>
+              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
+                <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.fcm.tokens }}</div>
+                <div class="text-[11px] text-muted">{{ t('settings.devices') }}</div>
               </div>
             </div>
             <div class="mt-3 text-[11px] text-muted">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</div>

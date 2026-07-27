@@ -56,7 +56,11 @@ it('returns monitoring JSON only to admin', function () {
     actingAsSettingsRole('admin');
     $this->get(route('settings.monitoring'))
         ->assertOk()
-        ->assertJsonStructure(['queues' => ['ok', 'pending', 'failed', 'worker', 'checked_at'], 'ws' => ['ok', 'host', 'port', 'checked_at']]);
+        ->assertJsonStructure([
+            'queues' => ['ok', 'pending', 'failed', 'worker', 'checked_at'],
+            'ws'     => ['ok', 'host', 'port', 'checked_at'],
+            'fcm'    => ['ok', 'configured', 'project_id', 'tokens', 'checked_at'],
+        ]);
 
     actingAsSettingsRole('manager');
     $this->get(route('settings.monitoring'))->assertForbidden();
