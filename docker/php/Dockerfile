@@ -28,15 +28,21 @@ RUN apk add --no-cache \
     libpng-dev libjpeg-turbo-dev freetype-dev libwebp-dev \
     libzip-dev icu-dev oniguruma-dev
 
+# Версия расширения redis. Собирается из исходников с GitHub, а не через pecl:
+# pecl.php.net доступен не из всякой сети, GitHub — обычно да.
+ARG PHPREDIS_VERSION=6.1.0
+
 # PHP-расширения. Инструменты сборки ставятся и удаляются в одном слое.
 RUN apk add --no-cache --virtual .build-deps autoconf g++ make linux-headers \
  && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
  && docker-php-ext-install -j"$(nproc)" \
     pdo_mysql mysqli mbstring exif pcntl bcmath gd zip intl opcache sockets \
- && pecl channel-update pecl.php.net \
- && pecl install redis \
+ && git clone --depth 1 --branch "${PHPREDIS_VERSION}" \
+      https://github.com/phpredis/phpredis.git /tmp/phpredis \
+ && cd /tmp/phpredis \
+ && phpize && ./configure && make -j"$(nproc)" && make install \
  && docker-php-ext-enable redis \
- && pecl clear-cache \
+ && cd / && rm -rf /tmp/phpredis \
  && apk del .build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -63,6 +69,14 @@ CMD ["php-fpm"]
 # ---------------------------------------------------------------------------
 FROM base AS vendor
 
+# Зеркало Composer. Пусто — официальный repo.packagist.org. Задать, если он
+# недоступен из сети сборки, например:
+#   COMPOSER_MIRROR=https://mirrors.aliyun.com/composer/
+ARG COMPOSER_MIRROR=""
+RUN if [ -n "${COMPOSER_MIRROR}" ]; then \
+      composer config -g repo.packagist composer "${COMPOSER_MIRROR}"; \
+    fi
+
 COPY composer.json composer.lock ./
 
 # --no-scripts: package:discover требует загруженного приложения, его выполняет
@@ -82,9 +96,6 @@ FROM node:20-bookworm-slim AS assets
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
-
 COPY . .
 
 # resources/js/app.js импортирует ZiggyVue из ../../vendor/tightenco/ziggy —
@@ -100,6 +111,14 @@ ARG VITE_REVERB_HOST=
 ARG VITE_REVERB_PORT=443
 ARG VITE_REVERB_SCHEME=https
 
+# Зеркало/прокси npm-реестра. Пусто — официальный registry.npmjs.org.
+# npm 9+ сам переписывает на него ссылки registry.npmjs.org из package-lock.json
+# (replace-registry-host=npmjs по умолчанию), правки lock-файла не нужны.
+ARG NPM_REGISTRY=""
+
+# Если public/build уже собран заранее и попал в контекст — npm не трогаем.
+# Это единственный рабочий путь в сети, где заблокированы npm-реестры:
+# ассеты собираются там, где есть node_modules, и коммитятся в репозиторий.
 RUN printf '%s\n' \
     "VITE_APP_NAME=${VITE_APP_NAME}" \
     "VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY}" \
@@ -107,7 +126,13 @@ RUN printf '%s\n' \
     "VITE_REVERB_PORT=${VITE_REVERB_PORT}" \
     "VITE_REVERB_SCHEME=${VITE_REVERB_SCHEME}" \
     > .env \
- && npm run build
+ && if [ -f public/build/manifest.json ]; then \
+      echo "[assets] используется заранее собранный public/build, npm пропущен"; \
+    else \
+      echo "[assets] public/build не найден — собираем через npm"; \
+      if [ -n "${NPM_REGISTRY}" ]; then npm config set registry "${NPM_REGISTRY}"; fi; \
+      npm ci --no-audit --no-fund && npm run build; \
+    fi
 
 # ---------------------------------------------------------------------------
 FROM base AS prod

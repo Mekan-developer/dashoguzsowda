@@ -106,11 +106,45 @@ for u in https://registry-1.docker.io/v2/ https://dl-cdn.alpinelinux.org/alpine/
 done
 ```
 
-`000` означает, что хост недоступен. Для Alpine есть обходной путь — задать
-`ALPINE_MIRROR` в `.env` (рабочие зеркала: `https://mirror.yandex.ru/mirrors/alpine`,
-`https://mirror.leaseweb.com/alpine`). Для packagist / npm / pecl зеркала
-настраивать сложнее, поэтому если они заблокированы — собрать образ на машине
-с открытым доступом и перенести готовый:
+`000` означает, что хост недоступен. Для каждого источника есть зеркало —
+задаётся в `.env`, правок в коде не требует:
+
+| Заблокирован | Переменная в `.env` | Проверенное значение |
+|---|---|---|
+| `dl-cdn.alpinelinux.org` | `ALPINE_MIRROR` | `https://mirror.yandex.ru/mirrors/alpine` |
+| `repo.packagist.org` | `COMPOSER_MIRROR` | `https://mirrors.aliyun.com/composer/` |
+| `registry.npmjs.org` | `NPM_REGISTRY` | `https://nexus.telecom.tm/repository/npm-proxy/` |
+
+`pecl.php.net` отдельной переменной не требует: расширение redis собирается из
+исходников с GitHub (см. `PHPREDIS_VERSION` в Dockerfile).
+
+Проверить зеркало перед сборкой:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://mirror.yandex.ru/mirrors/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+curl -s -o /dev/null -w "%{http_code}\n" https://mirrors.aliyun.com/composer/packages.json
+curl -s -o /dev/null -w "%{http_code}\n" https://nexus.telecom.tm/repository/npm-proxy/vue
+```
+
+### Запасной путь для ассетов
+
+Если ни один npm-реестр не открывается, `public/build` можно собрать заранее на
+машине, где уже есть `node_modules`, и закоммитить — Dockerfile увидит готовый
+`public/build/manifest.json` и пропустит npm:
+
+```bash
+# на машине с node_modules, с прод-значениями VITE_*
+VITE_REVERB_APP_KEY=<ключ> VITE_REVERB_HOST=dashoguzsowda.com.tm \
+VITE_REVERB_PORT=443 VITE_REVERB_SCHEME=https npm run build
+
+git add -f public/build && git commit -m "chore: prebuilt assets" && git push
+```
+
+Важно: значения `VITE_*` вкомпилируются в бандл на этапе сборки, поэтому
+собирать нужно именно с прод-значениями, а не с localhost.
+
+Если совсем ничего не открывается — собрать образ целиком там, где доступ есть,
+и перенести:
 
 ```bash
 # на машине со сборкой

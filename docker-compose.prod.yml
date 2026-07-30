@@ -91,8 +91,10 @@ services:
       dockerfile: docker/php/Dockerfile
       target: prod
       args:
-        # Непусто — apk будет качать пакеты с этого зеркала (см. Dockerfile).
+        # Непусто — apk/composer будут качать с этих зеркал (см. Dockerfile).
         ALPINE_MIRROR: ${ALPINE_MIRROR:-}
+        COMPOSER_MIRROR: ${COMPOSER_MIRROR:-}
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
         # VITE_* вкомпилируются в JS-бандл на этапе сборки образа.
         VITE_APP_NAME: ${APP_NAME}
         VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}

@@ -3,7 +3,6 @@
 .gitattributes
 node_modules
 vendor
-public/build
 public/storage
 
 # Секреты и локальная конфигурация — .env монтируется в контейнер,
