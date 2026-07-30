@@ -1,0 +1,239 @@
+# Прод-стек. Запуск: docker compose -f docker-compose.prod.yml up -d --build
+# Инструкция по деплою: docs/DEPLOY.md
+#
+# Отличия от dev (docker-compose.yml):
+#   - код, vendor и собранный Vite внутри образа, bind-mount кода нет;
+#   - наружу смотрят только Caddy (80/443) и порт 3000 OTP-шлюза;
+#   - нет phpmyadmin, нет vite dev-сервера, порты mysql/redis не публикуются;
+#   - есть scheduler (без него не работает videos:prune-uploads);
+#   - загрузки и логи — в named-томах, переживают пересборку образа.
+
+# Отдельное имя проекта: тома и сети не пересекаются с dev-стеком, если
+# оба когда-нибудь окажутся на одной машине.
+name: dzsowda-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# Общее для всех PHP-контейнеров: образ, .env, тома storage.
+x-php-common: &php-common
+  image: dzsowda-app:latest
+  restart: unless-stopped
+  working_dir: /var/www
+  logging: *default-logging
+  volumes:
+    - ./.env:/var/www/.env:ro
+    - app_storage:/var/www/storage/app
+    - app_logs:/var/www/storage/logs
+    - ./storage/app/firebase:/var/www/storage/app/firebase:ro
+  networks:
+    - laravel
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: dz_sowda_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-}
+      # Пути внутри контейнера к собственным сертификатам.
+      TLS_CERT: ${TLS_CERT:-/etc/caddy/certs/fullchain.pem}
+      TLS_KEY: ${TLS_KEY:-/etc/caddy/certs/privkey.pem}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Собственные SSL-сертификаты (в git не коммитятся).
+      - ./docker/caddy/certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nginx
+    logging: *default-logging
+    networks:
+      - laravel
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: web
+    image: dzsowda-web:latest
+    container_name: dz_sowda_nginx
+    restart: unless-stopped
+    volumes:
+      # Загрузки пользователей: public/storage — симлинк на storage/app/public,
+      # nginx отдаёт эти файлы напрямую, минуя PHP.
+      - app_storage:/var/www/storage/app:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging: *default-logging
+    networks:
+      - laravel
+
+  app:
+    <<: *php-common
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: prod
+      args:
+        # Непусто — apk будет качать пакеты с этого зеркала (см. Dockerfile).
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
+        # VITE_* вкомпилируются в JS-бандл на этапе сборки образа.
+        VITE_APP_NAME: ${APP_NAME}
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
+        VITE_REVERB_HOST: ${APP_DOMAIN}
+        VITE_REVERB_PORT: "443"
+        VITE_REVERB_SCHEME: https
+    container_name: dz_sowda_app
+    # Миграции выполняет только этот контейнер.
+    environment:
+      RUN_MIGRATIONS: "true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  horizon:
+    <<: *php-common
+    container_name: dz_sowda_horizon
+    command: php artisan horizon
+    # SIGTERM даёт Horizon доделать текущую job перед остановкой.
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "artisan", "horizon:status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  scheduler:
+    <<: *php-common
+    container_name: dz_sowda_scheduler
+    # Без этого контейнера Schedule::command('videos:prune-uploads') из
+    # routes/console.php никогда не выполняется.
+    command: php artisan schedule:work
+    depends_on:
+      app:
+        condition: service_healthy
+
+  reverb:
+    <<: *php-common
+    container_name: dz_sowda_reverb
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    # Порт наружу не публикуется: клиенты идут через Caddy → nginx → /app*.
+    expose:
+      - "8080"
+    depends_on:
+      app:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    container_name: dz_sowda_mysql
+    restart: unless-stopped
+    command: --innodb-buffer-pool-size=512M --max-connections=200
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    # Порт наружу не публикуется. Доступ к БД — docker compose exec mysql ...
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    logging: *default-logging
+    networks:
+      - laravel
+
+  redis:
+    image: redis:7-alpine
+    container_name: dz_sowda_redis
+    restart: unless-stopped
+    # Redis держит очереди, кэш и сессии — appendonly обязателен,
+    # requirepass обязателен (в Redis нет разделения прав).
+    command: >
+      redis-server --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    networks:
+      - laravel
+
+  socket:
+    build:
+      context: ./socket-server
+      dockerfile: ../docker/socket/Dockerfile
+    image: dzsowda-socket:latest
+    container_name: dz_sowda_socket
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      # Тот же секрет, что OTP_SECRET у Laravel и в настройках телефона.
+      OTP_SECRET: ${OTP_SECRET:?OTP_SECRET обязателен}
+      OTP_EVENT_NAME: ${SMS_GATEWAY_OTP_EVENT:-otp}
+    # Телефон Flutter SMS-шлюза подключается сюда напрямую. Подключение
+    # требует OTP_SECRET, но трафик идёт без TLS — порт всё равно следует
+    # ограничить в ufw по IP телефона (см. docs/DEPLOY.md).
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+    networks:
+      - laravel
+
+networks:
+  laravel:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+  # Загрузки пользователей (фото, видео, аватары) и temp chunked-загрузок.
+  app_storage:
+  app_logs:

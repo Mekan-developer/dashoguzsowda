@@ -1,10 +1,13 @@
 services:
   app:
     build:
-      context: ./docker/php
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: dev
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
     container_name: dz_sowda_app
     restart: unless-stopped
     working_dir: /var/www
@@ -96,6 +99,9 @@ services:
     container_name: dz_sowda_socket
     restart: unless-stopped
     working_dir: /var/www/socket-server
+    environment:
+      # Совпадает с OTP_SECRET в .env; socket-server без него не стартует.
+      OTP_SECRET: ${OTP_SECRET:-dev-otp-secret}
     volumes:
       - ./socket-server:/var/www/socket-server
       - socket_node_modules:/var/www/socket-server/node_modules
@@ -108,10 +114,13 @@ services:
 
   horizon:
     build:
-      context: ./docker/php
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: dev
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
     container_name: dz_sowda_horizon
     restart: unless-stopped
     working_dir: /var/www
@@ -126,10 +135,13 @@ services:
 
   reverb:
     build:
-      context: ./docker/php
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: dev
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
     container_name: dz_sowda_reverb
     restart: unless-stopped
     working_dir: /var/www

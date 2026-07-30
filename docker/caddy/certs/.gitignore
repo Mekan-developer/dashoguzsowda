@@ -1,0 +1,4 @@
+# SSL-сертификаты в git не коммитятся.
+*
+!.gitignore
+!README.md

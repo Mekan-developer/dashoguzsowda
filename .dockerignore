@@ -1,9 +1,36 @@
 .git
+.gitignore
+.gitattributes
 node_modules
 vendor
+public/build
+public/storage
+
+# Секреты и локальная конфигурация — .env монтируется в контейнер,
+# а не копируется в образ.
+.env
+.env.*
+!.env.example
+storage/app/firebase
+
+# Данные рантайма
 storage/logs/*
+storage/app/public/*
+storage/app/temp/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
-public/build
-.env
+bootstrap/cache/*.php
+
+# Не нужно в прод-образе. Пути с ведущим слэшем — только в корне:
+# public/docs (сгенерированная API-документация Scribe) остаётся в образе.
+/tests
+/bruno
+/bruno.zip
+/.scribe
+/docs
+.claude
+.editorconfig
+docker-compose*.yml
+phpunit.xml
+socket-server/node_modules

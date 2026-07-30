@@ -36,6 +36,7 @@ use App\Repositories\SmsCodeRepository;
 use App\Repositories\TariffRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VideoRepository;
+use App\Services\Sms\LocalModemSmsService;
 use App\Services\Sms\LogSmsService;
 use App\Services\Sms\SmsSenderInterface;
 use App\Services\Video\FfprobeVideoProbe;
@@ -64,8 +65,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FavoriteRepositoryInterface::class, FavoriteRepository::class);
         $this->app->bind(FcmTokenRepositoryInterface::class, FcmTokenRepository::class);
 
-        // Dev: OTP пишется в laravel.log; прод — заменить на LocalModemSmsService
-        $this->app->bind(SmsSenderInterface::class, LogSmsService::class);
+        // SMS_DRIVER=log — OTP пишется в laravel.log (dev);
+        // SMS_DRIVER=modem — уходит в socket-server → телефон-отправитель (прод).
+        $this->app->bind(SmsSenderInterface::class, fn () => config('sms.driver') === 'modem'
+            ? $this->app->make(LocalModemSmsService::class)
+            : $this->app->make(LogSmsService::class));
 
         // Длительность роликов при загрузке (в тестах подменяется фейком)
         $this->app->bind(VideoProbeInterface::class, FfprobeVideoProbe::class);

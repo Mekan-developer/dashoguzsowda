@@ -13,8 +13,22 @@ return [
     // Максимум неверных попыток ввода одного кода
     'max_attempts' => 5,
 
+    /*
+    | Чем отправлять коды:
+    |   log   — писать в laravel.log (dev, значение по умолчанию)
+    |   modem — слать в socket-server → телефон-отправитель (прод)
+    | Биндинг SmsSenderInterface собирается по этому значению в AppServiceProvider.
+    */
+    'driver' => env('SMS_DRIVER', 'log'),
+
     // Локальный модем/шлюз (LocalModemSmsService) — прод-отправка, см. Settings → SMS-шлюз
-    'gateway_url'   => env('SMS_GATEWAY_URL'),
-    'gateway_token' => env('SMS_GATEWAY_TOKEN'),
-    'device_label'  => env('SMS_GATEWAY_DEVICE_LABEL', 'Локальный модем'),
+    'gateway_url'  => env('SMS_GATEWAY_URL'),
+    'device_label' => env('SMS_GATEWAY_DEVICE_LABEL', 'Локальный модем'),
+
+    /*
+    | Общий секрет между backend, socket-server и телефоном-отправителем.
+    | Backend шлёт его в заголовке X-Otp-Secret, телефон — в socket.handshake.auth.
+    | Одно и то же значение должно стоять в .env сервера и в настройках телефона.
+    */
+    'otp_secret' => env('OTP_SECRET'),
 ];

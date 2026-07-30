@@ -5,14 +5,13 @@ namespace App\Services\Sms;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Временная dev-реализация: пишет SMS в laravel.log вместо реальной отправки.
- * Продовая реализация через локальный модем — LocalModemSmsService (та же сигнатура),
- * после её появления заменить binding в AppServiceProvider.
+ * Dev-реализация: пишет код в laravel.log вместо реальной отправки.
+ * Включается при SMS_DRIVER=log (значение по умолчанию), см. AppServiceProvider.
  */
 class LogSmsService implements SmsSenderInterface
 {
-    public function send(string $phone, string $message): void
+    public function sendOtp(string $phone, string $code): void
     {
-        Log::info("SMS to {$phone}: {$message}");
+        Log::info("SMS to {$phone}: " . __('messages.sms_code_text', ['code' => $code]));
     }
 }

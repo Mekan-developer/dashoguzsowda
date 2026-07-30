@@ -27,10 +27,10 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      */
     protected function gate(): void
     {
+        // Со стандартной заготовкой (пустой список email) дашборд Horizon
+        // отдаёт 403 всем при APP_ENV=production. Доступ — по роли admin.
         Gate::define('viewHorizon', function ($user = null) {
-            return in_array(optional($user)->email, [
-                //
-            ]);
+            return (bool) $user?->hasRole('admin');
         });
     }
 }

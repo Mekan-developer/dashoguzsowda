@@ -13,9 +13,6 @@ class SendSmsCode
 
     public function handle(SmsCodeRequested $event): void
     {
-        $this->smsSender->send(
-            $event->phone,
-            __('messages.sms_code_text', ['code' => $event->code]),
-        );
+        $this->smsSender->sendOtp($event->phone, $event->code);
     }
 }

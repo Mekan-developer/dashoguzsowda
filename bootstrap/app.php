@@ -20,6 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // В прод-стеке приложение стоит за Caddy → nginx. Без доверия к
+        // X-Forwarded-* Laravel считает соединение http и генерирует http-ссылки
+        // (mixed content в админке), а request()->ip() возвращает адрес прокси.
+        // '*' безопасно: php-fpm доступен только из внутренней docker-сети.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             \App\Http\Middleware\SetAdminLocale::class,
             \App\Http\Middleware\HandleInertiaRequests::class,

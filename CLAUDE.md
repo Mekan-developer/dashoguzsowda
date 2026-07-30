@@ -8,7 +8,7 @@
 | Backend | Laravel 11, PHP 8.3 |
 | Admin UI | Inertia.js + Vue 3 (`<script setup>`) |
 | Mobile API | REST API v1 (потребляет Flutter) |
-| База данных | PostgreSQL |
+| База данных | MySQL 8.4 |
 | Очереди | Redis + Laravel Horizon |
 | WebSockets | Laravel Reverb (только чат) |
 | Хранилище | Local disk (`storage/app/public/`) |
