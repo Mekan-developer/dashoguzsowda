@@ -37,8 +37,9 @@ ARG PHPREDIS_VERSION=6.1.0
 # доступен обычно не первый:
 #   1. GitHub (сборка из исходников)
 #   2. pecl.php.net
-#   3. готовый php83-pecl-redis из репозитория Alpine (то самое зеркало,
-#      с которого ставились остальные пакеты)
+#   3. готовый phpXX-pecl-redis из репозитория Alpine (то самое зеркало,
+#      с которого ставились остальные пакеты); срабатывает не всегда —
+#      нужен пакет ровно под ту же версию PHP, что в образе
 # Результат в любом случае проверяется через `php -m`: если расширение не
 # загрузилось, сборка падает здесь, а не в рантайме.
 RUN set -eux; \
@@ -185,9 +186,32 @@ COPY --from=assets --chown=www-data:www-data /app/public/build /var/www/public/b
 
 COPY --chmod=0755 docker/php/entrypoint.prod.sh /usr/local/bin/entrypoint
 
-# Каталоги, которые Laravel пишет в рантайме. app/public и logs монтируются
-# named-томами (см. docker-compose.prod.yml) — здесь создаётся их скелет.
+# Один слой делает две вещи:
+#
+# 1. Выкидывает то, что нужно только на сборке. Исключить это через
+#    .dockerignore нельзя: те же файлы нужны стадии assets, а контекст
+#    сборки у стадий общий. Остаются: app, bootstrap, config, database
+#    (миграции и сидеры), lang, public, resources/views, routes, storage,
+#    vendor, artisan, composer.*
+#
+# 2. Создаёт каталоги, в которые Laravel пишет в рантайме. storage/app и
+#    storage/logs монтируются named-томами (см. docker-compose.prod.yml),
+#    здесь готовится их скелет и права.
 RUN set -eux; \
+    cd /var/www; \
+    rm -rf \
+      docker \
+      socket-server \
+      resources/js \
+      resources/css \
+      node_modules \
+      package.json package-lock.json \
+      vite.config.js postcss.config.js tailwind.config.js jsconfig.json \
+      docker-compose.yml docker-compose.prod.yml \
+      README.md CLAUDE.md \
+      .env.example .env.production.example \
+      .editorconfig .gitattributes; \
+    \
     mkdir -p \
       storage/app/public \
       storage/app/private \
