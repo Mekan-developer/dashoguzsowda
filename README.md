@@ -1,67 +1,214 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Daşoguz söwda
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Доска объявлений: мобильное приложение на Flutter + административная панель.
+Этот репозиторий — backend (Laravel 11) и админка (Inertia + Vue 3).
 
-## About Laravel
+| Часть | Технологии |
+|---|---|
+| Backend | Laravel 11, PHP 8.3 |
+| Админка | Inertia.js + Vue 3, Tailwind CSS |
+| Mobile API | REST `/api/v1/*`, Sanctum |
+| База данных | MySQL 8.4 |
+| Очереди | Redis + Laravel Horizon |
+| WebSocket | Laravel Reverb (чат) |
+| Push | Firebase Cloud Messaging |
+| Медиа | Intervention Image (WebP), FFmpeg (видео) |
+| SMS-коды | Socket.IO-шлюз → телефон-отправитель |
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Быстрый старт
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Нужен только **Docker** с плагином Compose. PHP, Composer, Node и MySQL на
+машину ставить не надо — всё живёт в контейнерах.
 
-## Learning Laravel
+```bash
+git clone <repo-url> dashoguzsowda
+cd dashoguzsowda
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+cp .env.example .env
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+# Собрать образы и поднять стек (первый раз — 10–20 минут)
+docker compose up -d --build
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# Зависимости PHP
+docker compose exec app composer install
 
-## Laravel Sponsors
+# Ключ приложения
+docker compose exec app php artisan key:generate
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Таблицы и стартовые данные
+docker compose exec app php artisan migrate --seed
 
-### Premium Partners
+# Публичная ссылка на загруженные файлы
+docker compose exec app php artisan storage:link
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+Готово: **http://localhost:8000**
 
-## Contributing
+### Учётные записи после сидинга
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| Роль | Email | Пароль |
+|---|---|---|
+| admin | `admin@gmail.com` | `password` |
+| manager | `manager@gmail.com` | `password` |
 
-## Code of Conduct
+Вход в админку — по email и паролю. Пользователи мобильного приложения
+входят иначе: по номеру телефона и SMS-коду.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Это данные для разработки, на проде их обязательно менять.
 
-## Security Vulnerabilities
+### Что где слушает
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Адрес | Что это |
+|---|---|
+| http://localhost:8000 | Админка и API |
+| http://localhost:8081 | phpMyAdmin |
+| http://localhost:5173 | Vite dev-сервер (hot reload) |
+| `localhost:3306` | MySQL |
+| `localhost:8080` | Reverb (WebSocket) |
+| `localhost:3000` | Socket.IO OTP-шлюз |
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-# notice-board
+## Если что-то не поднялось
+
+**Контейнер перезапускается.** Первым делом логи:
+
+```bash
+docker compose ps
+docker compose logs --tail=50 app
+docker compose logs --tail=50 horizon
+```
+
+**`horizon` или `reverb` в Restarting.** Обычно не установлен `vendor/`:
+
+```bash
+docker compose exec app composer install
+docker compose restart horizon reverb
+```
+
+**Порт занят.** Если 8000, 3306 или 5173 уже используются, поменяйте левую
+часть в `ports:` в `docker-compose.yml` — например `8001:80`.
+
+**Права на `storage/`.** Контейнеры собираются под UID хоста. Если ваш UID
+не 1000:
+
+```bash
+UID=$(id -u) GID=$(id -g) docker compose up -d --build
+```
+
+**Изменили `.env`, ничего не поменялось.** Конфиг кэшируется:
+
+```bash
+docker compose exec app php artisan config:clear
+```
+
+---
+
+## Повседневные команды
+
+```bash
+docker compose exec app php artisan migrate          # миграции
+docker compose exec app php artisan tinker           # консоль
+docker compose exec app php artisan queue:failed     # упавшие задачи
+docker compose exec app php artisan test             # тесты (Pest)
+
+docker compose logs -f app                           # логи
+docker compose down                                  # остановить
+docker compose down -v                               # остановить и стереть БД
+```
+
+Фронтенд пересобирается сам — контейнер `node` держит Vite в режиме
+hot reload, отдельная команда не нужна.
+
+### Проверка окружения
+
+Статус очередей, WebSocket, FCM и SMS-шлюза виден в админке:
+**Настройки → мониторинг** (доступно роли admin).
+
+---
+
+## Структура
+
+```
+app/
+  Actions/            одно действие — один класс
+  Events/  Listeners/ сайд-эффекты: SMS, push, логи
+  Http/
+    Controllers/Admin/    админка (Inertia)
+    Controllers/Api/V1/   мобильное API
+    Requests/             вся валидация
+    Resources/Api/V1/     формат ответов API
+  Jobs/               фоновая обработка (media, notifications)
+  Observers/
+  Repositories/       все запросы к БД
+  Services/           бизнес-логика
+
+resources/js/
+  Pages/Admin/        страницы админки
+  Components/         Vue-компоненты
+  Stores/             Pinia
+
+routes/
+  web.php             админка
+  api/v1.php          мобильное API
+
+docker/                конфигурация образов
+socket-server/         Socket.IO-шлюз для OTP
+docs/DEPLOY.md         развёртывание на сервере
+CLAUDE.md              архитектурные правила проекта
+```
+
+Перед тем как писать код, загляните в [CLAUDE.md](CLAUDE.md) — там описано,
+что где должно лежать: контроллеры тонкие, вся валидация в Form Request,
+запросы к БД только через Repository, сайд-эффекты через события.
+
+---
+
+## Документация API
+
+Генерируется Scribe, доступна на `/docs` запущенного приложения.
+Пересобрать после изменения роутов:
+
+```bash
+docker compose exec app php artisan scribe:generate
+```
+
+Коллекция для Bruno — в каталоге [bruno/](bruno/).
+
+---
+
+## Развёртывание на сервере
+
+Отдельный стек: Caddy с TLS, собранные образы вместо монтирования кода,
+без phpMyAdmin и dev-сервера, с планировщиком и бэкапами.
+
+Пошаговая инструкция — **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+
+```bash
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Локальный и прод-стек используют одинаковые имена контейнеров, поэтому
+одновременно на одной машине не запускаются.
+
+---
+
+## Особенности, о которых стоит знать заранее
+
+**SMS-коды.** Отправляются не через сторонний сервис, а через свой
+Socket.IO-шлюз: Laravel шлёт код в `socket-server`, тот передаёт его на
+телефон, а телефон отправляет SMS. Локально по умолчанию включён
+`LogSmsService` — коды пишутся в `storage/logs/laravel.log`, реальная
+отправка не нужна.
+
+**Видео.** Загрузка кусками (chunked), сборка на сервере, обработка через
+FFmpeg в очереди `media`. Ограничение — 60 секунд.
+
+**Изображения.** Все фото конвертируются в WebP в трёх размерах. Требует
+PHP-расширения `gd` со сборкой `--with-webp` — в образе оно уже есть.
+
+**Локализация.** Туркменский и русский. Хардкодные строки в интерфейсе не
+допускаются: в PHP — `__('messages.key')`, во Vue — `vue-i18n`.
