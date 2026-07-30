@@ -90,6 +90,12 @@ services:
       context: .
       dockerfile: docker/php/Dockerfile
       target: prod
+      # Контейнеры сборки не наследуют /etc/hosts хоста. Если github.com
+      # (или другой источник) перенаправлен на сервере через hosts-файл,
+      # то же сопоставление нужно продублировать здесь — иначе внутри сборки
+      # имя резолвится в реальный, возможно заблокированный, адрес.
+      # extra_hosts:
+      #   - "github.com:4.237.22.38"
       args:
         # Непусто — apk/composer будут качать с этих зеркал (см. Dockerfile).
         ALPINE_MIRROR: ${ALPINE_MIRROR:-}

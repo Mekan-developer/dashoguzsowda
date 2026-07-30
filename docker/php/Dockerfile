@@ -28,22 +28,43 @@ RUN apk add --no-cache \
     libpng-dev libjpeg-turbo-dev freetype-dev libwebp-dev \
     libzip-dev icu-dev oniguruma-dev
 
-# Версия расширения redis. Собирается из исходников с GitHub, а не через pecl:
-# pecl.php.net доступен не из всякой сети, GitHub — обычно да.
+# Версия расширения redis при сборке из исходников.
 ARG PHPREDIS_VERSION=6.1.0
 
 # PHP-расширения. Инструменты сборки ставятся и удаляются в одном слое.
-RUN apk add --no-cache --virtual .build-deps autoconf g++ make linux-headers \
- && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
- && docker-php-ext-install -j"$(nproc)" \
-    pdo_mysql mysqli mbstring exif pcntl bcmath gd zip intl opcache sockets \
- && git clone --depth 1 --branch "${PHPREDIS_VERSION}" \
-      https://github.com/phpredis/phpredis.git /tmp/phpredis \
- && cd /tmp/phpredis \
- && phpize && ./configure && make -j"$(nproc)" && make install \
- && docker-php-ext-enable redis \
- && cd / && rm -rf /tmp/phpredis \
- && apk del .build-deps
+#
+# Расширение redis добывается по цепочке источников — в закрытых сетях
+# доступен обычно не первый:
+#   1. GitHub (сборка из исходников)
+#   2. pecl.php.net
+#   3. готовый php83-pecl-redis из репозитория Alpine (то самое зеркало,
+#      с которого ставились остальные пакеты)
+# Результат в любом случае проверяется через `php -m`: если расширение не
+# загрузилось, сборка падает здесь, а не в рантайме.
+RUN set -eux; \
+    apk add --no-cache --virtual .build-deps autoconf g++ make linux-headers; \
+    docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp; \
+    docker-php-ext-install -j"$(nproc)" \
+      pdo_mysql mysqli mbstring exif pcntl bcmath gd zip intl opcache sockets; \
+    \
+    if git clone --depth 1 --branch "${PHPREDIS_VERSION}" \
+         https://github.com/phpredis/phpredis.git /tmp/phpredis; then \
+      echo "[redis] источник: GitHub"; \
+      cd /tmp/phpredis && phpize && ./configure && make -j"$(nproc)" && make install; \
+      cd / && rm -rf /tmp/phpredis; \
+    elif pecl install redis; then \
+      echo "[redis] источник: pecl"; \
+      pecl clear-cache; \
+    else \
+      echo "[redis] GitHub и pecl недоступны — берём готовое расширение из репозитория Alpine"; \
+      apk add --no-cache --virtual .redis-ext php83-pecl-redis; \
+      cp /usr/lib/php83/modules/redis.so "$(php-config --extension-dir)/"; \
+      apk del .redis-ext; \
+    fi; \
+    \
+    docker-php-ext-enable redis; \
+    php -m | grep -qx redis; \
+    apk del .build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

@@ -115,8 +115,31 @@ done
 | `repo.packagist.org` | `COMPOSER_MIRROR` | `https://nexus.telecom.tm/repository/composer-proxy/` |
 | `registry.npmjs.org` | `NPM_REGISTRY` | `https://nexus.telecom.tm/repository/npm-proxy/` |
 
-`pecl.php.net` отдельной переменной не требует: расширение redis собирается из
-исходников с GitHub (см. `PHPREDIS_VERSION` в Dockerfile).
+`pecl.php.net` отдельной переменной не требует: расширение redis берётся по
+цепочке источников — GitHub, затем pecl, затем готовый пакет `php83-pecl-redis`
+из репозитория Alpine (то самое зеркало из `ALPINE_MIRROR`). Результат
+проверяется через `php -m` прямо в сборке.
+
+### Если хосты перенаправлены через /etc/hosts
+
+Контейнеры сборки **не наследуют** `/etc/hosts` сервера. Если какой-то домен
+на сервере перенаправлен на рабочий IP, то же сопоставление нужно продублировать
+в `docker-compose.prod.yml` — иначе внутри сборки имя резолвится в реальный
+адрес и соединение не проходит:
+
+```yaml
+  app:
+    build:
+      target: prod
+      extra_hosts:
+        - "github.com:4.237.22.38"
+```
+
+Проверить, как имя резолвится именно из контейнера:
+
+```bash
+docker run --rm alpine sh -c 'getent hosts github.com'
+```
 
 Проверить зеркало перед сборкой:
 
