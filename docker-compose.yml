@@ -1,58 +1,154 @@
 services:
   app:
     build:
-      context: .
-      dockerfile: _docker/app/Dockerfile
-    container_name: app
+      context: ./docker/php
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: dz_sowda_app
+    restart: unless-stopped
+    working_dir: /var/www
     volumes:
-      - ./:/var/www/doskaObnawleniya
+      - ./:/var/www
     depends_on:
       mysql:
         condition: service_healthy
-    restart: unless-stopped
+      redis:
+        condition: service_started
+    networks:
+      - laravel
 
   nginx:
     image: nginx:latest
-    container_name: nginx
+    container_name: dz_sowda_nginx
     restart: unless-stopped
     ports:
-      - "5355:80"
+      - "8000:80"
     volumes:
-      - ./:/var/www/doskaObnawleniya
-      - ./_docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
+    networks:
+      - laravel
 
   mysql:
     image: mysql:8.4
-    container_name: mysql
+    container_name: dz_sowda_mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: doskaObnawleniya
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: secret
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 5s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+    networks:
+      - laravel
+
+  redis:
+    image: redis:7-alpine
+    container_name: dz_sowda_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - laravel
 
   phpmyadmin:
     image: phpmyadmin:latest
-    container_name: laravel_phpmyadmin2
+    container_name: dz_sowda_pma
     restart: unless-stopped
     ports:
-      - "8090:80"
+      - "8081:80"
     environment:
       PMA_HOST: mysql
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
     depends_on:
       - mysql
+    networks:
+      - laravel
+
+  node:
+    image: node:20-alpine
+    container_name: dz_sowda_node
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - laravel
+
+  socket:
+    image: node:20-alpine
+    container_name: dz_sowda_socket
+    restart: unless-stopped
+    working_dir: /var/www/socket-server
+    volumes:
+      - ./socket-server:/var/www/socket-server
+      - socket_node_modules:/var/www/socket-server/node_modules
+    # Порт публикуется наружу: телефон Flutter SMS-шлюза подключается по LAN
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm start"
+    networks:
+      - laravel
+
+  horizon:
+    build:
+      context: ./docker/php
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: dz_sowda_horizon
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    command: php artisan horizon
+    depends_on:
+      - app
+      - redis
+    networks:
+      - laravel
+
+  reverb:
+    build:
+      context: ./docker/php
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: dz_sowda_reverb
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app
+      - redis
+    networks:
+      - laravel
+
+networks:
+  laravel:
+    driver: bridge
 
 volumes:
   mysql_data:
+  redis_data:
+  socket_node_modules:
