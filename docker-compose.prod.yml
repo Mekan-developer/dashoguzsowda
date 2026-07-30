@@ -216,6 +216,8 @@ services:
     build:
       context: ./socket-server
       dockerfile: ../docker/socket/Dockerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
     image: dzsowda-socket:latest
     container_name: dz_sowda_socket
     restart: unless-stopped
