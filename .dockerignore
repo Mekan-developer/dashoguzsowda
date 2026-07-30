@@ -11,6 +11,9 @@ public/storage
 .env.*
 !.env.example
 storage/app/firebase
+# Приватный TLS-ключ не должен попадать в слои образа: Caddy монтирует
+# этот каталог томом в рантайме, копия внутри образа не нужна.
+docker/caddy/certs
 
 # Данные рантайма
 storage/logs/*
