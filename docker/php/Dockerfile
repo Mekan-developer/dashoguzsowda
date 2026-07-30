@@ -65,7 +65,18 @@ RUN set -eux; \
     fi; \
     \
     docker-php-ext-enable redis; \
-    php -m | grep -qx redis; \
+    if ! php -m 2>&1 | grep -qx redis; then \
+      echo "=============================================================="; \
+      echo "[redis] расширение не загрузилось. Диагностика:"; \
+      php -m 2>&1 | head -40 || true; \
+      echo "--------------------------------------------------------------"; \
+      echo "[redis] Обычно это значит, что .so из репозитория Alpine собран"; \
+      echo "[redis] под другую сборку PHP и несовместим по ABI."; \
+      echo "[redis] Надёжное решение — дать сборке доступ к github.com:"; \
+      echo "[redis]   docker-compose.prod.yml → x-build-common → extra_hosts"; \
+      echo "=============================================================="; \
+      exit 1; \
+    fi; \
     apk del .build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
