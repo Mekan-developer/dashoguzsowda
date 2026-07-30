@@ -18,6 +18,30 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "5"
 
+# Общее для сборки образов из docker/php/Dockerfile. Стадии web и prod растут
+# из одной базы, поэтому зеркала и extra_hosts нужны обеим — иначе сборка nginx
+# заново пойдёт в официальные репозитории.
+x-build-common: &build-common
+  context: .
+  dockerfile: docker/php/Dockerfile
+  # Контейнеры сборки не наследуют /etc/hosts хоста. Если github.com
+  # (или другой источник) перенаправлен на сервере через hosts-файл,
+  # то же сопоставление нужно продублировать здесь — иначе внутри сборки
+  # имя резолвится в реальный, возможно заблокированный, адрес.
+  # extra_hosts:
+  #   - "github.com:4.237.22.38"
+  args:
+    # Непусто — apk/composer/npm будут качать с этих зеркал (см. Dockerfile).
+    ALPINE_MIRROR: ${ALPINE_MIRROR:-}
+    COMPOSER_MIRROR: ${COMPOSER_MIRROR:-}
+    NPM_REGISTRY: ${NPM_REGISTRY:-}
+    # VITE_* вкомпилируются в JS-бандл на этапе сборки образа.
+    VITE_APP_NAME: ${APP_NAME}
+    VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
+    VITE_REVERB_HOST: ${APP_DOMAIN}
+    VITE_REVERB_PORT: "443"
+    VITE_REVERB_SCHEME: https
+
 # Общее для всех PHP-контейнеров: образ, .env, тома storage.
 x-php-common: &php-common
   image: dzsowda-app:latest
@@ -61,8 +85,7 @@ services:
 
   nginx:
     build:
-      context: .
-      dockerfile: docker/php/Dockerfile
+      <<: *build-common
       target: web
     image: dzsowda-web:latest
     container_name: dz_sowda_nginx
@@ -87,26 +110,8 @@ services:
   app:
     <<: *php-common
     build:
-      context: .
-      dockerfile: docker/php/Dockerfile
+      <<: *build-common
       target: prod
-      # Контейнеры сборки не наследуют /etc/hosts хоста. Если github.com
-      # (или другой источник) перенаправлен на сервере через hosts-файл,
-      # то же сопоставление нужно продублировать здесь — иначе внутри сборки
-      # имя резолвится в реальный, возможно заблокированный, адрес.
-      # extra_hosts:
-      #   - "github.com:4.237.22.38"
-      args:
-        # Непусто — apk/composer будут качать с этих зеркал (см. Dockerfile).
-        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
-        COMPOSER_MIRROR: ${COMPOSER_MIRROR:-}
-        NPM_REGISTRY: ${NPM_REGISTRY:-}
-        # VITE_* вкомпилируются в JS-бандл на этапе сборки образа.
-        VITE_APP_NAME: ${APP_NAME}
-        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
-        VITE_REVERB_HOST: ${APP_DOMAIN}
-        VITE_REVERB_PORT: "443"
-        VITE_REVERB_SCHEME: https
     container_name: dz_sowda_app
     # Миграции выполняет только этот контейнер.
     environment:
