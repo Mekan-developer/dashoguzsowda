@@ -392,6 +392,7 @@ export default {
     },
     settings: {
         monitoring: 'Gözegçilik',
+        reload: 'Täzele',
         queues: 'Nobatlar',
         working: 'Işleýär',
         unavailable: 'Elýeterli däl',
@@ -406,6 +407,9 @@ export default {
         port: 'port',
         projectId: 'taslama',
         devices: 'enjam',
+        device: 'enjam',
+        address: 'salgy',
+        devicesConnectedCount: 'birikdirilen enjam: {n}',
         roles: 'Rollar we rugsatlar',
         permission: 'Rugsat',
         permViewContent: 'Bildirişleri, wideolary, synlary, şikaýatlary görmek',

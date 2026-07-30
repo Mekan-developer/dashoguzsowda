@@ -392,6 +392,7 @@ export default {
     },
     settings: {
         monitoring: 'Мониторинг',
+        reload: 'Обновить',
         queues: 'Очереди',
         working: 'Работает',
         unavailable: 'Недоступно',
@@ -406,6 +407,9 @@ export default {
         port: 'порт',
         projectId: 'проект',
         devices: 'устройств',
+        device: 'устройство',
+        address: 'адрес',
+        devicesConnectedCount: 'подключено устройств: {n}',
         roles: 'Роли и права доступа',
         permission: 'Право',
         permViewContent: 'Просмотр объявлений, роликов, отзывов, жалоб',

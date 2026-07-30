@@ -36,4 +36,10 @@ return [
         'project_id' => env('FIREBASE_PROJECT_ID'),
     ],
 
+    'reverb' => [
+        // Адрес, по которому backend достучится до Reverb для health-check.
+        // В Docker это имя сервиса (reverb), а не адрес прослушивания (0.0.0.0).
+        'health_host' => env('REVERB_HEALTH_HOST'),
+    ],
+
 ];

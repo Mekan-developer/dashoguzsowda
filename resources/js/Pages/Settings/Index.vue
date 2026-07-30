@@ -18,7 +18,6 @@ const props = defineProps({
     ownLocale:         { type: String, default: null },
     defaultAppLocale:  { type: String, default: 'ru' },
     boostIntervalHours:{ type: Number, default: 24 },
-    smsStatus:         { type: Object, required: true },
 })
 
 const opts = { preserveScroll: true, preserveState: true }
@@ -38,6 +37,28 @@ async function fetchMonitoring() {
     } catch {
         // сеть недоступна — оставляем последнее известное состояние
     }
+}
+
+// Ручной reload одной карточки — бэкенд отдаёт все проверки одним запросом,
+// поэтому кнопка на любой карточке просто дёргает общий fetch, но крутится
+// только та иконка, по которой кликнули.
+// Локальные проверки (queues/ws/fcm) обычно отвечают за миллисекунды — без
+// минимальной задержки анимация просто не успевает провернуться, иконка
+// мигает без видимого вращения. Держим спиннер минимум один полный оборот
+// (animate-spin крутит 360° за 1s), даже если сам fetch уже пришёл.
+const reloadingCard = ref(null)
+// После обновления статус-бейдж («Подключено»/«Недоступно») один раз мигает —
+// сигнал, что значение реально перечитано, а не просто отрисовалось то же самое.
+const flashingCard = ref(null)
+async function reloadCard(key) {
+    reloadingCard.value = key
+    await Promise.all([
+        fetchMonitoring(),
+        new Promise(resolve => setTimeout(resolve, 1000)),
+    ])
+    reloadingCard.value = null
+    flashingCard.value = key
+    setTimeout(() => { if (flashingCard.value === key) flashingCard.value = null }, 500)
 }
 
 onMounted(() => {
@@ -63,6 +84,20 @@ function fcmBadgeClass(fcm) {
 function fcmStatusLabel(fcm) {
     if (fcm.ok) return t('settings.working')
     return fcm.configured ? t('settings.unavailable') : t('settings.notConfigured')
+}
+
+// SMS/OTP-шлюз — то же трёхстатусное состояние: подключено / настроено, но недоступно / тестовый режим
+function smsDotClass(sms) {
+    if (sms.connected) return 'bg-green'
+    return sms.configured ? 'bg-red' : 'bg-orange'
+}
+function smsBadgeClass(sms) {
+    if (sms.connected) return 'bg-green/10 text-green'
+    return sms.configured ? 'bg-red/10 text-red' : 'bg-orange/10 text-orange'
+}
+function smsStatusLabel(sms) {
+    if (sms.connected) return t('settings.connected')
+    return sms.configured ? t('settings.notConnected') : t('settings.testMode')
 }
 
 // ── Роли и права доступа ───────────────────────────────────
@@ -177,16 +212,25 @@ function sendTestSms() {
       <!-- 1. Мониторинг -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.monitoring') }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <span class="h-2.5 w-2.5 rounded-full" :class="dotClass(monitoring.queues.ok)"></span>
                 <span class="font-extrabold text-ink dark:text-slate-100">{{ t('settings.queues') }}</span>
               </div>
-              <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="badgeClass(monitoring.queues.ok)">
-                {{ monitoring.queues.ok ? t('settings.working') : t('settings.unavailable') }}
-              </span>
+              <div class="flex items-center gap-1.5">
+                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[badgeClass(monitoring.queues.ok), { 'status-flash': flashingCard === 'queues' }]">
+                  {{ monitoring.queues.ok ? t('settings.working') : t('settings.unavailable') }}
+                </span>
+                <button
+                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'queues'"
+                  @click="reloadCard('queues')"
+                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
+                >
+                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'queues' }" />
+                </button>
+              </div>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-3 text-center">
               <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
@@ -207,9 +251,18 @@ function sendTestSms() {
                 <span class="h-2.5 w-2.5 rounded-full" :class="dotClass(monitoring.ws.ok)"></span>
                 <span class="font-extrabold text-ink dark:text-slate-100">WS (Reverb)</span>
               </div>
-              <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="badgeClass(monitoring.ws.ok)">
-                {{ monitoring.ws.ok ? t('settings.connected') : t('settings.notConnected') }}
-              </span>
+              <div class="flex items-center gap-1.5">
+                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[badgeClass(monitoring.ws.ok), { 'status-flash': flashingCard === 'ws' }]">
+                  {{ monitoring.ws.ok ? t('settings.connected') : t('settings.notConnected') }}
+                </span>
+                <button
+                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'ws'"
+                  @click="reloadCard('ws')"
+                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
+                >
+                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'ws' }" />
+                </button>
+              </div>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-3 text-center">
               <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
@@ -230,9 +283,18 @@ function sendTestSms() {
                 <span class="h-2.5 w-2.5 rounded-full" :class="fcmDotClass(monitoring.fcm)"></span>
                 <span class="font-extrabold text-ink dark:text-slate-100">FCM</span>
               </div>
-              <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="fcmBadgeClass(monitoring.fcm)">
-                {{ fcmStatusLabel(monitoring.fcm) }}
-              </span>
+              <div class="flex items-center gap-1.5">
+                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[fcmBadgeClass(monitoring.fcm), { 'status-flash': flashingCard === 'fcm' }]">
+                  {{ fcmStatusLabel(monitoring.fcm) }}
+                </span>
+                <button
+                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'fcm'"
+                  @click="reloadCard('fcm')"
+                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
+                >
+                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'fcm' }" />
+                </button>
+              </div>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-3 text-center">
               <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
@@ -241,6 +303,38 @@ function sendTestSms() {
               </div>
               <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
                 <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.fcm.tokens }}</div>
+                <div class="text-[11px] text-muted">{{ t('settings.devices') }}</div>
+              </div>
+            </div>
+            <div class="mt-3 text-[11px] text-muted">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</div>
+          </div>
+
+          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 rounded-full" :class="smsDotClass(monitoring.sms)"></span>
+                <span class="font-extrabold text-ink dark:text-slate-100">{{ t('settings.smsGateway') }}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[smsBadgeClass(monitoring.sms), { 'status-flash': flashingCard === 'sms' }]">
+                  {{ smsStatusLabel(monitoring.sms) }}
+                </span>
+                <button
+                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'sms'"
+                  @click="reloadCard('sms')"
+                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
+                >
+                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'sms' }" />
+                </button>
+              </div>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-3 text-center">
+              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
+                <div class="truncate text-[13px] font-extrabold text-ink dark:text-slate-100">{{ monitoring.sms.address || '—' }}</div>
+                <div class="text-[11px] text-muted">{{ t('settings.address') }}</div>
+              </div>
+              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
+                <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.sms.clients ?? '—' }}</div>
                 <div class="text-[11px] text-muted">{{ t('settings.devices') }}</div>
               </div>
             </div>
@@ -381,12 +475,14 @@ function sendTestSms() {
               <div class="font-extrabold text-ink dark:text-slate-100">{{ t('settings.smsGateway') }}</div>
               <span
                 class="rounded-pill px-2.5 py-1 text-[11px] font-bold"
-                :class="smsStatus.connected ? 'bg-green/10 text-green' : (smsStatus.configured ? 'bg-red/10 text-red' : 'bg-orange/10 text-orange')"
-              >{{ smsStatus.connected ? t('settings.connected') : (smsStatus.configured ? t('settings.notConnected') : t('settings.testMode')) }}</span>
+                :class="smsBadgeClass(monitoring.sms)"
+              >{{ smsStatusLabel(monitoring.sms) }}</span>
             </div>
-            <div class="mb-1 text-[13px] text-ink dark:text-slate-200">{{ smsStatus.device }}</div>
+            <div class="mb-1 text-[13px] text-ink dark:text-slate-200">{{ monitoring.sms.device }}</div>
+            <div v-if="monitoring.sms.address" class="mb-1 text-[11px] text-muted">{{ t('settings.address') }}: {{ monitoring.sms.address }}</div>
+            <div v-if="monitoring.sms.connected" class="mb-1 text-[11px] text-muted">{{ t('settings.devicesConnectedCount', { n: monitoring.sms.clients ?? 0 }) }}</div>
             <div class="mb-4 text-[11px] text-muted">
-              {{ smsStatus.last_sync_at ? t('settings.syncedAt', { at: smsStatus.last_sync_at }) : t('settings.noSync') }}
+              {{ monitoring.sms.last_sync_at ? t('settings.syncedAt', { at: monitoring.sms.last_sync_at }) : t('settings.noSync') }}
             </div>
             <button
               @click="sendTestSms"
@@ -399,3 +495,13 @@ function sendTestSms() {
     </div>
   </AppLayout>
 </template>
+
+<style scoped>
+@keyframes status-flash {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+}
+.status-flash {
+    animation: status-flash 0.5s ease-in-out 1;
+}
+</style>

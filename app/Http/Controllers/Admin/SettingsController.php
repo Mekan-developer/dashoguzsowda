@@ -13,13 +13,12 @@ use App\Models\RejectionReason;
 use App\Models\Setting;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\MonitoringService;
-use App\Services\Sms\SmsGatewayStatusService;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class SettingsController extends Controller
 {
-    public function index(MonitoringService $monitoring, SmsGatewayStatusService $smsStatus)
+    public function index(MonitoringService $monitoring)
     {
         return Inertia::render('Settings/Index', [
             'monitoring'         => $monitoring->getStatus(),
@@ -30,7 +29,6 @@ class SettingsController extends Controller
             'ownLocale'          => Auth::user()->locale,
             'defaultAppLocale'   => Setting::get('default_app_locale', 'ru'),
             'boostIntervalHours' => (int) Setting::get('boost_interval_hours', 24),
-            'smsStatus'          => $smsStatus->resolve(),
         ]);
     }
 

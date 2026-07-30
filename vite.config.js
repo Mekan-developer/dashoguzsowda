@@ -6,10 +6,12 @@ export default defineConfig({
     server: {
         host: '0.0.0.0',
         port: 5173,
-        origin: 'http://192.168.1.226:5173',
-        cors: true,
+        strictPort: true,
         hmr: {
-            host: '192.168.1.226',
+            host: 'localhost',
+        },
+        watch: {
+            usePolling: true,   // нужно на Windows/WSL и macOS
         },
     },
     plugins: [

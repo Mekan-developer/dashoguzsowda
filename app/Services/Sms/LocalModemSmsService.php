@@ -36,11 +36,14 @@ class LocalModemSmsService implements SmsSenderInterface
         $url = config('sms.gateway_url');
 
         $connected = false;
+        $clients   = null;
+
         if ($url) {
             try {
-                $response  = Http::timeout(2)->withToken((string) config('sms.gateway_token'))->get($url);
+                $response  = Http::timeout(2)->get(rtrim($url, '/') . '/health');
                 $connected = $response->successful();
                 if ($connected) {
+                    $clients = (int) $response->json('clients', 0);
                     \App\Models\Setting::set('sms_gateway_last_sync_at', now()->toIso8601String());
                 }
             } catch (\Throwable $e) {
@@ -53,6 +56,8 @@ class LocalModemSmsService implements SmsSenderInterface
             'connected'    => $connected,
             'configured'   => (bool) $url,
             'device'       => config('sms.device_label'),
+            'address'      => $url,
+            'clients'      => $clients,
             'last_sync_at' => \App\Models\Setting::get('sms_gateway_last_sync_at'),
         ];
     }
