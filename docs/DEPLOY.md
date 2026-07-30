@@ -112,7 +112,7 @@ done
 | Заблокирован | Переменная в `.env` | Проверенное значение |
 |---|---|---|
 | `dl-cdn.alpinelinux.org` | `ALPINE_MIRROR` | `https://mirror.yandex.ru/mirrors/alpine` |
-| `repo.packagist.org` | `COMPOSER_MIRROR` | `https://mirrors.aliyun.com/composer/` |
+| `repo.packagist.org` | `COMPOSER_MIRROR` | `https://nexus.telecom.tm/repository/composer-proxy/` |
 | `registry.npmjs.org` | `NPM_REGISTRY` | `https://nexus.telecom.tm/repository/npm-proxy/` |
 
 `pecl.php.net` отдельной переменной не требует: расширение redis собирается из
@@ -122,7 +122,7 @@ done
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" https://mirror.yandex.ru/mirrors/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
-curl -s -o /dev/null -w "%{http_code}\n" https://mirrors.aliyun.com/composer/packages.json
+curl -s -o /dev/null -w "%{http_code}\n" https://nexus.telecom.tm/repository/composer-proxy/packages.json
 curl -s -o /dev/null -w "%{http_code}\n" https://nexus.telecom.tm/repository/npm-proxy/vue
 ```
 
