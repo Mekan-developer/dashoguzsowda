@@ -57,8 +57,10 @@ RUN set -eux; \
       pecl clear-cache; \
     else \
       echo "[redis] GitHub и pecl недоступны — берём готовое расширение из репозитория Alpine"; \
-      apk add --no-cache --virtual .redis-ext php83-pecl-redis; \
-      cp /usr/lib/php83/modules/redis.so "$(php-config --extension-dir)/"; \
+      echo "[redis] сработает только если в этом релизе Alpine есть пакет под ту же версию PHP"; \
+      PHPV="$(php -r 'echo PHP_MAJOR_VERSION, PHP_MINOR_VERSION;')"; \
+      apk add --no-cache --virtual .redis-ext "php${PHPV}-pecl-redis"; \
+      cp "/usr/lib/php${PHPV}/modules/redis.so" "$(php-config --extension-dir)/"; \
       apk del .redis-ext; \
     fi; \
     \
