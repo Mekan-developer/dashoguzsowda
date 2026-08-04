@@ -226,6 +226,9 @@ services:
       # Тот же секрет, что OTP_SECRET у Laravel и в настройках телефона.
       OTP_SECRET: ${OTP_SECRET:?OTP_SECRET обязателен}
       OTP_EVENT_NAME: ${SMS_GATEWAY_OTP_EVENT:-otp}
+      # Страница-тестер на http://<IP>:3000/test. По умолчанию выключена —
+      # включать только на время отладки шлюза (см. docs/DEPLOY.md).
+      ENABLE_TEST_PAGE: ${SMS_GATEWAY_TEST_PAGE:-false}
     # Телефон Flutter SMS-шлюза подключается сюда напрямую. Подключение
     # требует OTP_SECRET, но трафик идёт без TLS — порт всё равно следует
     # ограничить в ufw по IP телефона (см. docs/DEPLOY.md).

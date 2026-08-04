@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OTP Gateway — Smoke Test</title>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<!-- Клиент socket.io подгружается с самого шлюза (см. скрипт внизу страницы),
+     а не с CDN: сервер стоит в закрытой сети, внешний CDN может быть недоступен. -->
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:24px}
@@ -72,13 +73,17 @@
       <label>Server URL (socket-server)</label>
       <input type="text" id="server-url" value="http://127.0.0.1:3000">
     </div>
+    <div class="field" style="max-width:200px">
+      <label>OTP_SECRET</label>
+      <input type="text" id="conn-secret" value="dev-otp-secret">
+    </div>
     <div class="field" style="max-width:160px">
       <label>Имя события</label>
       <input type="text" id="event-name" value="otp">
     </div>
-    <button id="btn-connect">Подключиться</button>
+    <button id="btn-connect" disabled>Загрузка…</button>
   </div>
-  <p class="hint">Server URL = поле "Server URL" в настройках Flutter-приложения. Имя события должно совпадать с OTP_EVENT_NAME в socket-server/.env (сейчас: <code>otp</code>).</p>
+  <p class="hint">Server URL подставляется автоматически под то, откуда открыта страница (напрямую со шлюза или через <code>/otp</code> на домене) — менять обычно не нужно. OTP_SECRET обязателен: без него сервер рвёт соединение с <code>unauthorized</code>. Это тот же секрет, что в .env сервера и в настройках телефона. Имя события должно совпадать с OTP_EVENT_NAME (сейчас: <code>otp</code>).</p>
 </div>
 
 <!-- Direct bridge test -->
@@ -90,8 +95,8 @@
       <input type="text" id="emit-url" value="http://127.0.0.1:3000/emit-otp">
     </div>
     <div class="field" style="max-width:140px">
-      <label>GATEWAY_SECRET</label>
-      <input type="text" id="emit-secret" value="changeme">
+      <label>OTP_SECRET</label>
+      <input type="text" id="emit-secret" value="dev-otp-secret">
     </div>
     <div class="field" style="max-width:120px">
       <label>phone_number</label>
@@ -117,6 +122,19 @@
 let socket = null;
 let eventName = 'otp';
 
+// Страница открывается двумя способами, и адрес шлюза у них разный:
+//   http://<IP>:3000/test          — напрямую со шлюза, префикса нет;
+//   https://<домен>/test-otp.html  — через Caddy, шлюз живёт под /otp
+//                                    (см. docker/caddy/Caddyfile).
+// Подставляем нужный вариант сам: браузер обязан ходить на тот же origin, что и
+// страница, иначе ws режется как mixed content, а POST — по CORS.
+const GATEWAY_BASE = location.protocol.startsWith('http')
+  ? location.origin + (location.pathname === '/test-otp.html' ? '/otp' : '')
+  : 'http://127.0.0.1:3000';
+
+document.getElementById('server-url').value = GATEWAY_BASE;
+document.getElementById('emit-url').value   = `${GATEWAY_BASE}/emit-otp`;
+
 const log = document.getElementById('log');
 const badge = document.getElementById('badge');
 const dot = document.getElementById('dot');
@@ -134,6 +152,27 @@ function addLog(html) {
   log.innerHTML += `<div class="log-entry">${html}</div>`;
   log.scrollTop = log.scrollHeight;
 }
+
+// Клиентскую библиотеку отдаёт сам socket.io-сервер (serveClient), поэтому она
+// доступна везде, где доступен шлюз, — CDN не нужен.
+(function loadSocketIoClient() {
+  const src = `${GATEWAY_BASE}/socket.io/socket.io.js`;
+  const lib = document.createElement('script');
+
+  lib.src = src;
+  lib.onload = () => {
+    btnConnect.disabled = false;
+    btnConnect.textContent = 'Подключиться';
+    addLog(`<span class="log-time">${ts()}</span><span class="log-connect">✓ Клиент socket.io загружен с ${src}</span>`);
+  };
+  lib.onerror = () => {
+    setStatus('err');
+    btnConnect.textContent = 'Недоступно';
+    addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ Не удалось загрузить клиент socket.io с ${src} — шлюз недоступен по этому адресу</span>`);
+  };
+
+  document.head.appendChild(lib);
+})();
 
 function setStatus(state) {
   const states = {
@@ -153,13 +192,27 @@ btnConnect.addEventListener('click', () => {
     return;
   }
   const url = document.getElementById('server-url').value.trim();
+  const secret = document.getElementById('conn-secret').value.trim();
   eventName  = document.getElementById('event-name').value.trim() || 'otp';
 
   if (socket) { socket.off(); socket.disconnect(); }
 
-  addLog(`<span class="log-time">${ts()}</span><span class="log-connect">→ Подключаюсь к ${url} (событие: "${eventName}")</span>`);
+  // io() принимает origin и путь транспорта раздельно: если шлюз проксируется
+  // под префиксом (https://<домен>/otp), socket.io лежит на <префикс>/socket.io.
+  const parsed = new URL(url);
+  const prefix = parsed.pathname.replace(/\/+$/, '');
+  const socketPath = `${prefix}/socket.io`;
 
-  socket = io(url, { transports: ['websocket'], reconnection: true, reconnectionDelay: 2000 });
+  addLog(`<span class="log-time">${ts()}</span><span class="log-connect">→ Подключаюсь к ${parsed.origin} (path: "${socketPath}", событие: "${eventName}")</span>`);
+
+  // Сервер проверяет секрет в io.use(): без auth.secret handshake отклоняется.
+  socket = io(parsed.origin, {
+    path: socketPath,
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionDelay: 2000,
+    auth: { secret },
+  });
 
   socket.on('connect', () => {
     setStatus('ok');
@@ -179,7 +232,10 @@ btnConnect.addEventListener('click', () => {
 
   socket.on('connect_error', err => {
     setStatus('err');
-    addLog(`<span class="log-time">${ts()}</span><span class="log-error">⚠ Ошибка подключения: ${err.message}</span>`);
+    const hint = err.message === 'unauthorized'
+      ? ' — OTP_SECRET не совпадает с секретом сервера'
+      : '';
+    addLog(`<span class="log-time">${ts()}</span><span class="log-error">⚠ Ошибка подключения: ${err.message}${hint}</span>`);
   });
 
   socket.on(eventName, payload => {
@@ -212,7 +268,7 @@ document.getElementById('btn-emit').addEventListener('click', async () => {
   try {
     const r = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Gateway-Secret': secret },
+      headers: { 'Content-Type': 'application/json', 'X-Otp-Secret': secret },
       body: JSON.stringify({ phone_number: phone, otp: code }),
     });
     const body = await r.json();

@@ -1,3 +1,4 @@
 node_modules
 .env
-test.html
+# test.html остаётся в образе: страница отдаётся на GET /test при
+# ENABLE_TEST_PAGE=true (по умолчанию маршрут выключен).
