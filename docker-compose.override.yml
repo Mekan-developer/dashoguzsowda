@@ -27,7 +27,7 @@ services:
     command: sh -c "npm ci && node index.js"
 
   node:
-    image: node:22-alpine
+    image: node:22
     container_name: dzsowda_node
     working_dir: /var/www/dzsowda
     user: "${UID:-1000}:${GID:-1000}"
