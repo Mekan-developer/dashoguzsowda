@@ -28,7 +28,6 @@ bootstrap/cache/*.php
 # public/docs (сгенерированная API-документация Scribe) остаётся в образе.
 /tests
 /bruno
-/bruno.zip
 /.scribe
 /docs
 .claude
