@@ -18,6 +18,10 @@ interface ListingRepositoryInterface
     public function countAll(): int;
     public function countByStatus(string $status): int;
     public function countCreatedBetween(CarbonInterface $from, CarbonInterface $to): int;
+    /** Публикации по дням для графика на дашборде. */
+    public function countByDaySince(CarbonInterface $since): \Illuminate\Support\Collection;
+    /** Последние объявления для ленты на дашборде. */
+    public function recent(int $limit = 6): \Illuminate\Database\Eloquent\Collection;
     public function countActiveByUser(int $userId): int;
 
     /** Публичная выдача для мобильного приложения: только approved + фильтры/сортировки */

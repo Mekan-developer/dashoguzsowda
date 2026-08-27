@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\Tariff;
 use App\Models\Video;
 use App\Models\VideoLike;
+use App\Repositories\Concerns\BuildsLikeSearch;
 use App\Repositories\Interfaces\VideoRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -13,17 +14,20 @@ use Illuminate\Support\Facades\Storage;
 
 class VideoRepository implements VideoRepositoryInterface
 {
+    use BuildsLikeSearch;
+
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
         $page = Video::with('user.tariff', 'rejectionReason')
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->when($filters['search'] ?? null, function ($q, $s) {
-                $term = '%'.mb_strtolower($s).'%';
+                $term = self::likeTerm($s);
                 $q->where(fn ($w) => $w
-                    ->whereRaw('LOWER(title) LIKE ?', [$term])
+                    ->where('title', 'like', $term)
                     ->orWhereHas('user', fn ($u) => $u
-                        ->whereRaw('LOWER(name) LIKE ?', [$term])
-                        ->orWhere('phone', 'like', "%$s%")));
+                        ->where(fn ($n) => $n
+                            ->where('name', 'like', $term)
+                            ->orWhere('phone', 'like', $term))));
             })
             ->latest()
             ->paginate($perPage)
@@ -42,10 +46,7 @@ class VideoRepository implements VideoRepositoryInterface
             ->when($viewerId, fn ($q, $id) => $q->withExists([
                 'likes as is_liked' => fn ($l) => $l->where('user_id', $id),
             ]))
-            ->when($filters['search'] ?? null, function ($q, $s) {
-                $term = '%'.mb_strtolower($s).'%';
-                $q->whereRaw('LOWER(title) LIKE ?', [$term]);
-            })
+            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('title', 'like', self::likeTerm($s)))
             ->when($filters['tag'] ?? null, fn ($q, $tag) => $q->whereJsonContains('tags', $tag))
             ->latest()
             ->paginate($perPage)

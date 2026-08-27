@@ -4,19 +4,23 @@ namespace App\Repositories;
 
 use App\Models\Listing;
 use App\Models\ListingMedia;
+use App\Repositories\Concerns\BuildsLikeSearch;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class ListingRepository implements ListingRepositoryInterface
 {
+    use BuildsLikeSearch;
+
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
         return Listing::with('user', 'category.parent.parent', 'region', 'city', 'media')
             ->when($filters['status'] ?? null, fn($q, $s) => $q->where('status', $s))
             ->when($filters['category_id'] ?? null, fn($q, $c) => $q->where('category_id', $c))
-            ->when($filters['search'] ?? null, fn($q, $s) => $q->where('title', 'like', "%$s%"))
+            ->when($filters['search'] ?? null, fn($q, $s) => $q->where('title', 'like', self::likeTerm($s)))
             ->latest()
             ->paginate($perPage)
             ->withQueryString();
@@ -58,6 +62,19 @@ class ListingRepository implements ListingRepositoryInterface
         return Listing::whereBetween('created_at', [$from, $to])->count();
     }
 
+    public function countByDaySince(CarbonInterface $since): \Illuminate\Support\Collection
+    {
+        return Listing::where('created_at', '>=', $since)
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as total'))
+            ->pluck('total', 'date');
+    }
+
+    public function recent(int $limit = 6): \Illuminate\Database\Eloquent\Collection
+    {
+        return Listing::with('user', 'category', 'region')->latest()->limit($limit)->get();
+    }
+
     public function countActiveByUser(int $userId): int
     {
         return Listing::where('user_id', $userId)
@@ -79,10 +96,10 @@ class ListingRepository implements ListingRepositoryInterface
             ->when(isset($filters['price_min']), fn ($q) => $q->where('price', '>=', $filters['price_min']))
             ->when(isset($filters['price_max']), fn ($q) => $q->where('price', '<=', $filters['price_max']))
             ->when($filters['search'] ?? null, function ($q, $s) {
-                $term = '%'.mb_strtolower($s).'%';
+                $term = self::likeTerm($s);
                 $q->where(fn ($w) => $w
-                    ->whereRaw('LOWER(title) LIKE ?', [$term])
-                    ->orWhereRaw('LOWER(description) LIKE ?', [$term]));
+                    ->where('title', 'like', $term)
+                    ->orWhere('description', 'like', $term));
             });
 
         match ($filters['sort'] ?? 'latest') {
