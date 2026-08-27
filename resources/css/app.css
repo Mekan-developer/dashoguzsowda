@@ -16,9 +16,10 @@ body { font-family: 'Nunito', sans-serif; }
     --sidebar-muted: #9497A8;
     --section-label: #B3B5C4;
     --nav-hover: #F4F4F8;
-    --accent: #4F46E5;
-    --accent-hover: #4338CA;
-    --accent-tint: #EEEDFB;
+    --accent: #3B4A66;
+    --accent-hover: #2E3A52;
+    --accent-tint: #EEF0F4;
+    --badge-bg: #B3413B;
     --content-bg: #FAFAFC;
     --card-bg: #ffffff;
     --card-border: #EAEAF0;
@@ -42,9 +43,10 @@ body { font-family: 'Nunito', sans-serif; }
     --sidebar-muted: rgba(255, 255, 255, .4);
     --section-label: rgba(255, 255, 255, .3);
     --nav-hover: rgba(255, 255, 255, .05);
-    --accent: #6D63F2;
-    --accent-hover: #7C73F5;
-    --accent-tint: rgba(109, 99, 242, .16);
+    --accent: #55698C;
+    --accent-hover: #64799E;
+    --accent-tint: rgba(85, 105, 140, .18);
+    --badge-bg: #A6473F;
     --content-bg: #1B1E33;
     --card-bg: #20233B;
     --card-border: rgba(255, 255, 255, .08);

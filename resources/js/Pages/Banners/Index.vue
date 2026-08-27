@@ -6,6 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import AppDrawer from '@/Components/AppDrawer.vue'
 import DrawerField from '@/Components/DrawerField.vue'
 import Icon from '@/Components/Icon.vue'
+import CreateButton from '@/Components/CreateButton.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import DataTable from '@/Components/DataTable.vue'
@@ -121,9 +122,7 @@ function destroy(b) {
 
     <div class="space-y-4">
       <div class="flex justify-end">
-        <button @click="openCreate" class="px-4 py-2 rounded-btn bg-blue text-white text-sm font-bold hover:bg-blue/90 transition">
-          + {{ t('actions.add') }}
-        </button>
+        <CreateButton :label="t('actions.add')" @click="openCreate" />
       </div>
 
       <DataTable

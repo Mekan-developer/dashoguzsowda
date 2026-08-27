@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import CreateButton from '@/Components/CreateButton.vue'
 
 const { t } = useI18n()
 
@@ -69,11 +70,7 @@ watch(() => props.ready, (r) => { if (!r) { adding.value = false; editingId.valu
         <span class="text-[15px] font-extrabold text-ink dark:text-slate-100">{{ title }}</span>
         <span v-if="crumb" class="ml-1.5 text-[13px] text-muted">— {{ crumb }}</span>
       </div>
-      <button
-        @click="startAdd"
-        :disabled="!ready"
-        class="flex-shrink-0 rounded-btn bg-blue px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-      >{{ t('geo.add') }}</button>
+      <CreateButton :label="t('geo.add')" :disabled="!ready" @click="startAdd" />
     </div>
 
     <!-- Parent not selected -->

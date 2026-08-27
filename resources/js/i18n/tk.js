@@ -236,7 +236,7 @@ export default {
         rating: 'Baha',
     },
     tariffs: {
-        addBtn: '+ Tarif goş',
+        addBtn: 'Tarif goş',
         unitListings: 'bildiriş',
         unitVideos: 'wideo',
         unitBoosts: 'göteriliş',
@@ -260,7 +260,7 @@ export default {
         confirmDelete: '«{name}» tarifini pozmalymy?',
     },
     categories: {
-        addBtn: '+ Kategoriýa goş',
+        addBtn: 'Kategoriýa goş',
         colName: 'Ady',
         colTk: 'Türkmençe',
         colLevel: 'Dereje',
@@ -491,7 +491,7 @@ export default {
         countOf: '{total} sanydan {shown}',
     },
     geo: {
-        add: '+ Goş',
+        add: 'Goş',
         nameRuPlaceholder: 'Название (рус)',
         nameTkPlaceholder: 'Ady (türkmençe)',
         shown: 'Görkezilýär',

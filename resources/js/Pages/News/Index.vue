@@ -5,8 +5,9 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import AppDrawer from '@/Components/AppDrawer.vue'
 import DrawerField from '@/Components/DrawerField.vue'
+import DrawerFooter from '@/Components/DrawerFooter.vue'
+import CreateButton from '@/Components/CreateButton.vue'
 import Pagination from '@/Components/Pagination.vue'
-import Icon from '@/Components/Icon.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import RichTextEditor from '@/Components/RichTextEditor.vue'
@@ -137,13 +138,7 @@ function destroy(n) {
     </template>
 
     <template #actions>
-      <button
-        @click="openCreate"
-        class="flex items-center gap-[7px] rounded-[9px] bg-[var(--accent)] px-4 py-[10px] text-[13px] font-bold text-white shadow-[0_8px_18px_-6px_var(--accent)] transition-colors hover:bg-[var(--accent-hover)]"
-      >
-        <Icon kind="plus" :size="14" />
-        {{ t('news.addNew') }}
-      </button>
+      <CreateButton :label="t('news.addNew')" @click="openCreate" />
     </template>
 
     <div class="space-y-4">
@@ -276,20 +271,12 @@ function destroy(n) {
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <button
-            @click="drawer = false"
-            class="rounded-[10px] border border-[var(--field-border)] bg-transparent px-[18px] py-[10px] text-[13px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--nav-hover)]"
-          >{{ t('actions.cancel') }}</button>
-          <button
-            @click="save"
-            :disabled="!canSave"
-            class="rounded-[10px] px-5 py-[10px] text-[13px] font-bold transition-colors"
-            :class="canSave
-              ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-[0_10px_22px_-8px_var(--accent)]'
-              : 'cursor-not-allowed bg-[var(--field-disabled-bg)] text-[var(--text-muted)]'"
-          >{{ form.is_published ? t('actions.publish') : t('actions.save') }}</button>
-        </div>
+        <DrawerFooter
+          :can-save="canSave"
+          :save-label="form.is_published ? t('actions.publish') : t('actions.save')"
+          @cancel="drawer = false"
+          @save="save"
+        />
       </template>
     </AppDrawer>
   </AppLayout>

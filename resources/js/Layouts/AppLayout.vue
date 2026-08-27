@@ -85,6 +85,7 @@ const sections = computed(() => [
         ] : []),
         { label: t('nav.news'),        routeName: 'news.index',        icon: 'news' },
         { label: t('nav.banners'),     routeName: 'banners.index',     icon: 'layers' },
+        { label: t('nav.stores'),      routeName: 'stores.index',      icon: 'shop' },
     ]},
     { title: t('layout.sectionModeration').toUpperCase(), eyebrow: t('layout.sectionModeration'), items: [
         { label: t('nav.complaints'),  routeName: 'complaints.index',  icon: 'flag',  badge: 'newComplaints' },
@@ -125,7 +126,7 @@ function logout() {
     >
       <!-- Brand -->
       <div class="flex items-center gap-2.5 px-1.5 pt-1 pb-[22px]">
-        <div class="flex h-[60px] w-[60px] flex-none items-center justify-center rounded-[9px] dark:bg-white text-white dark:shadow-[0_0_0_4px_var(--accent-tint)]">
+        <div class="flex h-[60px] w-[60px] flex-none items-center justify-center rounded-[6px] dark:bg-white text-white">
           <img src="/icons/logo.png" alt="Logo" class="h-auto w-[56px]" />
         </div>
         <div v-if="!collapsed" class="flex flex-col leading-[1.18]">
@@ -147,9 +148,9 @@ function logout() {
             v-for="item in section.items"
             :key="item.routeName"
             :href="route(item.routeName)"
-            class="group flex items-center gap-2.5 rounded-lg text-[13.5px] font-medium transition-colors"
+            class="group flex items-center gap-2.5 rounded-[6px] text-[13.5px] font-medium transition-colors"
             :class="isActive(item.routeName)
-              ? 'rounded-[9px] bg-[var(--accent-tint)] text-[var(--accent)] font-bold dark:bg-[var(--accent)] dark:text-white dark:font-semibold dark:shadow-[0_0_0_4px_var(--accent-tint),0_8px_18px_-6px_var(--accent)]'
+              ? 'bg-[var(--accent-tint)] text-[var(--accent)] font-bold dark:bg-[var(--accent)] dark:text-white dark:font-semibold'
               : 'text-[var(--sidebar-text)] hover:bg-[var(--nav-hover)]'"
             :style="{ padding: isActive(item.routeName) ? '9px 10px' : '8px 10px' }"
           >
@@ -157,7 +158,7 @@ function logout() {
             <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>
             <span
               v-if="item.badge && counts[item.badge] > 0 && !collapsed"
-              class="rounded-pill bg-pink px-[5px] py-px text-[9px] font-extrabold text-white"
+              class="rounded-[4px] bg-[var(--badge-bg)] px-[5px] py-px text-[9px] font-extrabold text-white"
             >{{ counts[item.badge] }}</span>
           </Link>
         </template>
@@ -167,7 +168,7 @@ function logout() {
       <div class="mt-auto flex justify-end pt-3.5">
         <button
           @click="collapsed = !collapsed"
-          class="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--sidebar-muted)] hover:bg-[var(--nav-hover)] transition-colors"
+          class="flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--sidebar-muted)] hover:bg-[var(--nav-hover)] transition-colors"
         >
           <Icon kind="chevronLeft" :size="15" :class="collapsed ? 'rotate-180' : ''" class="transition-transform duration-300" />
         </button>
@@ -182,13 +183,13 @@ function logout() {
         <div class="flex items-center gap-3.5">
           <!-- Язык -->
           <div class="flex flex-col items-center gap-1">
-            <div class="flex items-center gap-[2px] rounded-[10px] bg-[var(--field-bg)] dark:bg-white/[.06] p-[3px]">
+            <div class="flex items-center gap-[2px] rounded-[8px] bg-[var(--field-bg)] dark:bg-white/[.06] p-[3px]">
               <button
                 v-for="l in ['ru', 'tk']" :key="l"
                 @click="setLang(l)"
-                class="min-w-[38px] rounded-[8px] px-[13px] py-[6.5px] text-[12px] font-bold uppercase tracking-[.02em] transition-colors cursor-pointer"
+                class="min-w-[38px] rounded-[6px] px-[13px] py-[6.5px] text-[12px] font-bold uppercase tracking-[.02em] transition-colors cursor-pointer"
                 :class="locale === l
-                  ? 'bg-[var(--accent)] text-white shadow-[0_4px_10px_-3px_var(--accent)]'
+                  ? 'bg-[var(--accent)] text-white'
                   : 'text-[var(--text-muted)] dark:text-white/[.42] hover:text-[var(--text)]'"
               >{{ l }}</button>
             </div>
@@ -201,7 +202,7 @@ function logout() {
           <div class="flex flex-col items-center gap-1">
             <button
               @click="dark = !dark"
-              class="flex h-9 w-9 items-center justify-center rounded-[10px] text-[var(--text-secondary)] dark:text-white/[.68] hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
+              class="flex h-9 w-9 items-center justify-center rounded-[8px] text-[var(--text-secondary)] dark:text-white/[.68] hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
             >
               <Icon :kind="dark ? 'moon' : 'sun'" :size="17" />
             </button>
@@ -214,12 +215,12 @@ function logout() {
           <div class="relative flex flex-col items-center gap-1">
             <button
               @click="notificationsOpen = !notificationsOpen"
-              class="relative flex h-9 w-9 items-center justify-center rounded-[10px] text-[var(--text-secondary)] dark:text-white/[.68] hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
+              class="relative flex h-9 w-9 items-center justify-center rounded-[8px] text-[var(--text-secondary)] dark:text-white/[.68] hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
             >
               <Icon kind="bell" :size="17" />
               <span
                 v-if="notificationsTotal > 0"
-                class="absolute -right-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-lg border-2 border-[var(--card-bg)] dark:border-[#14172A] bg-[#F0554C] px-[3px] text-[9.5px] font-bold text-white"
+                class="absolute -right-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-[4px] border-2 border-[var(--card-bg)] dark:border-[#14172A] bg-[var(--badge-bg)] px-[3px] text-[9.5px] font-bold text-white"
               >{{ notificationsTotal }}</span>
             </button>
             <span class="w-20 text-center whitespace-nowrap text-[9.5px] text-[var(--text-muted)] dark:text-white/[.42]">{{ t('topbar.notifications') }}</span>
@@ -228,7 +229,7 @@ function logout() {
               <div
                 v-if="notificationsOpen"
                 v-click-outside="() => notificationsOpen = false"
-                class="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--card-border)] z-50 overflow-hidden"
+                class="absolute right-0 top-full mt-2 w-72 rounded-[10px] bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--card-border)] z-50 overflow-hidden"
               >
                 <div class="px-4 py-3 border-b border-[var(--card-border)] text-[13px] font-bold text-[var(--text)]">{{ t('topbar.notifications') }}</div>
                 <div v-if="notificationItems.length" class="max-h-80 overflow-y-auto">
@@ -254,7 +255,7 @@ function logout() {
           <div class="relative">
             <button
               @click="userMenuOpen = !userMenuOpen"
-              class="flex items-center gap-2.5 rounded-[11px] px-2 py-1.5 hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
+              class="flex items-center gap-2.5 rounded-[8px] px-2 py-1.5 hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
             >
               <div class="relative h-9 w-9 flex-none">
                 <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-tint)] dark:bg-[rgba(109,99,242,.18)] text-[12.5px] font-bold text-[var(--accent)]">
@@ -273,7 +274,7 @@ function logout() {
               <div
                 v-if="userMenuOpen"
                 v-click-outside="() => userMenuOpen = false"
-                class="absolute right-0 top-full mt-2 w-48 rounded-2xl bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--card-border)] z-50 overflow-hidden"
+                class="absolute right-0 top-full mt-2 w-48 rounded-[10px] bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--card-border)] z-50 overflow-hidden"
               >
                 <div class="px-4 py-3 border-b border-[var(--card-border)]">
                   <div class="text-[13px] font-bold text-[var(--text)]">{{ user?.name }}</div>

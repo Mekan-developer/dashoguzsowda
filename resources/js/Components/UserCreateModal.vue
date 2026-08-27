@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/Components/Icon.vue'
+import AppDrawer from '@/Components/AppDrawer.vue'
+import DrawerFooter from '@/Components/DrawerFooter.vue'
 
 const { t } = useI18n()
 
@@ -115,31 +117,7 @@ watch(() => props.open, (open) => {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="ov">
-      <div
-        v-if="open"
-        class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-        @click.self="$emit('close')"
-      >
-        <div
-          class="flex max-h-[92vh] w-[560px] max-w-full flex-col overflow-hidden rounded-[16px] font-golos shadow-[0_24px_48px_rgba(0,0,0,.28)]"
-          :style="{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text)' }"
-        >
-          <!-- Header -->
-          <div class="flex items-center justify-between px-6 pt-5 pb-4" :style="{ borderBottom: '1px solid var(--card-border)' }">
-            <h2 class="text-[16px] font-extrabold">{{ t('userModal.title') }}</h2>
-            <button
-              class="flex h-8 w-8 items-center justify-center rounded-[8px] transition hover:bg-black/10 dark:hover:bg-white/10"
-              :style="{ color: 'var(--text-muted)' }"
-              @click="$emit('close')"
-            >
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-
-          <!-- Body -->
-          <div class="flex-1 overflow-y-auto px-6 py-5">
+  <AppDrawer :open="open" :title="t('userModal.title')" width="560px" @close="$emit('close')">
             <!-- 1. Телефон -->
             <label class="mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">
               {{ t('common.phone') }}<span class="ml-0.5 text-red">*</span>
@@ -274,33 +252,19 @@ watch(() => props.open, (open) => {
                 <p v-if="form.errors.birth_date" class="mt-1 text-[12px] font-semibold" :style="{ color: 'var(--status-bad)' }">{{ form.errors.birth_date }}</p>
               </div>
             </div>
-          </div>
 
-          <!-- 6. Футер -->
-          <div class="flex justify-end gap-2.5 px-6 py-4" :style="{ borderTop: '1px solid var(--card-border)' }">
-            <button
-              type="button"
-              class="rounded-[10px] px-4 py-[10px] text-[13px] font-bold transition hover:bg-black/5 dark:hover:bg-white/5"
-              :style="{ color: 'var(--text-secondary)' }"
-              @click="$emit('close')"
-            >{{ t('actions.cancel') }}</button>
-            <button
-              type="button" :disabled="!canSubmit"
-              class="rounded-[10px] px-5 py-[10px] text-[13px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-              :style="{ background: 'var(--accent)' }"
-              @click="submit"
-            >{{ t('userModal.submit') }}</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    <template #footer>
+      <DrawerFooter
+        :can-save="canSubmit"
+        :save-label="t('userModal.submit')"
+        @cancel="$emit('close')"
+        @save="submit"
+      />
+    </template>
+  </AppDrawer>
 </template>
 
 <style scoped>
-.ov-enter-active, .ov-leave-active { transition: all .2s ease; }
-.ov-enter-from, .ov-leave-to { opacity: 0; }
-
 .phone-box { border: 1px solid var(--field-border); transition: border-color .15s, box-shadow .15s; }
 .phone-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
 .phone-box--error, .phone-box--error:focus-within { border-color: var(--status-bad); box-shadow: none; }

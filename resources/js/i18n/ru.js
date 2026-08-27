@@ -236,7 +236,7 @@ export default {
         rating: 'Оценка',
     },
     tariffs: {
-        addBtn: '+ Добавить тариф',
+        addBtn: 'Добавить тариф',
         unitListings: 'объявлений',
         unitVideos: 'видео',
         unitBoosts: 'подъёмов',
@@ -260,7 +260,7 @@ export default {
         confirmDelete: 'Удалить тариф «{name}»?',
     },
     categories: {
-        addBtn: '+ Добавить категорию',
+        addBtn: 'Добавить категорию',
         colName: 'Название',
         colTk: 'Туркменский',
         colLevel: 'Уровень',
@@ -491,7 +491,7 @@ export default {
         countOf: '{shown} из {total}',
     },
     geo: {
-        add: '+ Добавить',
+        add: 'Добавить',
         nameRuPlaceholder: 'Название (рус)',
         nameTkPlaceholder: 'Ady (türkmençe)',
         shown: 'Показан',

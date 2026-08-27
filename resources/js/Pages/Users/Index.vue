@@ -6,6 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import Pagination from '@/Components/Pagination.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import UserCreateModal from '@/Components/UserCreateModal.vue'
+import CreateButton from '@/Components/CreateButton.vue'
 import ConfirmModal from '@/Components/ConfirmModal.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 
@@ -76,9 +77,7 @@ function formatDate(d) {
         <option v-for="r in regions" :key="r.id" :value="r.id">{{ r.name_ru }}</option>
       </select>
       <div class="ml-auto">
-        <button v-if="isAdmin" @click="openCreate" class="inline-flex items-center gap-1.5 rounded-btn bg-blue px-[18px] py-[9px] text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(67,97,238,.3)] transition hover:bg-blue-dark">
-          + {{ t('actions.add') }}
-        </button>
+        <CreateButton v-if="isAdmin" :label="t('actions.add')" @click="openCreate" />
       </div>
     </div>
 
