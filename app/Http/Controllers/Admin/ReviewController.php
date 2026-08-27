@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectListingRequest;
-use App\Models\RejectionReason;
 use App\Models\Review;
+use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Repositories\Interfaces\ReviewRepositoryInterface;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,13 +14,14 @@ class ReviewController extends Controller
 {
     public function __construct(
         private readonly ReviewRepositoryInterface $reviewRepository,
+        private readonly ReasonRepositoryInterface $reasons,
     ) {}
 
     public function index(Request $request)
     {
         return Inertia::render('Reviews/Index', [
             'reviews'          => $this->reviewRepository->paginate($request->only('status', 'search')),
-            'rejectionReasons' => RejectionReason::where('type', 'review')->where('is_active', true)->get(),
+            'rejectionReasons' => $this->reasons->activeRejectionReasons('review'),
             'filters'          => $request->only('status', 'search'),
             'counts'           => [
                 'pending'  => $this->reviewRepository->countPending(),

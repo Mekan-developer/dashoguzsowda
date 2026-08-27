@@ -6,8 +6,9 @@ use App\Actions\ApproveVideoAction;
 use App\Actions\RejectVideoAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectVideoRequest;
-use App\Models\RejectionReason;
+use App\Http\Requests\Admin\UpdateVideoRequest;
 use App\Models\Video;
+use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Services\VideoService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,13 +19,14 @@ class VideoController extends Controller
         private readonly VideoService $videoService,
         private readonly ApproveVideoAction $approveAction,
         private readonly RejectVideoAction $rejectAction,
+        private readonly ReasonRepositoryInterface $reasons,
     ) {}
 
     public function index(Request $request)
     {
         return Inertia::render('Videos/Index', [
             'videos'           => $this->videoService->list($request->only('status', 'search')),
-            'rejectionReasons' => RejectionReason::where('type', 'video')->where('is_active', true)->get(),
+            'rejectionReasons' => $this->reasons->activeRejectionReasons('video'),
             'filters'          => $request->only('status', 'search'),
             'counts'           => $this->videoService->counts(),
         ]);
@@ -34,20 +36,19 @@ class VideoController extends Controller
     {
         return Inertia::render('Videos/Show', [
             'video'            => $video->load('user', 'rejectionReason'),
-            'rejectionReasons' => RejectionReason::where('type', 'video')->where('is_active', true)->get(),
+            'rejectionReasons' => $this->reasons->activeRejectionReasons('video'),
         ]);
     }
 
-    public function update(Request $request, Video $video)
+    public function update(UpdateVideoRequest $request, Video $video)
     {
-        $video->update($request->only('title'));
+        $this->videoService->updateFromAdmin($video, $request->validated());
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function destroy(Video $video)
     {
-        abort_unless(request()->user()->isAdmin(), 403);
         $this->videoService->delete($video);
 
         return redirect()->route('videos.index')

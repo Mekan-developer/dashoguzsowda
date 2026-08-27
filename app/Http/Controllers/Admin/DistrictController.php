@@ -3,50 +3,43 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreDistrictRequest;
 use App\Models\City;
 use App\Models\District;
+use App\Repositories\Interfaces\RegionRepositoryInterface;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class DistrictController extends Controller
 {
-    public function store(Request $request, City $city)
-    {
-        $data = $request->validate([
-            'name_ru' => ['required', 'string', 'max:255', Rule::unique('districts')->where('city_id', $city->id)],
-            'name_tk' => ['required', 'string', 'max:255'],
-        ]);
-        $city->districts()->create($data);
+    public function __construct(
+        private readonly RegionRepositoryInterface $regions,
+    ) {}
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Район добавлен']);
+    public function store(StoreDistrictRequest $request, City $city)
+    {
+        $this->regions->createDistrict($city, $request->validated());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
-    public function update(Request $request, District $district)
+    public function update(StoreDistrictRequest $request, District $district)
     {
-        $data = $request->validate([
-            'name_ru' => ['required', 'string', 'max:255', Rule::unique('districts')->where('city_id', $district->city_id)->ignore($district->id)],
-            'name_tk' => ['required', 'string', 'max:255'],
-        ]);
-        $district->update($data);
+        $this->regions->updateDistrict($district, $request->validated());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Обновлено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function toggle(District $district)
     {
-        $district->update(['is_hidden' => ! $district->is_hidden]);
+        $this->regions->setDistrictHidden($district, ! $district->is_hidden);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Обновлено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function destroy(Request $request, District $district)
     {
-        if (! $request->user()->isAdmin()) {
-            abort(403);
-        }
+        $this->regions->deleteDistrict($district);
 
-        $district->delete();
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Район удалён']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);
     }
 }

@@ -54,6 +54,12 @@ class VideoService
         ]);
     }
 
+    /** Правка ролика модератором из админки: доступен только заголовок. */
+    public function updateFromAdmin(Video $video, array $data): Video
+    {
+        return $this->videoRepository->update($video, $data);
+    }
+
     /** Удаляет ролик вместе с файлами (оригинал + сжатая версия + превью-кадр) */
     public function delete(Video $video): void
     {

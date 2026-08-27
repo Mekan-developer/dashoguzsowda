@@ -13,6 +13,11 @@ class TariffRepository implements TariffRepositoryInterface
         return Tariff::withCount('users')->orderBy('id')->get();
     }
 
+    public function active(): Collection
+    {
+        return Tariff::where('is_active', true)->orderBy('id')->get();
+    }
+
     public function find(int $id): Tariff
     {
         return Tariff::findOrFail($id);

@@ -51,6 +51,15 @@ class ComplaintRepository implements ComplaintRepositoryInterface
         return Complaint::where('status', $status)->count();
     }
 
+    public function recentNew(int $limit = 5): Collection
+    {
+        return Complaint::with('user', 'listing', 'complaintReason')
+            ->where('status', 'new')
+            ->latest()
+            ->limit($limit)
+            ->get();
+    }
+
     public function activeReasons(): Collection
     {
         return ComplaintReason::where('is_active', true)->get();

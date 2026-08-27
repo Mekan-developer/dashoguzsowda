@@ -16,6 +16,19 @@ class CategoryRepository implements CategoryRepositoryInterface
             ->get();
     }
 
+    public function roots(): Collection
+    {
+        return Category::whereNull('parent_id')->orderBy('order')->get();
+    }
+
+    public function topByListings(int $limit = 5): Collection
+    {
+        return Category::withCount('listings')
+            ->orderByDesc('listings_count')
+            ->limit($limit)
+            ->get();
+    }
+
     public function activeTree(): Collection
     {
         $activeChildren = fn ($q) => $q->where('is_active', true)->orderBy('order');

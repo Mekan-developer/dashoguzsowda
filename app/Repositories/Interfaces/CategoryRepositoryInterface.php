@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Collection;
 interface CategoryRepositoryInterface
 {
     public function tree(): Collection;
+    /** Корневые категории — для фильтра в списке объявлений админки. */
+    public function roots(): Collection;
+    /** Категории с наибольшим числом объявлений — для дашборда. */
+    public function topByListings(int $limit = 5): Collection;
     public function activeTree(): Collection;
     public function find(int $id): Category;
     public function create(array $data): Category;

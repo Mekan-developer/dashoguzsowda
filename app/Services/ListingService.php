@@ -74,6 +74,16 @@ class ListingService
         ]);
     }
 
+    /**
+     * Правка модератором из админки: меняет только текст и цену и, в отличие
+     * от правки автором, НЕ возвращает объявление на повторную модерацию —
+     * модератор его как раз и смотрит.
+     */
+    public function updateFromAdmin(Listing $listing, array $data): Listing
+    {
+        return $this->listingRepository->update($listing, $data);
+    }
+
     public function delete(Listing $listing): void
     {
         $this->listingRepository->delete($listing);

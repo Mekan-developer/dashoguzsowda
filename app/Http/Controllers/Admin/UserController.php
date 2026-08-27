@@ -10,9 +10,8 @@ use App\Http\Requests\Admin\BlockUserRequest;
 use App\Http\Requests\Admin\CheckUserPhoneRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
-use App\Models\Complaint;
-use App\Models\Tariff;
 use App\Models\User;
+use App\Repositories\Interfaces\TariffRepositoryInterface;
 use App\Services\RegionService;
 use App\Services\UserService;
 use Inertia\Inertia;
@@ -24,6 +23,7 @@ class UserController extends Controller
         private readonly RegionService $regionService,
         private readonly BlockUserAction $blockAction,
         private readonly AssignTariffAction $assignTariffAction,
+        private readonly TariffRepositoryInterface $tariffs,
     ) {}
 
     public function index(\Illuminate\Http\Request $request)
@@ -31,7 +31,7 @@ class UserController extends Controller
         return Inertia::render('Users/Index', [
             'users'   => $this->userService->list($request->only('search', 'status', 'region_id')),
             'regions' => $this->regionService->activeListWithDistricts(),
-            'tariffs' => Tariff::where('is_active', true)->get(),
+            'tariffs' => $this->tariffs->active(),
             'filters' => $request->only('search', 'status', 'region_id'),
         ]);
     }
@@ -50,16 +50,12 @@ class UserController extends Controller
 
     public function show(User $user)
     {
-        $user->load('region', 'city', 'district', 'tariff');
+        $overview = $this->userService->profileOverview($user);
 
         return Inertia::render('Users/Show', [
-            'user'         => $user,
-            'userListings' => $user->listings()->with('category', 'region')->latest()->take(10)->get(),
-            'stats'        => [
-                'listings'   => $user->listings()->count(),
-                'videos'     => $user->videos()->count(),
-                'complaints' => Complaint::where('user_id', $user->id)->count(),
-            ],
+            'user'         => $user->load('region', 'city', 'district', 'tariff'),
+            'userListings' => $overview['listings'],
+            'stats'        => $overview['stats'],
         ]);
     }
 
@@ -72,7 +68,6 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
-        abort_unless(request()->user()->isAdmin(), 403, __('messages.admin_only'));
         $this->userService->delete($user);
 
         return redirect()->route('users.index')
@@ -95,7 +90,7 @@ class UserController extends Controller
 
     public function assignTariff(AssignTariffRequest $request, User $user)
     {
-        $tariff = Tariff::findOrFail($request->validated('tariff_id'));
+        $tariff = $this->tariffs->find($request->validated('tariff_id'));
         $this->assignTariffAction->execute($user, $tariff);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.tariff_assigned')]);

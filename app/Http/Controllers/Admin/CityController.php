@@ -3,56 +3,42 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreCityRequest;
 use App\Models\City;
+use App\Repositories\Interfaces\RegionRepositoryInterface;
 use Illuminate\Http\Request;
 
 class CityController extends Controller
 {
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'name_ru'   => 'required|string',
-            'name_tk'   => 'required|string',
-            'region_id' => 'required|exists:regions,id',
-        ]);
-        City::create($data);
+    public function __construct(
+        private readonly RegionRepositoryInterface $regions,
+    ) {}
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Город добавлен']);
+    public function store(StoreCityRequest $request)
+    {
+        $this->regions->createCity($request->validated());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
-    public function update(Request $request, City $city)
+    public function update(StoreCityRequest $request, City $city)
     {
-        $data = $request->validate([
-            'name_ru'   => 'required|string',
-            'name_tk'   => 'required|string',
-            'region_id' => 'required|exists:regions,id',
-        ]);
-        $city->update($data);
+        $this->regions->updateCity($city, $request->validated());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Обновлено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function toggle(City $city)
     {
-        $hide = ! $city->is_hidden;
-        $city->update(['is_hidden' => $hide]);
+        $this->regions->setCityHidden($city, ! $city->is_hidden);
 
-        // Скрытие города каскадно скрывает его районы.
-        if ($hide) {
-            $city->districts()->update(['is_hidden' => true]);
-        }
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Обновлено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function destroy(Request $request, City $city)
     {
-        if (! $request->user()->isAdmin()) {
-            abort(403);
-        }
+        $this->regions->deleteCity($city);
 
-        $city->delete();
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Город удалён']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);
     }
 }

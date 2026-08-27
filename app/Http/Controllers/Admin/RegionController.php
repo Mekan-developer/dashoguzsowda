@@ -3,63 +3,50 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\District;
+use App\Http\Requests\Admin\StoreRegionRequest;
 use App\Models\Region;
+use App\Repositories\Interfaces\RegionRepositoryInterface;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class RegionController extends Controller
 {
+    public function __construct(
+        private readonly RegionRepositoryInterface $regions,
+    ) {}
+
     public function index()
     {
         return Inertia::render('Regions/Index', [
-            'regions' => Region::with([
-                'cities' => fn ($q) => $q->orderBy('name_ru')->with([
-                    'districts' => fn ($q) => $q->orderBy('name_ru'),
-                ]),
-            ])->orderBy('name_ru')->get(),
+            'regions' => $this->regions->treeForAdmin(),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreRegionRequest $request)
     {
-        $data = $request->validate(['name_ru' => 'required|string', 'name_tk' => 'required|string']);
-        Region::create($data);
+        $this->regions->createRegion($request->validated());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Регион добавлен']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
-    public function update(Request $request, Region $region)
+    public function update(StoreRegionRequest $request, Region $region)
     {
-        $data = $request->validate(['name_ru' => 'required|string', 'name_tk' => 'required|string']);
-        $region->update($data);
+        $this->regions->updateRegion($region, $request->validated());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Обновлено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function toggle(Region $region)
     {
-        $hide = ! $region->is_hidden;
-        $region->update(['is_hidden' => $hide]);
+        $this->regions->setRegionHidden($region, ! $region->is_hidden);
 
-        // Скрытие региона каскадно скрывает вложенные города и районы.
-        if ($hide) {
-            $cityIds = $region->cities()->pluck('id');
-            $region->cities()->update(['is_hidden' => true]);
-            District::whereIn('city_id', $cityIds)->update(['is_hidden' => true]);
-        }
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Обновлено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function destroy(Request $request, Region $region)
     {
-        if (! $request->user()->isAdmin()) {
-            abort(403);
-        }
+        $this->regions->deleteRegion($region);
 
-        $region->delete();
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Регион удалён']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);
     }
 }

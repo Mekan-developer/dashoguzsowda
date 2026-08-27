@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Collection;
 interface TariffRepositoryInterface
 {
     public function all(): Collection;
+    /** Только активные тарифы — для селектов в формах админки. */
+    public function active(): Collection;
     public function find(int $id): Tariff;
     public function create(array $data): Tariff;
     public function update(Tariff $tariff, array $data): Tariff;

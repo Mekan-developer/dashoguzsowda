@@ -7,9 +7,10 @@ use App\Actions\BoostListingAction;
 use App\Actions\RejectListingAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectListingRequest;
-use App\Models\Category;
+use App\Http\Requests\Admin\UpdateListingRequest;
 use App\Models\Listing;
-use App\Models\RejectionReason;
+use App\Repositories\Interfaces\CategoryRepositoryInterface;
+use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Services\ListingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,14 +22,16 @@ class ListingController extends Controller
         private readonly ApproveListingAction $approveAction,
         private readonly RejectListingAction $rejectAction,
         private readonly BoostListingAction $boostAction,
+        private readonly ReasonRepositoryInterface $reasons,
+        private readonly CategoryRepositoryInterface $categories,
     ) {}
 
     public function index(Request $request)
     {
         return Inertia::render('Listings/Index', [
             'listings'         => $this->listingService->list($request->only('status', 'category_id', 'search')),
-            'categories'       => Category::whereNull('parent_id')->get(),
-            'rejectionReasons' => RejectionReason::where('type', 'listing')->where('is_active', true)->get(),
+            'categories'       => $this->categories->roots(),
+            'rejectionReasons' => $this->reasons->activeRejectionReasons('listing'),
             'filters'          => $request->only('status', 'category_id', 'search'),
             'counts'           => $this->listingService->counts(),
         ]);
@@ -38,21 +41,19 @@ class ListingController extends Controller
     {
         return Inertia::render('Listings/Show', [
             'listing'          => $listing->load('user', 'category.parent.parent', 'region', 'city', 'media', 'rejectionReason'),
-            'rejectionReasons' => RejectionReason::where('type', 'listing')->where('is_active', true)->get(),
+            'rejectionReasons' => $this->reasons->activeRejectionReasons('listing'),
         ]);
     }
 
-    public function update(Request $request, Listing $listing)
+    public function update(UpdateListingRequest $request, Listing $listing)
     {
-        $this->listingService->list([]);
-        $listing->update($request->only('title', 'description', 'price'));
+        $this->listingService->updateFromAdmin($listing, $request->validated());
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function destroy(Listing $listing)
     {
-        abort_unless(request()->user()->isAdmin(), 403);
         $this->listingService->delete($listing);
 
         return redirect()->route('listings.index')

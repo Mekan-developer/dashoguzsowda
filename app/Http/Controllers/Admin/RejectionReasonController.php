@@ -3,44 +3,43 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreRejectionReasonRequest;
+use App\Http\Requests\Admin\UpdateRejectionReasonRequest;
 use App\Models\RejectionReason;
-use Illuminate\Http\Request;
+use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use Inertia\Inertia;
 
 class RejectionReasonController extends Controller
 {
+    public function __construct(
+        private readonly ReasonRepositoryInterface $reasons,
+    ) {}
+
     public function index()
     {
         return Inertia::render('RejectionReasons/Index', [
-            'reasons' => RejectionReason::all(),
+            'reasons' => $this->reasons->allRejectionReasons(),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreRejectionReasonRequest $request)
     {
-        $data = $request->validate([
-            'name_ru'   => 'required|string',
-            'name_tk'   => 'required|string',
-            'type'      => 'required|in:listing,video,review',
-            'is_active' => 'boolean',
-        ]);
+        $this->reasons->createRejectionReason($request->validated());
 
-        RejectionReason::create($data);
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Причина добавлена']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
-    public function update(Request $request, RejectionReason $rejectionReason)
+    public function update(UpdateRejectionReasonRequest $request, RejectionReason $rejectionReason)
     {
-        $rejectionReason->update($request->only('name_ru', 'name_tk', 'type', 'is_active'));
+        $this->reasons->updateRejectionReason($rejectionReason, $request->validated());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Обновлено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
     public function destroy(RejectionReason $rejectionReason)
     {
-        $rejectionReason->delete();
+        $this->reasons->deleteRejectionReason($rejectionReason);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Удалено']);
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);
     }
 }

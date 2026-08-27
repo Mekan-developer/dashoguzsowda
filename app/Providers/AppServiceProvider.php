@@ -21,8 +21,12 @@ use App\Repositories\Interfaces\FcmTokenRepositoryInterface;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
 use App\Repositories\Interfaces\NewsRepositoryInterface;
 use App\Repositories\Interfaces\NotificationRepositoryInterface;
+use App\Repositories\Interfaces\PushNotificationRepositoryInterface;
+use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Repositories\Interfaces\RegionRepositoryInterface;
 use App\Repositories\Interfaces\ReviewRepositoryInterface;
+use App\Repositories\Interfaces\SearchRecentRepositoryInterface;
+use App\Repositories\Interfaces\SettingRepositoryInterface;
 use App\Repositories\Interfaces\SmsCodeRepositoryInterface;
 use App\Repositories\Interfaces\TariffRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
@@ -30,8 +34,12 @@ use App\Repositories\Interfaces\VideoRepositoryInterface;
 use App\Repositories\ListingRepository;
 use App\Repositories\NewsRepository;
 use App\Repositories\NotificationRepository;
+use App\Repositories\PushNotificationRepository;
+use App\Repositories\ReasonRepository;
 use App\Repositories\RegionRepository;
 use App\Repositories\ReviewRepository;
+use App\Repositories\SearchRecentRepository;
+use App\Repositories\SettingRepository;
 use App\Repositories\SmsCodeRepository;
 use App\Repositories\TariffRepository;
 use App\Repositories\UserRepository;
@@ -64,6 +72,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(BannerRepositoryInterface::class, BannerRepository::class);
         $this->app->bind(FavoriteRepositoryInterface::class, FavoriteRepository::class);
         $this->app->bind(FcmTokenRepositoryInterface::class, FcmTokenRepository::class);
+        $this->app->bind(PushNotificationRepositoryInterface::class, PushNotificationRepository::class);
+        $this->app->bind(ReasonRepositoryInterface::class, ReasonRepository::class);
+        $this->app->bind(SettingRepositoryInterface::class, SettingRepository::class);
+        $this->app->bind(SearchRecentRepositoryInterface::class, SearchRecentRepository::class);
 
         // SMS_DRIVER=log — OTP пишется в laravel.log (dev);
         // SMS_DRIVER=modem — уходит в socket-server → телефон-отправитель (прод).

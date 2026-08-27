@@ -8,9 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateBoostSettingsRequest;
 use App\Http\Requests\Admin\UpdateLocalizationRequest;
 use App\Http\Requests\Admin\UpdateManagerPermissionsRequest;
-use App\Models\ComplaintReason;
-use App\Models\RejectionReason;
-use App\Models\Setting;
+use App\Repositories\Interfaces\ReasonRepositoryInterface;
+use App\Repositories\Interfaces\SettingRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\MonitoringService;
 use Illuminate\Support\Facades\Auth;
@@ -18,23 +17,30 @@ use Inertia\Inertia;
 
 class SettingsController extends Controller
 {
+    public function __construct(
+        private readonly SettingRepositoryInterface $settings,
+        private readonly ReasonRepositoryInterface $reasons,
+    ) {}
+
     public function index(MonitoringService $monitoring)
     {
         return Inertia::render('Settings/Index', [
             'monitoring'         => $monitoring->getStatus(),
-            'canManageNews'      => (bool) Setting::get('manager_can_manage_news', false),
-            'canManageBanners'   => (bool) Setting::get('manager_can_manage_banners', false),
-            'rejectionReasons'   => RejectionReason::where('type', 'listing')->get(),
-            'complaintReasons'   => ComplaintReason::all(),
+            'canManageNews'      => (bool) $this->settings->get('manager_can_manage_news', false),
+            'canManageBanners'   => (bool) $this->settings->get('manager_can_manage_banners', false),
+            // Страница управляет только причинами отклонения объявлений
+            // (Settings/Index.vue создаёт их с type: 'listing').
+            'rejectionReasons'   => $this->reasons->rejectionReasonsByType('listing'),
+            'complaintReasons'   => $this->reasons->allComplaintReasons(),
             'ownLocale'          => Auth::user()->locale,
-            'defaultAppLocale'   => Setting::get('default_app_locale', 'ru'),
-            'boostIntervalHours' => (int) Setting::get('boost_interval_hours', 24),
+            'defaultAppLocale'   => $this->settings->get('default_app_locale', 'ru'),
+            'boostIntervalHours' => (int) $this->settings->get('boost_interval_hours', 24),
         ]);
     }
 
     public function updateBoostSettings(UpdateBoostSettingsRequest $request)
     {
-        Setting::set('boost_interval_hours', (string) $request->validated('boost_interval_hours'));
+        $this->settings->set('boost_interval_hours', (string) $request->validated('boost_interval_hours'));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.boost_settings_updated')]);
     }
@@ -58,7 +64,7 @@ class SettingsController extends Controller
         $data = $request->validated();
 
         $users->updateLocale($request->user(), $data['own_locale'] ?? null);
-        Setting::set('default_app_locale', $data['default_app_locale']);
+        $this->settings->set('default_app_locale', $data['default_app_locale']);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.localization_updated')]);
     }

@@ -15,4 +15,6 @@ interface ComplaintRepositoryInterface
     public function countPending(): int;
     public function countByStatus(string $status): int;
     public function activeReasons(): Collection;
+    /** Последние необработанные жалобы для дашборда. */
+    public function recentNew(int $limit = 5): Collection;
 }
