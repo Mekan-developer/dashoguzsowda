@@ -43,7 +43,6 @@ class BannerController extends Controller
 
     public function destroy(Banner $banner)
     {
-        abort_unless(request()->user()->isAdmin(), 403);
         $this->bannerService->delete($banner);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);

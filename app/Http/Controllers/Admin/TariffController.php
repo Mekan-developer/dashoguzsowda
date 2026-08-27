@@ -38,7 +38,6 @@ class TariffController extends Controller
 
     public function destroy(Tariff $tariff)
     {
-        abort_unless(request()->user()->isAdmin(), 403);
         $this->tariffService->delete($tariff);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);

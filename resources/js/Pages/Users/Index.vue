@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue'
-import { Link, router } from '@inertiajs/vue3'
+import { computed, ref } from 'vue'
+import { Link, router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import Pagination from '@/Components/Pagination.vue'
@@ -10,6 +10,10 @@ import ConfirmModal from '@/Components/ConfirmModal.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 
 const { t } = useI18n()
+
+// Управление пользователями закрыто от менеджера (routes/web.php → role:admin),
+// поэтому кнопки блокировки и создания ему не показываем.
+const isAdmin = computed(() => usePage().props.auth?.user?.role === 'admin')
 
 const props = defineProps({
     users: Object, regions: Array, tariffs: Array, filters: Object,
@@ -72,7 +76,7 @@ function formatDate(d) {
         <option v-for="r in regions" :key="r.id" :value="r.id">{{ r.name_ru }}</option>
       </select>
       <div class="ml-auto">
-        <button @click="openCreate" class="inline-flex items-center gap-1.5 rounded-btn bg-blue px-[18px] py-[9px] text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(67,97,238,.3)] transition hover:bg-blue-dark">
+        <button v-if="isAdmin" @click="openCreate" class="inline-flex items-center gap-1.5 rounded-btn bg-blue px-[18px] py-[9px] text-[13px] font-bold text-white shadow-[0_4px_12px_rgba(67,97,238,.3)] transition hover:bg-blue-dark">
           + {{ t('actions.add') }}
         </button>
       </div>
@@ -118,10 +122,10 @@ function formatDate(d) {
                 <Link :href="route('users.show', user.id)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-blue-light text-blue transition hover:bg-blue hover:text-white">
                   <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
                 </Link>
-                <button v-if="user.status === 'active'" @click="confirmBlock(user)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-red/10 text-red transition hover:bg-red hover:text-white" :title="t('actions.block')">
+                <button v-if="isAdmin && user.status === 'active'" @click="confirmBlock(user)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-red/10 text-red transition hover:bg-red hover:text-white" :title="t('actions.block')">
                   <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" stroke-width="2"/></svg>
                 </button>
-                <button v-else @click="doUnblock(user)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-green/10 text-green transition hover:bg-green hover:text-white" :title="t('actions.unblock')">
+                <button v-else-if="isAdmin" @click="doUnblock(user)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-green/10 text-green transition hover:bg-green hover:text-white" :title="t('actions.unblock')">
                   <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-width="2" stroke-linecap="round" points="20 6 9 17 4 12"/></svg>
                 </button>
               </div>
@@ -136,7 +140,7 @@ function formatDate(d) {
     </div>
 
     <!-- Create Modal -->
-    <UserCreateModal :open="createOpen" :regions="regions" @close="createOpen = false" />
+    <UserCreateModal v-if="isAdmin" :open="createOpen" :regions="regions" @close="createOpen = false" />
 
     <!-- Block modal -->
     <div v-if="blockTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="blockTarget = null">

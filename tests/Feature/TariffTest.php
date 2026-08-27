@@ -9,13 +9,7 @@ use Illuminate\Support\Str;
 // users table does not have — build the row directly with real columns instead.
 function actingAsTariffRole(string $role): User
 {
-    $user = User::create([
-        'name' => 'Test ' . $role,
-        'phone' => '+993' . fake()->unique()->numerify('#########'),
-        'role' => $role,
-        'password' => Hash::make('password'),
-        'remember_token' => Str::random(10),
-    ]);
+    $user = User::factory()->create(['name' => 'Test ' . $role, 'role' => $role]);
     test()->actingAs($user);
 
     return $user;
@@ -69,12 +63,18 @@ it('only lets one tariff be free at a time', function () {
         ->and((bool) $paid->fresh()->is_free)->toBeTrue();
 });
 
-it('lets a manager create and edit tariffs but not delete them', function () {
+/**
+ * Тарифы — это лимиты и деньги, поэтому целиком закрыты от менеджера
+ * (CLAUDE.md → «Роли»: менеджеру нельзя менять критические настройки).
+ */
+it('closes tariffs to a manager entirely', function () {
     actingAsTariffRole('manager');
     $tariff = Tariff::create(tariffPayload());
 
+    $this->get(route('tariffs.index'))->assertForbidden();
     $this->post(route('tariffs.store'), tariffPayload(['name_ru' => 'Менеджерский', 'name_tk' => 'Dolandyryjy']))
-        ->assertRedirect();
-
+        ->assertForbidden();
+    $this->put(route('tariffs.update', $tariff), tariffPayload())->assertForbidden();
+    $this->patch(route('tariffs.toggle', $tariff))->assertForbidden();
     $this->delete(route('tariffs.destroy', $tariff))->assertForbidden();
 });

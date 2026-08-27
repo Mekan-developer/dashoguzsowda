@@ -38,7 +38,8 @@ if (serverLocale && ['ru', 'tk'].includes(serverLocale) && serverLocale !== loca
     locale.value = serverLocale
     localStorage.setItem('lang', serverLocale)
 }
-const user   = computed(() => page.props.auth?.user)
+const user    = computed(() => page.props.auth?.user)
+const isAdmin = computed(() => user.value?.role === 'admin')
 const counts = computed(() => page.props.counts || {})
 
 const initials = computed(() => {
@@ -77,8 +78,11 @@ const sections = computed(() => [
         { label: t('nav.chat'),        routeName: 'chat.index',        icon: 'chat',    badge: 'unreadChats' },
     ]},
     { title: t('layout.sectionContent').toUpperCase(), eyebrow: t('layout.sectionContent'), items: [
-        { label: t('nav.categories'),  routeName: 'categories.index',  icon: 'tag' },
-        { label: t('nav.regions'),     routeName: 'regions.index',     icon: 'pin' },
+        // Категории и география — структура каталога, только admin (см. routes/web.php)
+        ...(isAdmin.value ? [
+            { label: t('nav.categories'),  routeName: 'categories.index',  icon: 'tag' },
+            { label: t('nav.regions'),     routeName: 'regions.index',     icon: 'pin' },
+        ] : []),
         { label: t('nav.news'),        routeName: 'news.index',        icon: 'news' },
         { label: t('nav.banners'),     routeName: 'banners.index',     icon: 'layers' },
     ]},
@@ -87,9 +91,10 @@ const sections = computed(() => [
         { label: t('nav.reviews'),     routeName: 'reviews.index',     icon: 'star',  badge: 'pendingReviews' },
     ]},
     { title: t('layout.sectionSystem').toUpperCase(), eyebrow: t('layout.sectionSystem'), items: [
-        { label: t('nav.tariffs'),     routeName: 'tariffs.index',     icon: 'coin' },
+        // Тарифы — лимиты и деньги, только admin
+        ...(isAdmin.value ? [{ label: t('nav.tariffs'), routeName: 'tariffs.index', icon: 'coin' }] : []),
         { label: t('nav.statistics'), routeName: 'statistics.index',  icon: 'chart' },
-        ...(user.value?.role === 'admin' ? [
+        ...(isAdmin.value ? [
             { label: t('nav.push'),     routeName: 'push.index',     icon: 'bell' },
             { label: t('nav.settings'), routeName: 'settings.index', icon: 'settings' },
         ] : []),

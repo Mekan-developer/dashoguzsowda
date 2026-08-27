@@ -41,8 +41,6 @@ class CategoryController extends Controller
 
     public function destroy(Request $request, Category $category)
     {
-        abort_unless($request->user()->isAdmin(), 403);
-
         $this->categoryService->delete($category);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);

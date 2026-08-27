@@ -63,7 +63,6 @@ class NewsController extends Controller
 
     public function destroy(News $news)
     {
-        abort_unless(request()->user()->isAdmin(), 403);
         $this->newsService->delete($news);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);

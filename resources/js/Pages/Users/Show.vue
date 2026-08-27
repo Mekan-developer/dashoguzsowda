@@ -1,11 +1,15 @@
 <script setup>
-import { router } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { router, usePage } from '@inertiajs/vue3'
 import { Link } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 
 const { t } = useI18n()
+
+// Блокировка пользователя закрыта от менеджера (routes/web.php → role:admin)
+const isAdmin = computed(() => usePage().props.auth?.user?.role === 'admin')
 
 const props = defineProps({ user: Object, userListings: Array, stats: Object })
 
@@ -77,8 +81,8 @@ function formatDate(d) {
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5 space-y-2">
+        <!-- Actions — только admin (routes/web.php → role:admin) -->
+        <div v-if="isAdmin" class="rounded-card bg-white shadow-soft dark:bg-dcard p-5 space-y-2">
           <button
             v-if="user.status === 'active'"
             @click="router.patch(route('users.block', user.id))"
