@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Repositories\Interfaces\ChatRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 
 class ChatService
 {
@@ -44,7 +45,7 @@ class ChatService
             'is_read'  => false,
         ]);
 
-        broadcast(new NewMessageEvent($message))->toOthers();
+        $this->broadcastMessage($message);
         event(new AdminReplied($message));
 
         return $message;
@@ -59,9 +60,27 @@ class ChatService
             'is_read' => false,
         ]);
 
-        broadcast(new NewMessageEvent($message))->toOthers();
+        $this->broadcastMessage($message);
 
         return $message;
+    }
+
+    /**
+     * Сообщение уже сохранено в БД, поэтому недоступный брокер не должен
+     * превращаться в 500 для отправителя: собеседник получит его при следующем
+     * GET /chat, а оператор иначе решит, что ответ не ушёл, и напишет повторно.
+     */
+    private function broadcastMessage(Message $message): void
+    {
+        try {
+            broadcast(new NewMessageEvent($message))->toOthers();
+        } catch (\Throwable $e) {
+            Log::warning('Не удалось разослать сообщение чата через WebSocket', [
+                'message_id' => $message->id,
+                'user_id'    => $message->user_id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
     }
 
     public function markRead(int $userId): void

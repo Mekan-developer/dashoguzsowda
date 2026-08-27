@@ -15,14 +15,25 @@ class ChatRepository implements ChatRepositoryInterface
         return User::where('role', 'user')
             ->whereHas('messages')
             ->withCount(['messages as unread_count' => fn($q) => $q->where('is_read', false)->where('sender', 'user')])
+            ->withMax('messages as last_message_at', 'created_at')
             ->with(['messages' => fn($q) => $q->latest()->limit(1)])
-            ->latest('updated_at')
+            // Сортировка по последнему сообщению, а не по users.updated_at:
+            // новое сообщение не трогает запись пользователя, поэтому раньше
+            // диалог с только что написавшим не поднимался наверх списка.
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('id')
             ->paginate($perPage);
     }
 
     public function getMessages(int $userId): Collection
     {
-        return Message::where('user_id', $userId)->orderBy('created_at')->get();
+        // orderBy('id') — не косметика: timestamps хранятся с точностью до секунды,
+        // и два сообщения, отправленных подряд, иначе возвращаются в произвольном
+        // порядке (какой именно — зависит от плана запроса).
+        return Message::where('user_id', $userId)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
     }
 
     public function createMessage(array $data): Message
