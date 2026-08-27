@@ -6,6 +6,7 @@ use App\Models\Listing;
 use App\Models\Region;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
@@ -60,9 +61,9 @@ it('reflects an assigned paid tariff with an expiry date', function () {
         'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
         'duration_days' => 30, 'is_free' => false, 'is_active' => true,
     ]);
-    $this->user->update(['tariff_id' => $paid->id, 'tariff_ends_at' => now()->addDays(30)]);
+    app(UserRepositoryInterface::class)->assignTariff($this->user, $paid->id, now()->addDays(30));
 
-    Sanctum::actingAs($this->user);
+    Sanctum::actingAs($this->user->refresh());
 
     $this->getJson('/api/v1/profile/tariff')
         ->assertOk()

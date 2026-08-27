@@ -8,6 +8,7 @@ use App\Models\ListingMedia;
 use App\Models\Region;
 use App\Models\Tariff;
 use App\Models\User;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -280,8 +281,8 @@ it('swaps photos on update but never allows zero photos', function () {
 
 it('forbids a blocked user from editing their own listing', function () {
     $listing = makeListing(['status' => 'rejected', 'user_id' => $this->user->id]);
-    $this->user->update(['status' => 'blocked']);
-    Sanctum::actingAs($this->user);
+    app(UserRepositoryInterface::class)->block($this->user, null);
+    Sanctum::actingAs($this->user->refresh());
 
     $this->postJson("/api/v1/listings/{$listing->id}", ['title' => 'Попытка правки'])->assertForbidden();
 });

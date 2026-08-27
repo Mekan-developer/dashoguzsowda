@@ -6,6 +6,7 @@ use App\Models\Tariff;
 use App\Models\User;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
 use App\Repositories\Interfaces\TariffRepositoryInterface;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Repositories\Interfaces\VideoRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -15,6 +16,7 @@ class TariffService
         private readonly TariffRepositoryInterface $tariffRepository,
         private readonly ListingRepositoryInterface $listingRepository,
         private readonly VideoRepositoryInterface $videoRepository,
+        private readonly UserRepositoryInterface $userRepository,
     ) {}
 
     public function all(): Collection
@@ -64,10 +66,13 @@ class TariffService
 
     public function assignToUser(User $user, Tariff $tariff): void
     {
-        $user->update([
-            'tariff_id'      => $tariff->id,
-            'tariff_ends_at' => now()->addDays($tariff->duration_days),
-        ]);
+        // tariff_* исключены из User::$fillable (это оплаченные лимиты),
+        // поэтому запись идёт явным методом репозитория.
+        $this->userRepository->assignTariff(
+            $user,
+            $tariff->id,
+            now()->addDays($tariff->duration_days),
+        );
     }
 
     public function store(array $data): Tariff

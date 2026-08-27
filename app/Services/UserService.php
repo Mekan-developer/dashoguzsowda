@@ -47,12 +47,12 @@ class UserService
         }
 
         // Пароль пользователем не используется (вход только по SMS) — колонка NOT NULL
-        $data['role']              = 'user';
-        $data['password']          = Hash::make(Str::random(40));
-        $data['phone_verified_at'] = $activation === 'active' ? now() : null;
+        $data['password'] = Hash::make(Str::random(40));
 
         try {
-            $user = $this->userRepository->create($data);
+            // Роль и подтверждение номера передаются аргументами, а не в массиве:
+            // их нельзя подмешать к валидированным данным формы.
+            $user = $this->userRepository->createWithRole($data, 'user', $activation === 'active');
         } catch (UniqueConstraintViolationException) {
             // Гонка: номер заняли между живой проверкой и submit-ом
             if (! empty($data['avatar'])) {
@@ -89,6 +89,18 @@ class UserService
     public function update(User $user, array $data): User
     {
         return $this->userRepository->update($user, $data);
+    }
+
+    /** Флаг прохождения онбординга — синхронизируется между устройствами. */
+    public function setOnboardingCompleted(User $user, bool $completed): User
+    {
+        return $this->userRepository->setOnboardingCompleted($user, $completed);
+    }
+
+    /** Карточка пользователя в админке: последние объявления + счётчики. */
+    public function profileOverview(User $user): array
+    {
+        return $this->userRepository->profileOverview($user);
     }
 
     public function delete(User $user): void
@@ -130,19 +142,11 @@ class UserService
 
     public function block(User $user, ?string $reason): void
     {
-        $this->userRepository->update($user, [
-            'status'         => 'blocked',
-            'blocked_reason' => $reason,
-            'blocked_at'     => now(),
-        ]);
+        $this->userRepository->block($user, $reason);
     }
 
     public function unblock(User $user): void
     {
-        $this->userRepository->update($user, [
-            'status'         => 'active',
-            'blocked_reason' => null,
-            'blocked_at'     => null,
-        ]);
+        $this->userRepository->unblock($user);
     }
 }

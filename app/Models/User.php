@@ -11,10 +11,17 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    /**
+     * Только то, что пользователь вправе менять о себе сам.
+     *
+     * role / status / blocked_* / tariff_* / phone_verified_at сюда НЕ входят:
+     * это привилегии и оплаченные лимиты. Пишутся явно через UserRepository
+     * (block/unblock/assignTariff/markPhoneVerified/createWithRole), чтобы
+     * случайный $user->update($request->all()) не смог выдать роль admin.
+     */
     protected $fillable = [
-        'name', 'phone', 'phone_verified_at', 'email', 'avatar', 'gender', 'birth_date',
-        'region_id', 'city_id', 'district_id', 'role', 'locale', 'status', 'blocked_reason',
-        'tariff_id', 'tariff_ends_at', 'note', 'fcm_token', 'password',
+        'name', 'phone', 'email', 'avatar', 'gender', 'birth_date',
+        'region_id', 'city_id', 'district_id', 'locale', 'note', 'password',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -25,6 +32,8 @@ class User extends Authenticatable
             'birth_date'        => 'date',
             'phone_verified_at' => 'datetime',
             'tariff_ends_at'    => 'datetime',
+            'blocked_at'        => 'datetime',
+            'onboarding_completed' => 'boolean',
             'password'          => 'hashed',
         ];
     }
@@ -42,6 +51,20 @@ class User extends Authenticatable
     public function isAdmin()   { return $this->role === 'admin'; }
     public function isManager() { return $this->role === 'manager'; }
     public function isBlocked() { return $this->status === 'blocked'; }
+
+    /**
+     * Регистрация профиля завершена: есть имя, регион и город.
+     *
+     * По этому флагу мобильное приложение решает, куда вести после splash/OTP:
+     * false → /register, true → /home (mobile_docs/BACKEND_API.md §6).
+     * Считается на лету, без колонки-кэша, чтобы не рассинхронизироваться.
+     */
+    public function isProfileComplete(): bool
+    {
+        return trim((string) $this->name) !== ''
+            && $this->region_id !== null
+            && $this->city_id !== null;
+    }
 
     public function activeTariff()
     {

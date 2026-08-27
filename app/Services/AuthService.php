@@ -47,13 +47,10 @@ class AuthService
 
         if ($isNew) {
             // Регистрация только по номеру: пароль не используется мобильным клиентом
-            $user = $this->userRepository->create([
-                'phone'             => $phone,
-                'phone_verified_at' => now(),
-                'role'              => 'user',
-                'status'            => 'active',
-                'password'          => Hash::make(Str::random(40)),
-            ]);
+            $user = $this->userRepository->createWithRole([
+                'phone'    => $phone,
+                'password' => Hash::make(Str::random(40)),
+            ], 'user', phoneVerified: true);
         }
 
         if ($user->isBlocked()) {
@@ -63,7 +60,7 @@ class AuthService
         // Созданный из админки с опцией «Подтверждение по SMS» активируется
         // при первом успешном вводе кода
         if ($user->phone_verified_at === null) {
-            $user = $this->userRepository->update($user, ['phone_verified_at' => now()]);
+            $user = $this->userRepository->markPhoneVerified($user);
         }
 
         if ($fcmToken) {
@@ -71,7 +68,7 @@ class AuthService
         }
 
         return [
-            'user'   => $user->load('region', 'city'),
+            'user'   => $user->load('region', 'city', 'district'),
             'token'  => $user->createToken('mobile')->plainTextToken,
             'is_new' => $isNew,
         ];
