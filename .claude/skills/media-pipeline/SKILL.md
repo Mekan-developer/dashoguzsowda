@@ -9,7 +9,7 @@ description: Обработка фото и видео в проекте — ф�
 
 - Библиотека: Intervention Image v3
 - Формат: все фото → WebP
-- Варианты: `thumb` (150×150 crop), `medium` (600×600 fit), `original` (resize max 1200px)
+- Варианты: `thumb` (150×150 crop), `medium` (600×600 fit), `original` (resize max 120P0px)
 - Путь: `storage/app/public/listings/{listing_id}/photos/`
 - Обработка через Job: `ProcessListingImagesJob` → queue `media`
 - Максимум 8 фото на объявление
