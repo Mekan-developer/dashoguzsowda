@@ -29,8 +29,12 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
     {
         // Со стандартной заготовкой (пустой список email) дашборд Horizon
         // отдаёт 403 всем при APP_ENV=production. Доступ — по роли admin.
+        //
+        // Роль живёт в колонке users.role, а не в Spatie-таблицах: hasRole()
+        // здесь падал с BadMethodCallException (трейта HasRoles в модели нет),
+        // и /horizon в проде отдавал 500 вместо 403.
         Gate::define('viewHorizon', function ($user = null) {
-            return (bool) $user?->hasRole('admin');
+            return (bool) $user?->isAdmin();
         });
     }
 }

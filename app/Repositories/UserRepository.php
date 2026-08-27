@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\User;
+use App\Repositories\Concerns\BuildsLikeSearch;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -11,11 +12,18 @@ use Illuminate\Support\Facades\DB;
 
 class UserRepository implements UserRepositoryInterface
 {
+    use BuildsLikeSearch;
+
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
         return User::with('region', 'city', 'tariff')
             ->where('role', 'user')
-            ->when($filters['search'] ?? null, fn($q, $s) => $q->where('phone', 'like', "%$s%")->orWhere('name', 'like', "%$s%"))
+            // Скобки обязательны: без них OR имеет более низкий приоритет, чем AND,
+            // и совпадение по name проходило мимо фильтра role = 'user' —
+            // в списке пользователей всплывали admin и manager с телефонами и note.
+            ->when($filters['search'] ?? null, fn($q, $s) => $q->where(fn($w) => $w
+                ->where('phone', 'like', self::likeTerm($s))
+                ->orWhere('name', 'like', self::likeTerm($s))))
             ->when($filters['status'] ?? null, fn($q, $s) => $q->where('status', $s))
             ->when($filters['region_id'] ?? null, fn($q, $r) => $q->where('region_id', $r))
             ->latest()

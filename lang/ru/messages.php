@@ -50,6 +50,7 @@ return [
 
     'favorite_added'   => 'Добавлено в избранное',
     'favorite_removed' => 'Удалено из избранного',
+    'favorite_listing_unavailable' => 'Объявление недоступно',
 
     'category_max_level' => 'Нельзя создать категорию глубже 3 уровней',
     'category_parent_invalid' => 'Категория не может быть родителем сама для себя или своего потомка',

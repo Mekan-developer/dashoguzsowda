@@ -5,15 +5,13 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\RegisteredUserController;
 use Illuminate\Support\Facades\Route;
 
+// Публичной регистрации нет: пользователи приложения заводятся только через
+// POST /api/v1/auth/verify (по SMS), admin/manager — сидером или вручную.
+// Заготовка Breeze (/register + Register.vue) удалена: она создавала аккаунт
+// с email и паролем любому, кто открыл страницу.
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
-
-    Route::post('register', [RegisteredUserController::class, 'store']);
-
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 

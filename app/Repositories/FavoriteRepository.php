@@ -25,6 +25,10 @@ class FavoriteRepository implements FavoriteRepositoryInterface
     {
         return Favorite::with('listing.media', 'listing.category')
             ->where('user_id', $userId)
+            // Объявление могло быть снято с публикации уже после добавления
+            // в избранное — тогда его нельзя отдавать: FavoriteResource
+            // разворачивает listing целиком, вместе с телефоном продавца.
+            ->whereHas('listing', fn($q) => $q->where('status', 'approved'))
             ->latest()
             ->paginate($perPage)
             ->withQueryString();

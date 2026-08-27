@@ -60,6 +60,42 @@ it('validates listing_id when adding to favorites', function () {
     $this->postJson('/api/v1/favorites', ['listing_id' => 999999])->assertUnprocessable()->assertJsonValidationErrors('listing_id');
 });
 
+it('refuses to favorite someone elses unmoderated listing', function () {
+    Sanctum::actingAs($this->user);
+
+    $pending = Listing::create([
+        'user_id'     => $this->owner->id,
+        'category_id' => $this->category->id,
+        'region_id'   => $this->region->id,
+        'city_id'     => $this->city->id,
+        'title'       => 'SECRET PENDING',
+        'type'        => 'goods',
+        'phone'       => $this->owner->phone,
+        'status'      => 'pending',
+    ]);
+
+    // Само объявление скрыто — избранное не должно быть обходным путём к нему
+    $this->getJson("/api/v1/listings/{$pending->id}")->assertNotFound();
+
+    $this->postJson('/api/v1/favorites', ['listing_id' => $pending->id])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('listing_id');
+
+    expect(Favorite::where('listing_id', $pending->id)->exists())->toBeFalse();
+});
+
+it('hides listings unpublished after they were favorited', function () {
+    Sanctum::actingAs($this->user);
+    Favorite::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id]);
+
+    $this->listing->update(['status' => 'rejected']);
+
+    $this->getJson('/api/v1/favorites')
+        ->assertOk()
+        ->assertJsonCount(0, 'data')
+        ->assertJsonPath('meta.total', 0);
+});
+
 it('lists user favorites with listing payload and pagination meta', function () {
     Sanctum::actingAs($this->user);
     Favorite::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id]);

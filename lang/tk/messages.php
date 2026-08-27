@@ -50,6 +50,7 @@ return [
 
     'favorite_added'   => 'Halanýanlara goşuldy',
     'favorite_removed' => 'Halanýanlardan aýryldy',
+    'favorite_listing_unavailable' => 'Bildiriş elýeterli däl',
 
     'category_max_level' => '3 derejeden çuňňur kategoriýa döredip bolmaz',
     'category_parent_invalid' => 'Kategoriýa öz-özüne ýa-da öz nesline eýe bolup bilmez',
