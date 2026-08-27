@@ -81,9 +81,9 @@
       <label>Имя события</label>
       <input type="text" id="event-name" value="otp">
     </div>
-    <button id="btn-connect" disabled>Загрузка…</button>
+    <button id="btn-connect">Подключиться</button>
   </div>
-  <p class="hint">Server URL подставляется автоматически под то, откуда открыта страница (напрямую со шлюза или через <code>/otp</code> на домене) — менять обычно не нужно. OTP_SECRET обязателен: без него сервер рвёт соединение с <code>unauthorized</code>. Это тот же секрет, что в .env сервера и в настройках телефона. Имя события должно совпадать с OTP_EVENT_NAME (сейчас: <code>otp</code>).</p>
+  <p class="hint">Server URL подставляется автоматически под то, откуда открыта страница (напрямую со шлюза или через <code>/otp</code> на домене). Если страница открыта локальным файлом или с другого порта — впиши адрес шлюза руками, например <code>http://192.168.31.163:3000</code>. OTP_SECRET обязателен: без него сервер рвёт соединение с <code>unauthorized</code>. Это тот же секрет, что в .env сервера и в настройках телефона. Имя события должно совпадать с OTP_EVENT_NAME (сейчас: <code>otp</code>).</p>
 </div>
 
 <!-- Direct bridge test -->
@@ -122,18 +122,37 @@
 let socket = null;
 let eventName = 'otp';
 
-// Страница открывается двумя способами, и адрес шлюза у них разный:
+// Страница открывается по-разному, и origin страницы далеко не всегда origin
+// шлюза:
 //   http://<IP>:3000/test          — напрямую со шлюза, префикса нет;
 //   https://<домен>/test-otp.html  — через Caddy, шлюз живёт под /otp
-//                                    (см. docker/caddy/Caddyfile).
-// Подставляем нужный вариант сам: браузер обязан ходить на тот же origin, что и
-// страница, иначе ws режется как mixed content, а POST — по CORS.
-const GATEWAY_BASE = location.protocol.startsWith('http')
-  ? location.origin + (location.pathname === '/test-otp.html' ? '/otp' : '')
-  : 'http://127.0.0.1:3000';
+//                                    (см. docker/caddy/Caddyfile);
+//   file:///…/test.html, Live Server и прочее — origin к шлюзу отношения не
+//                                    имеет, берём тот же хост на штатном :3000.
+// Это только значение по умолчанию для поля — адрес можно поправить руками,
+// клиент socket.io грузится уже по тому, что стоит в поле на момент нажатия.
+function guessGatewayBase() {
+  if (!location.protocol.startsWith('http')) return 'http://127.0.0.1:3000';
+  if (location.pathname === '/test-otp.html') return `${location.origin}/otp`;
+  if (location.pathname === '/test')          return location.origin;
 
-document.getElementById('server-url').value = GATEWAY_BASE;
-document.getElementById('emit-url').value   = `${GATEWAY_BASE}/emit-otp`;
+  return `${location.protocol}//${location.hostname}:3000`;
+}
+
+const GATEWAY_BASE = guessGatewayBase();
+const serverUrlEl  = document.getElementById('server-url');
+const emitUrlEl    = document.getElementById('emit-url');
+
+serverUrlEl.value = GATEWAY_BASE;
+emitUrlEl.value   = `${GATEWAY_BASE}/emit-otp`;
+
+// Пока Bridge URL не трогали руками — держим его в связке с адресом шлюза,
+// иначе правка одного поля молча оставляет второе смотреть не туда.
+let emitUrlEdited = false;
+emitUrlEl.addEventListener('input', () => { emitUrlEdited = true; });
+serverUrlEl.addEventListener('input', () => {
+  if (!emitUrlEdited) emitUrlEl.value = `${serverUrlEl.value.trim().replace(/\/+$/, '')}/emit-otp`;
+});
 
 const log = document.getElementById('log');
 const badge = document.getElementById('badge');
@@ -154,25 +173,34 @@ function addLog(html) {
 }
 
 // Клиентскую библиотеку отдаёт сам socket.io-сервер (serveClient), поэтому она
-// доступна везде, где доступен шлюз, — CDN не нужен.
-(function loadSocketIoClient() {
-  const src = `${GATEWAY_BASE}/socket.io/socket.io.js`;
-  const lib = document.createElement('script');
+// доступна везде, где доступен шлюз, — CDN не нужен. Грузим её лениво, по
+// адресу из поля: страницу открывают и не со шлюза (локальный файл, Live
+// Server), и там угаданный адрес промахивается — при загрузке на старте
+// единственный промах намертво блокировал кнопку.
+let loadedFrom = null;
 
-  lib.src = src;
-  lib.onload = () => {
-    btnConnect.disabled = false;
-    btnConnect.textContent = 'Подключиться';
-    addLog(`<span class="log-time">${ts()}</span><span class="log-connect">✓ Клиент socket.io загружен с ${src}</span>`);
-  };
-  lib.onerror = () => {
-    setStatus('err');
-    btnConnect.textContent = 'Недоступно';
-    addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ Не удалось загрузить клиент socket.io с ${src} — шлюз недоступен по этому адресу</span>`);
-  };
+function ensureSocketIoClient(base) {
+  if (window.io && loadedFrom === base) return Promise.resolve();
 
-  document.head.appendChild(lib);
-})();
+  const src = `${base}/socket.io/socket.io.js`;
+
+  return new Promise((resolve, reject) => {
+    const lib = document.createElement('script');
+
+    lib.src = src;
+    lib.onload = () => {
+      loadedFrom = base;
+      addLog(`<span class="log-time">${ts()}</span><span class="log-connect">✓ Клиент socket.io загружен с ${src}</span>`);
+      resolve();
+    };
+    lib.onerror = () => {
+      lib.remove();
+      reject(new Error(`не удалось загрузить клиент socket.io с ${src} — шлюз недоступен по этому адресу`));
+    };
+
+    document.head.appendChild(lib);
+  });
+}
 
 function setStatus(state) {
   const states = {
@@ -186,7 +214,7 @@ function setStatus(state) {
   badgeText.textContent = s.text;
 }
 
-btnConnect.addEventListener('click', () => {
+btnConnect.addEventListener('click', async () => {
   if (socket && socket.connected) {
     socket.disconnect();
     return;
@@ -199,9 +227,31 @@ btnConnect.addEventListener('click', () => {
 
   // io() принимает origin и путь транспорта раздельно: если шлюз проксируется
   // под префиксом (https://<домен>/otp), socket.io лежит на <префикс>/socket.io.
-  const parsed = new URL(url);
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    setStatus('err');
+    addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ Некорректный Server URL: "${url}" — нужен полный адрес вида http://192.168.31.163:3000</span>`);
+    return;
+  }
+
   const prefix = parsed.pathname.replace(/\/+$/, '');
   const socketPath = `${prefix}/socket.io`;
+  const base = parsed.origin + prefix;
+
+  btnConnect.disabled = true;
+  btnConnect.textContent = 'Загрузка…';
+  try {
+    await ensureSocketIoClient(base);
+  } catch (e) {
+    setStatus('err');
+    addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ ${e.message}</span>`);
+    return;
+  } finally {
+    btnConnect.disabled = false;
+    if (!(socket && socket.connected)) btnConnect.textContent = 'Подключиться';
+  }
 
   addLog(`<span class="log-time">${ts()}</span><span class="log-connect">→ Подключаюсь к ${parsed.origin} (path: "${socketPath}", событие: "${eventName}")</span>`);
 
