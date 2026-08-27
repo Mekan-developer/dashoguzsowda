@@ -2,10 +2,12 @@
 import { useI18n } from 'vue-i18n'
 
 defineProps({
-    open:    { type: Boolean, default: false },
-    message: { type: String,  default: '' },
-    danger:  { type: Boolean, default: true },
-    title:   { type: String,  default: '' },
+    open:         { type: Boolean, default: false },
+    message:      { type: String,  default: '' },
+    danger:       { type: Boolean, default: true },
+    title:        { type: String,  default: '' },
+    confirmLabel: { type: String,  default: '' },
+    cancelLabel:  { type: String,  default: '' },
 })
 defineEmits(['confirm', 'cancel'])
 
@@ -27,12 +29,12 @@ const { t } = useI18n()
             <button
               @click="$emit('cancel')"
               class="flex-1 rounded-btn border-2 border-line bg-white py-[11px] text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:bg-dcard dark:border-dline"
-            >{{ t('actions.cancel') }}</button>
+            >{{ cancelLabel || t('actions.cancel') }}</button>
             <button
               @click="$emit('confirm')"
               class="flex-1 rounded-btn py-[11px] text-[13px] font-bold text-white transition hover:opacity-90"
               :class="danger ? 'bg-red' : 'bg-blue'"
-            >{{ t('common.confirm') }}</button>
+            >{{ confirmLabel || t('common.confirm') }}</button>
           </div>
         </div>
       </div>

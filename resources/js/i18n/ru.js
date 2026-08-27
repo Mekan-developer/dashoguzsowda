@@ -484,6 +484,10 @@ export default {
     },
     drawer: {
         defaultTitle: 'Форма',
+        closeConfirmTitle: 'Закрыть форму?',
+        closeConfirmMessage: 'Несохранённые данные будут потеряны.',
+        closeConfirmYes: 'Закрыть',
+        closeConfirmNo: 'Остаться',
     },
     dataTable: {
         searchPlaceholder: 'Поиск...',

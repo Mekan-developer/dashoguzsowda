@@ -1,14 +1,23 @@
 <script setup>
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ConfirmModal from '@/Components/ConfirmModal.vue'
 
 defineProps({
     open:  { type: Boolean, default: false },
     title: { type: String, default: '' },
     width: { type: String, default: '480px' },
 })
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const { t } = useI18n()
+
+// Закрытие по клику вне панели / крестику — не мгновенное, а через подтверждение,
+// чтобы случайный клик мимо не сбрасывал введённые в форму данные.
+const confirmingClose = ref(false)
+function requestClose() { confirmingClose.value = true }
+function confirmClose() { confirmingClose.value = false; emit('close') }
+function cancelClose()  { confirmingClose.value = false }
 </script>
 
 <template>
@@ -16,7 +25,7 @@ const { t } = useI18n()
     <Transition name="drawer">
       <div v-if="open" class="fixed inset-0 z-[500] flex justify-end">
         <!-- Overlay -->
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="$emit('close')"></div>
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="requestClose"></div>
 
         <!-- Panel -->
         <div
@@ -27,7 +36,7 @@ const { t } = useI18n()
           <div class="flex items-center justify-between px-6 py-5 border-b border-line dark:border-dline">
             <h2 class="text-[16px] font-extrabold text-ink dark:text-slate-100">{{ title || t('drawer.defaultTitle') }}</h2>
             <button
-              @click="$emit('close')"
+              @click="requestClose"
               class="flex h-8 w-8 items-center justify-center rounded-[7px] text-muted hover:bg-surface dark:hover:bg-white/10 transition"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,6 +58,17 @@ const { t } = useI18n()
       </div>
     </Transition>
   </Teleport>
+
+  <ConfirmModal
+    :open="confirmingClose"
+    :title="t('drawer.closeConfirmTitle')"
+    :message="t('drawer.closeConfirmMessage')"
+    :confirm-label="t('drawer.closeConfirmYes')"
+    :cancel-label="t('drawer.closeConfirmNo')"
+    :danger="false"
+    @confirm="confirmClose"
+    @cancel="cancelClose"
+  />
 </template>
 
 <style scoped>

@@ -484,6 +484,10 @@ export default {
     },
     drawer: {
         defaultTitle: 'Forma',
+        closeConfirmTitle: 'Formany ýapmalymy?',
+        closeConfirmMessage: 'Ýatda saklanmadyk maglumatlar ýitiriler.',
+        closeConfirmYes: 'Ýap',
+        closeConfirmNo: 'Galmak',
     },
     dataTable: {
         searchPlaceholder: 'Gözleg...',
