@@ -31,7 +31,7 @@ class ProfileController extends Controller
     public function show(Request $request)
     {
         return response()->json([
-            'data'    => new UserResource($request->user()->load('region', 'city')),
+            'data'    => new UserResource($request->user()->load('region', 'city', 'district')),
             'message' => 'Success',
         ]);
     }
@@ -47,7 +47,7 @@ class ProfileController extends Controller
         $user = $this->userService->update($request->user(), $request->validated());
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city')),
+            'data'    => new UserResource($user->load('region', 'city', 'district')),
             'message' => __('messages.updated'),
         ]);
     }
@@ -85,7 +85,7 @@ class ProfileController extends Controller
         $user = $this->userService->updateAvatar($request->user(), $request->file('avatar'));
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city')),
+            'data'    => new UserResource($user->load('region', 'city', 'district')),
             'message' => __('messages.updated'),
         ]);
     }
@@ -101,7 +101,7 @@ class ProfileController extends Controller
         $user = $this->userService->removeAvatar($request->user());
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city')),
+            'data'    => new UserResource($user->load('region', 'city', 'district')),
             'message' => __('messages.updated'),
         ]);
     }
@@ -140,7 +140,7 @@ class ProfileController extends Controller
         );
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city')),
+            'data'    => new UserResource($user->load('region', 'city', 'district')),
             'message' => __('messages.phone_changed'),
         ]);
     }

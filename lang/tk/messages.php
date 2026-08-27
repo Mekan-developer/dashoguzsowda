@@ -17,6 +17,8 @@ return [
     'listing_photos_required' => 'Bildirişde azyndan bir surat galmaly',
     'listing_photos_limit'    => 'Bir bildirişe iň köp 8 surat',
     'category_must_be_leaf'   => 'Iň soňky kiçi kategoriýany saýlaň',
+    'city_not_in_region'      => 'Saýlanan şäher görkezilen welaýata degişli däl',
+    'district_not_in_city'    => 'Saýlanan etrap görkezilen şähere degişli däl',
     'boost_interval_not_passed' => 'Ýokary galdyryp bolmaz — aralyk heniz geçmedi',
     'tariff_limit_exceeded' => 'Tarif limiti doldy',
     'tariff_assigned' => 'Tarif bellenildi',

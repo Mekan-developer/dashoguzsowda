@@ -17,6 +17,8 @@ return [
     'listing_photos_required' => 'У объявления должно остаться хотя бы одно фото',
     'listing_photos_limit'    => 'Максимум 8 фотографий на объявление',
     'category_must_be_leaf'   => 'Выберите конечную подкатегорию',
+    'city_not_in_region'      => 'Выбранный город не относится к указанному региону',
+    'district_not_in_city'    => 'Выбранный район не относится к указанному городу',
     'boost_interval_not_passed' => 'Нельзя поднять — интервал ещё не прошёл',
     'tariff_limit_exceeded' => 'Лимит тарифа исчерпан',
     'tariff_assigned' => 'Тариф назначен',
