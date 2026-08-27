@@ -21,17 +21,34 @@ body:json {
     "gender": "male",
     "birth_date": "1995-04-12",
     "region_id": 1,
-    "city_id": 1
+    "city_id": 1,
+    "district_id": 1
   }
 }
 
 docs {
   Все поля необязательные — можно слать только изменяемые.
-  gender: male|female. birth_date: YYYY-MM-DD.
+  gender: male|female. birth_date: YYYY-MM-DD (строго раньше сегодня).
+
+  География проверяется цепочкой регион → город → район, причём недостающие
+  звенья берутся из текущего профиля. То есть смена одного только region_id
+  вернёт 422 (city_not_in_region), если город остался от прежнего региона —
+  слать регион и город вместе.
+  Скрытые (is_hidden) регионы/города/районы не принимаются.
+
+  Телефон здесь не меняется — для него отдельный сценарий из двух шагов
+  (Profile → «Смена номера»).
 }
 
 tests {
   test("status is 200", function() {
     expect(res.getStatus()).to.equal(200);
+  });
+
+  test("flat geo ids are returned back", function() {
+    const data = res.getBody().data;
+    expect(data).to.have.property('region_id');
+    expect(data).to.have.property('city_id');
+    expect(data).to.have.property('district_id');
   });
 }

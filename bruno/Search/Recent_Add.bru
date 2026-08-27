@@ -1,0 +1,44 @@
+meta {
+  name: Запомнить поисковый запрос
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/search/recent
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "query": "iPhone 13"
+  }
+}
+
+docs {
+  Кладёт запрос наверх истории и сразу возвращает обновлённый список.
+
+  Дедупликация регистронезависимая и без учёта крайних пробелов:
+  «iPhone», «iphone » и «IPHONE» — одна запись, наверху остаётся последнее
+  написание. Список подрезается до 8 элементов, лишнее вытесняется снизу.
+
+  Пустая строка и строка из одних пробелов отклоняются с 422 (max: 191 символ).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("query is on top and list is capped at 8", function() {
+    const data = res.getBody().data;
+    expect(data[0]).to.equal("iPhone 13");
+    expect(data.length).to.be.at.most(8);
+  });
+}

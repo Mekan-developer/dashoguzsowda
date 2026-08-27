@@ -10,14 +10,26 @@ get {
 }
 
 params:query {
-  type:
+  ~type: regular
   page: 1
   limit: 20
 }
 
 headers {
   Accept: application/json
-  Content-Type: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Публичная лента новостей — токен не нужен.
+
+  Отдаются только опубликованные и уже наступившие: новость с published_at
+  в будущем в ленту не попадает, пока время не подошло.
+
+  Фильтры: type (regular|ad), page, limit (1–50, по умолчанию 20).
+  Потолок у limit жёсткий: ?limit=1000000 вернёт 422, а не всю таблицу.
+
+  Ответ: { data, meta, links }.
 }
 
 tests {

@@ -1,0 +1,34 @@
+meta {
+  name: Настройки аккаунта
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/v1/preferences
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Настройки, которые синхронизируются между устройствами пользователя.
+  Сейчас в ответе одно поле — onboarding_completed (bool).
+
+  Язык и тема сюда НЕ входят: они device-local и живут на устройстве.
+  Язык интерфейса для ответов API передаётся заголовком Accept-Language.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns onboarding_completed as boolean", function() {
+    expect(res.getBody().data.onboarding_completed).to.be.a("boolean");
+  });
+}

@@ -1,0 +1,40 @@
+meta {
+  name: Отметить онбординг пройденным
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{base_url}}/v1/preferences
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "onboarding_completed": true
+  }
+}
+
+docs {
+  Вызывается один раз — когда пользователь досмотрел приветственные экраны.
+  После этого онбординг не показывается и на других его устройствах.
+
+  onboarding_completed обязателен и должен быть boolean — без него 422.
+  Ответ тот же, что у GET /v1/preferences.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("flag is saved", function() {
+    expect(res.getBody().data.onboarding_completed).to.equal(true);
+  });
+}

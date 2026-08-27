@@ -1,0 +1,36 @@
+meta {
+  name: История поиска
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/v1/search/recent
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  До 8 последних поисковых запросов пользователя, новые сверху.
+  Ответ — плоский массив строк: { "data": ["iPhone", "квартира"] }.
+
+  Только для авторизованных: гость хранит историю на устройстве,
+  поэтому без токена — 401.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns an array of at most 8 queries", function() {
+    const data = res.getBody().data;
+    expect(data).to.be.an("array");
+    expect(data.length).to.be.at.most(8);
+  });
+}

@@ -11,6 +11,12 @@ get {
 
 headers {
   Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Черновик и новость с ещё не наступившим published_at отдают 404 —
+  так же, как если бы записи не существовало.
 }
 
 tests {

@@ -15,6 +15,17 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+docs {
+  Профиль текущего пользователя.
+
+  География отдаётся дважды: плоскими region_id / city_id / district_id
+  (их читает мобильное приложение) и вложенными объектами region/city/district
+  с названиями — чтобы показать их без второго запроса.
+
+  is_profile_complete — заполнены ли имя, регион и город. По нему мобильный
+  клиент решает, вести ли пользователя после OTP на экран заполнения профиля.
+}
+
 tests {
   test("status is 200", function() {
     expect(res.getStatus()).to.equal(200);
@@ -22,5 +33,13 @@ tests {
 
   test("has phone", function() {
     expect(res.getBody().data).to.have.property('phone');
+  });
+
+  test("exposes is_profile_complete and flat geo ids", function() {
+    const data = res.getBody().data;
+    expect(data.is_profile_complete).to.be.a("boolean");
+    expect(data).to.have.property('region_id');
+    expect(data).to.have.property('city_id');
+    expect(data).to.have.property('district_id');
   });
 }

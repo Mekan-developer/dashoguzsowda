@@ -1,0 +1,45 @@
+meta {
+  name: Авторизация WebSocket-канала
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/broadcasting/auth
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "socket_id": "123456.7890123",
+    "channel_name": "private-chat.1"
+  }
+}
+
+docs {
+  Рукопожатие перед подпиской на приватный канал Reverb — обычно его делает
+  клиентская библиотека (Echo/pusher-js), здесь он нужен для отладки.
+
+  Мобильные клиенты ходят именно на /api/broadcasting/auth (Sanctum-токен);
+  админка авторизуется сессией на /broadcasting/auth без префикса api.
+
+  socket_id выдаёт WebSocket-соединение при подключении — подставить свой.
+  Каналы: private-chat.{user_id} — свой диалог (admin/manager видят любой),
+  private-App.Models.User.{id} — личные уведомления.
+  Чужой канал → 403.
+
+  Ответ: { "auth": "<app_key>:<signature>" } — эту подпись клиент отправляет
+  в кадре подписки.
+}
+
+tests {
+  test("returns channel signature", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody()).to.have.property('auth');
+  });
+}

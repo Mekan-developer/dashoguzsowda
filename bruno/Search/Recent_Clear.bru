@@ -1,0 +1,32 @@
+meta {
+  name: Очистить историю поиска
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{base_url}}/v1/search/recent
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Стирает историю целиком (удаления по одному запросу нет).
+  Идемпотентно: на пустой истории тоже 200.
+  Ответ: { "data": { "cleared": true } }.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("history is cleared", function() {
+    expect(res.getBody().data.cleared).to.equal(true);
+  });
+}

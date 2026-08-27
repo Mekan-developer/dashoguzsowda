@@ -1,0 +1,32 @@
+meta {
+  name: Chunked — отмена загрузки
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{base_url}}/v1/videos/upload/{{upload_id}}
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Бросает незавершённую сессию: удаляет уже принятые части и освобождает место.
+  Вызывать, когда пользователь ушёл с экрана загрузки или отменил её сам —
+  иначе куски лежат до истечения сессии.
+
+  Отменить можно только свою сессию: чужая — 403, несуществующая или
+  истёкшая — 404 (video_upload_session_not_found).
+  Ответ: { "data": null, "message": "Success" }.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
