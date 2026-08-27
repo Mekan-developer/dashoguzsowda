@@ -10,6 +10,7 @@ use App\Models\Review;
 use App\Models\User;
 use App\Models\Video;
 use App\Repositories\Interfaces\NotificationRepositoryInterface;
+use Illuminate\Support\Facades\DB;
 
 class NotificationRepository implements NotificationRepositoryInterface
 {
@@ -53,6 +54,37 @@ class NotificationRepository implements NotificationRepositoryInterface
                 ->latest()
                 ->limit($limitPerCategory)
                 ->get(['id', 'text', 'created_at']),
+        ];
+    }
+
+    /**
+     * Бейджи меню считаются на КАЖДЫЙ запрос админки, включая XHR-переходы
+     * Inertia. Раньше это были шесть отдельных COUNT-ов из middleware; здесь
+     * они собраны в один запрос подзапросами — данные остаются свежими
+     * (кэш дал бы модератору устаревшие числа сразу после модерации).
+     *
+     * 0 вместо false: sqlite биндит false как '' и не матчит 0.
+     */
+    public function counters(): array
+    {
+        $row = DB::selectOne(
+            'select
+                (select count(*) from users where role = ? and created_at >= ?) as new_users,
+                (select count(*) from listings where status = ?) as pending_listings,
+                (select count(*) from videos where status = ?) as pending_videos,
+                (select count(distinct user_id) from messages where sender = ? and is_read = ?) as unread_chats,
+                (select count(*) from complaints where status = ?) as new_complaints,
+                (select count(*) from reviews where status = ?) as pending_reviews',
+            ['user', now()->subDay(), 'pending', 'pending', 'user', 0, 'new', 'pending'],
+        );
+
+        return [
+            'newUsers'        => (int) $row->new_users,
+            'pendingListings' => (int) $row->pending_listings,
+            'pendingVideos'   => (int) $row->pending_videos,
+            'unreadChats'     => (int) $row->unread_chats,
+            'newComplaints'   => (int) $row->new_complaints,
+            'pendingReviews'  => (int) $row->pending_reviews,
         ];
     }
 

@@ -2,12 +2,8 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Complaint;
-use App\Models\Listing;
-use App\Models\Message;
-use App\Models\Review;
-use App\Models\User;
-use App\Models\Video;
+use App\Http\Resources\Admin\AuthUserResource;
+use App\Repositories\Interfaces\NotificationRepositoryInterface;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -16,6 +12,11 @@ class HandleInertiaRequests extends Middleware
 {
     protected $rootView = 'app';
 
+    public function __construct(
+        private readonly NotificationRepositoryInterface $notifications,
+        private readonly NotificationService $notificationService,
+    ) {}
+
     public function version(Request $request): ?string
     {
         return parent::version($request);
@@ -23,20 +24,20 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
-            'auth'  => ['user' => $request->user()],
+            // Ресурс, а не сырая модель: в props уходят только те поля,
+            // которые реально читает фронт.
+            // resolve(), а не сам ресурс: JsonResource сериализуется в Inertia
+            // с обёрткой `data`, и фронт ждал бы auth.user.data.role.
+            'auth'  => ['user' => $user ? (new AuthUserResource($user))->resolve($request) : null],
             'flash' => fn () => ['toast' => $request->session()->get('toast')],
-            'counts' => fn () => $request->user() ? [
-                'newUsers'        => User::where('role', 'user')->where('created_at', '>=', now()->subDay())->count(),
-                'pendingListings' => Listing::where('status', 'pending')->count(),
-                'pendingVideos'   => Video::where('status', 'pending')->count(),
-                'unreadChats'     => Message::where('sender', 'user')->where('is_read', false)->distinct('user_id')->count('user_id'),
-                'newComplaints'   => Complaint::where('status', 'new')->count(),
-                'pendingReviews'  => Review::where('status', 'pending')->count(),
-            ] : [],
-            'notifications' => fn () => $request->user()
-                ? app(NotificationService::class)->forUser($request->user())
+            // Шесть COUNT-ов заменены одним запросом в репозитории.
+            'counts' => fn () => $user ? $this->notifications->counters() : [],
+            'notifications' => fn () => $user
+                ? $this->notificationService->forUser($user)
                 : [],
         ];
     }
