@@ -276,6 +276,8 @@ export default {
         nameRu: 'Ady (rus)',
         nameTk: 'Ady (türkmen)',
         icon: 'Nyşan',
+        image: 'Surat',
+        imageHint: 'Diňe kök kategoriýalar üçin elýeterli',
         activeField: 'Işjeň',
         hiddenHint: 'Gizlin kategoriýalar programmada görkezilmeýär',
         empty: 'Kategoriýa ýok',
@@ -504,7 +506,7 @@ export default {
     imageUpload: {
         upload: 'Surat ýüklemek',
         formats: 'JPG, PNG, WebP · {mb} MB çenli · azyndan {w}×{h}px',
-        dragHint: 'Görkeziljek bölegi saýlamak üçin suraty süýşüriň',
+        dragHint: 'Kesiljek bölegi saýlamak üçin çarçuwany süýşüriň',
         badFormat: 'Rugsat berlen formatlar: JPG, PNG, WebP',
         tooBig: 'Faýl {mb} MB-den uly',
         smallWarning: 'Surat {w}×{h}px-den kiçi — sahypa suratynyň hili pese düşüp biler',

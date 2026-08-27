@@ -58,6 +58,7 @@ return [
     'category_max_level' => '3 derejeden çuňňur kategoriýa döredip bolmaz',
     'category_parent_invalid' => 'Kategoriýa öz-özüne ýa-da öz nesline eýe bolup bilmez',
     'category_has_listings' => 'Öçürip bolmaz — kategoriýa (ýa-da onuň kiçi kategoriýalary) bildirişlerde ulanylýar',
+    'category_image_root_only' => 'Surat diňe kök kategoriýa üçin goşulyp bilner',
 
     'user_blocked'   => 'Ulanyjy petiklendi',
     'user_unblocked' => 'Ulanyjy petiklemeden çykaryldy',

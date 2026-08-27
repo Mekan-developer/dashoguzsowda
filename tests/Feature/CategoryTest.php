@@ -91,6 +91,45 @@ it('rejects an icon_path that is not a known library entry', function () {
         ->assertSessionHasErrors('icon_path');
 });
 
+it('uploads an image for a root category', function () {
+    actingAdmin();
+
+    $image = UploadedFile::fake()->image('cover.jpg', 900, 900);
+
+    $this->post(route('categories.store'), ['name_ru' => 'С картинкой', 'image' => $image])
+        ->assertRedirect();
+
+    $category = Category::where('name_ru', 'С картинкой')->firstOrFail();
+    expect($category->image_path)->not->toBeNull();
+    Storage::disk('public')->assertExists($category->image_path);
+});
+
+it('rejects an image on a non-root category', function () {
+    actingAdmin();
+
+    $root = Category::create(['name_ru' => 'Родитель', 'slug' => 'parent-img', 'level' => 1, 'order' => 1]);
+    $image = UploadedFile::fake()->image('cover.jpg', 900, 900);
+
+    $this->post(route('categories.store'), ['name_ru' => 'Дочерняя', 'parent_id' => $root->id, 'image' => $image])
+        ->assertSessionHasErrors('image');
+
+    $this->assertDatabaseMissing('categories', ['name_ru' => 'Дочерняя']);
+});
+
+it('clears the image when a root category is reparented under another category', function () {
+    actingAdmin();
+
+    Storage::disk('public')->put('categories/images/existing.webp', 'fake');
+    $root = Category::create(['name_ru' => 'Корень с картинкой', 'slug' => 'root-img', 'level' => 1, 'order' => 1, 'image_path' => 'categories/images/existing.webp']);
+    $newParent = Category::create(['name_ru' => 'Новый родитель', 'slug' => 'new-parent', 'level' => 1, 'order' => 2]);
+
+    $this->put(route('categories.update', $root->id), ['name_ru' => $root->name_ru, 'parent_id' => $newParent->id])
+        ->assertRedirect();
+
+    expect($root->fresh()->image_path)->toBeNull();
+    Storage::disk('public')->assertMissing('categories/images/existing.webp');
+});
+
 it('swaps sort order between siblings on move', function () {
     actingAdmin();
 

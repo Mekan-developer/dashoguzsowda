@@ -25,16 +25,16 @@ class CategoryController extends Controller
 
     public function store(StoreCategoryRequest $request)
     {
-        $data = $request->safe()->except('icon');
-        $this->categoryService->create($data, $request->file('icon'));
+        $data = $request->safe()->except('icon', 'image', 'crop_x', 'crop_y');
+        $this->categoryService->create($data, $request->file('icon'), $request->file('image'), $request->safe()->only('crop_x', 'crop_y'));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
     public function update(StoreCategoryRequest $request, Category $category)
     {
-        $data = $request->safe()->except('icon');
-        $this->categoryService->update($category, $data, $request->file('icon'));
+        $data = $request->safe()->except('icon', 'image', 'crop_x', 'crop_y');
+        $this->categoryService->update($category, $data, $request->file('icon'), $request->file('image'), $request->safe()->only('crop_x', 'crop_y'));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
