@@ -9,13 +9,7 @@ use Illuminate\Support\Str;
 // users table does not have — build the row directly with real columns instead.
 function actingAsSettingsRole(string $role): User
 {
-    $user = User::create([
-        'name' => 'Test ' . $role,
-        'phone' => '+993' . fake()->unique()->numerify('#########'),
-        'role' => $role,
-        'password' => Hash::make('password'),
-        'remember_token' => Str::random(10),
-    ]);
+    $user = User::factory()->create(['name' => 'Test ' . $role, 'role' => $role]);
     test()->actingAs($user);
 
     return $user;

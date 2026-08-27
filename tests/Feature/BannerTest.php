@@ -16,13 +16,7 @@ use Illuminate\Support\Str;
 // users table does not have — build the row directly with real columns instead.
 function actingAsBannerRole(string $role): User
 {
-    $user = User::create([
-        'name' => 'Test ' . $role,
-        'phone' => '+993' . fake()->unique()->numerify('#########'),
-        'role' => $role,
-        'password' => Hash::make('password'),
-        'remember_token' => Str::random(10),
-    ]);
+    $user = User::factory()->create(['name' => 'Test ' . $role, 'role' => $role]);
     test()->actingAs($user);
 
     return $user;
@@ -33,13 +27,7 @@ function createListingForBanner(): Listing
     $region = Region::create(['name_ru' => 'Регион', 'name_tk' => 'Region']);
     $city = City::create(['region_id' => $region->id, 'name_ru' => 'Город', 'name_tk' => 'Şäher']);
     $category = Category::create(['name_ru' => 'Категория', 'slug' => Str::random(10), 'level' => 1]);
-    $owner = User::create([
-        'name' => 'Listing Owner',
-        'phone' => '+993' . fake()->unique()->numerify('#########'),
-        'role' => 'user',
-        'password' => Hash::make('password'),
-        'remember_token' => Str::random(10),
-    ]);
+    $owner = User::factory()->create(['name' => 'Listing Owner']);
 
     return Listing::create([
         'user_id' => $owner->id,

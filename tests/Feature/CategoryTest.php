@@ -12,13 +12,7 @@ use Illuminate\Support\Str;
 // users table does not have — build the row directly with real columns instead.
 function actingAdmin(): User
 {
-    $admin = User::create([
-        'name' => 'Test Admin',
-        'phone' => '+993' . fake()->unique()->numerify('#########'),
-        'role' => 'admin',
-        'password' => Hash::make('password'),
-        'remember_token' => Str::random(10),
-    ]);
+    $admin = User::factory()->admin()->create(['name' => 'Test Admin']);
     test()->actingAs($admin);
 
     return $admin;

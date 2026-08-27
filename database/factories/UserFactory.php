@@ -26,8 +26,14 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'phone' => '+993' . fake()->unique()->numerify('6#######'),
+            // Пользователи приложения входят по SMS и email не имеют, но вход в
+            // админку идёт по email+паролю — без него не протестировать /login.
+            'email' => fake()->unique()->safeEmail(),
             'role' => 'user',
             'status' => 'active',
+            // Пользователь в БД появляется только после успешного ввода SMS-кода
+            // (AuthService::verify), так что «по умолчанию» он подтверждён.
+            'phone_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];

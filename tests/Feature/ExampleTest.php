@@ -1,7 +1,9 @@
 <?php
 
-it('returns a successful response', function () {
-    $response = $this->get('/');
+it('redirects the site root to the admin dashboard', function () {
+    $this->get('/')->assertRedirect(route('dashboard'));
+});
 
-    $response->assertStatus(200);
+it('answers the health check', function () {
+    $this->getJson('/api/health')->assertOk()->assertJson(['status' => 'ok']);
 });

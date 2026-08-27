@@ -7,13 +7,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 function actingAsStatsAdmin(): User
 {
-    $admin = User::create([
-        'name' => 'Stats Admin',
-        'phone' => '+993' . fake()->unique()->numerify('#########'),
-        'role' => 'admin',
-        'password' => Hash::make('password'),
-        'remember_token' => Str::random(10),
-    ]);
+    $admin = User::factory()->admin()->create(['name' => 'Stats Admin']);
     test()->actingAs($admin);
 
     return $admin;
@@ -21,12 +15,7 @@ function actingAsStatsAdmin(): User
 
 function makeUserRegisteredAt(string $createdAt): User
 {
-    $user = User::create([
-        'name' => 'User ' . $createdAt,
-        'phone' => '+993' . fake()->unique()->numerify('#########'),
-        'role' => 'user',
-        'password' => Hash::make('password'),
-    ]);
+    $user = User::factory()->create(['name' => 'User ' . $createdAt]);
     $user->forceFill(['created_at' => $createdAt])->save();
 
     return $user;

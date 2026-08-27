@@ -29,5 +29,15 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+
+        <!--
+        | Изоляция от .env разработчика.
+        | Без этих значений тесты подхватывают боевые настройки из .env и ходят
+        | в реальный Reverb и SMS-шлюз: прогон начинает зависеть от того, что
+        | стоит на конкретной машине, а на CI без .env ведёт себя иначе.
+        -->
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="SMS_DRIVER" value="log"/>
+        <env name="SMS_GATEWAY_URL" value=""/>
     </php>
 </phpunit>
