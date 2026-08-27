@@ -68,6 +68,12 @@ const ICONS = {
         { isPath: true, d: 'M3.5 12.5L12 17l8.5-4.5' },
         { isPath: true, d: 'M3.5 16.5L12 21l8.5-4.5' },
     ],
+    shop: [
+        { isPath: true, d: 'M4 9l1-5h14l1 5' },
+        { isPath: true, d: 'M4 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0' },
+        { isRect: true, x: 5, y: 9, w: 14, h: 11, rx: 1 },
+        { isPath: true, d: 'M9 20v-5h6v5' },
+    ],
     menu: [
         { isPath: true, d: 'M4 6h16M4 12h16M4 18h16' },
     ],

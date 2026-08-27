@@ -24,6 +24,9 @@ return [
     'tariff_assigned' => 'Tarif bellenildi',
     'boost_limit_exceeded' => 'Tarif boýunça göteriliş çägi doldy',
 
+    'store_requires_premium_tariff' => 'Dükan diňe Premium tarifinde elýeterli',
+    'store_photos_limit' => 'Dükanyň galereýasynda iň köp :limit surat',
+
     'video_approved' => 'Wideo tassyklandy',
     'video_rejected' => 'Wideo ret edildi',
     'video_uploaded' => 'Wideo barlaga iberildi',

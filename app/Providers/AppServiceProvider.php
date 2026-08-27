@@ -28,6 +28,7 @@ use App\Repositories\Interfaces\ReviewRepositoryInterface;
 use App\Repositories\Interfaces\SearchRecentRepositoryInterface;
 use App\Repositories\Interfaces\SettingRepositoryInterface;
 use App\Repositories\Interfaces\SmsCodeRepositoryInterface;
+use App\Repositories\Interfaces\StoreRepositoryInterface;
 use App\Repositories\Interfaces\TariffRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Repositories\Interfaces\VideoRepositoryInterface;
@@ -41,6 +42,7 @@ use App\Repositories\ReviewRepository;
 use App\Repositories\SearchRecentRepository;
 use App\Repositories\SettingRepository;
 use App\Repositories\SmsCodeRepository;
+use App\Repositories\StoreRepository;
 use App\Repositories\TariffRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VideoRepository;
@@ -76,6 +78,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ReasonRepositoryInterface::class, ReasonRepository::class);
         $this->app->bind(SettingRepositoryInterface::class, SettingRepository::class);
         $this->app->bind(SearchRecentRepositoryInterface::class, SearchRecentRepository::class);
+        $this->app->bind(StoreRepositoryInterface::class, StoreRepository::class);
 
         // SMS_DRIVER=log — OTP пишется в laravel.log (dev);
         // SMS_DRIVER=modem — уходит в socket-server → телефон-отправитель (прод).

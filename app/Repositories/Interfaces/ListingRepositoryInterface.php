@@ -39,6 +39,9 @@ interface ListingRepositoryInterface
     /** Занятая квота тарифа: сколько объявлений пользователя сейчас поднято */
     public function countBoostedByUser(int $userId): int;
 
+    /** Сумма просмотров всех объявлений пользователя — stats.views_count в профиле мобилки */
+    public function sumViewsByUser(int $userId): int;
+
     public function incrementViews(Listing $listing): void;
 
     public function createMedia(Listing $listing, array $attributes): ListingMedia;

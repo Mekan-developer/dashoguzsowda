@@ -24,6 +24,9 @@ return [
     'tariff_assigned' => 'Тариф назначен',
     'boost_limit_exceeded' => 'Лимит поднятий по тарифу исчерпан',
 
+    'store_requires_premium_tariff' => 'Магазин доступен только на тарифе Premium',
+    'store_photos_limit' => 'Максимум :limit фото в галерее магазина',
+
     'video_approved' => 'Ролик одобрен',
     'video_rejected' => 'Ролик отклонён',
     'video_uploaded' => 'Ролик отправлен на модерацию',

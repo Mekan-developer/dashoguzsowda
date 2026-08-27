@@ -90,6 +90,7 @@ class ListingRepository implements ListingRepositoryInterface
                 'favorites as is_favorite' => fn ($f) => $f->where('user_id', $id),
             ]))
             ->when($filters['category_ids'] ?? null, fn ($q, $ids) => $q->whereIn('category_id', $ids))
+            ->when($filters['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
             ->when($filters['region_id'] ?? null, fn ($q, $id) => $q->where('region_id', $id))
             ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
             ->when($filters['type'] ?? null, fn ($q, $t) => $q->where('type', $t))
@@ -130,6 +131,11 @@ class ListingRepository implements ListingRepositoryInterface
     public function countBoostedByUser(int $userId): int
     {
         return Listing::where('user_id', $userId)->where('is_boosted', true)->count();
+    }
+
+    public function sumViewsByUser(int $userId): int
+    {
+        return (int) Listing::where('user_id', $userId)->sum('views');
     }
 
     public function loadFavoriteFlag(Listing $listing, ?int $viewerId): void

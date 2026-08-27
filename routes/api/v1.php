@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RegionController;
 use App\Http\Controllers\Api\V1\SearchRecentController;
 use App\Http\Controllers\Api\V1\ReviewController;
+use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\TariffController;
 use App\Http\Controllers\Api\V1\VideoController;
 use App\Http\Controllers\Api\V1\VideoUploadController;
@@ -64,6 +65,12 @@ Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group
 
     // Баннеры (публичные, промо-карусель для мобильного приложения)
     Route::get('/banners', [BannerController::class, 'index']);
+
+    // Магазины (публичные — витрина курируется из админки, ТЗ §1). /popular
+    // объявлен ДО /{store}, иначе «popular» уйдёт в model binding.
+    Route::get('/stores/popular', [StoreController::class, 'popular']);
+    Route::get('/stores/{store}', [StoreController::class, 'show']);
+    Route::get('/stores/{store}/listings', [StoreController::class, 'listings']);
 
     // Объявления
     Route::get('/listings', [ListingController::class, 'index']);

@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\SmsGatewayController;
 use App\Http\Controllers\Admin\StatisticsController;
 use App\Http\Controllers\Admin\StatusController;
+use App\Http\Controllers\Admin\StoreController;
 use App\Http\Controllers\Admin\TariffController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VideoController;
@@ -107,6 +108,11 @@ Route::middleware(['auth', 'role:admin,manager'])->group(function () {
         Route::patch('banners/{banner}/move',   [BannerController::class, 'move'])->name('banners.move');
     });
 
+    // Магазины: менеджеру — только просмотр списка, управление (toggle/move/
+    // удаление/медиа) — только admin (Store не входит в список сущностей,
+    // модерируемых менеджером по CLAUDE.md → «Роли»)
+    Route::get('stores', [StoreController::class, 'index'])->name('stores.index');
+
     /*
     |----------------------------------------------------------------------
     | Только admin
@@ -132,6 +138,13 @@ Route::middleware(['auth', 'role:admin,manager'])->group(function () {
         // Тарифы — это деньги и лимиты
         Route::resource('tariffs', TariffController::class)->except('create', 'edit', 'show');
         Route::patch('tariffs/{tariff}/toggle', [TariffController::class, 'toggle'])->name('tariffs.toggle');
+
+        // Магазины — правка, кураторство «популярных», удаление
+        Route::put('stores/{store}',    [StoreController::class, 'update'])->name('stores.update');
+        Route::patch('stores/{store}/toggle', [StoreController::class, 'toggle'])->name('stores.toggle');
+        Route::patch('stores/{store}/move',   [StoreController::class, 'move'])->name('stores.move');
+        Route::delete('stores/{store}', [StoreController::class, 'destroy'])->name('stores.destroy');
+        Route::delete('stores/{store}/photos/{photo}', [StoreController::class, 'destroyPhoto'])->name('stores.photos.destroy');
 
         // Категории — структура всего каталога
         Route::resource('categories', CategoryController::class)->except('create', 'edit', 'show');
