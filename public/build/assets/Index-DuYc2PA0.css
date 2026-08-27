@@ -1,0 +1,1 @@
+.phone-box[data-v-d81a8c74]{border:1px solid var(--field-border);transition:border-color .15s,box-shadow .15s}.phone-box[data-v-d81a8c74]:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}.phone-box--error[data-v-d81a8c74],.phone-box--error[data-v-d81a8c74]:focus-within{border-color:var(--status-bad);box-shadow:none}
