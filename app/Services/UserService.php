@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Actions\SendSmsCodeAction;
 use App\Models\User;
+use App\Repositories\Interfaces\FavoriteRepositoryInterface;
+use App\Repositories\Interfaces\ListingRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -19,6 +21,10 @@ class UserService
         private readonly UserRepositoryInterface $userRepository,
         private readonly ImageConversionService $imageConversion,
         private readonly SendSmsCodeAction $sendSmsCode,
+        private readonly TariffService $tariffService,
+        private readonly StoreService $storeService,
+        private readonly ListingRepositoryInterface $listingRepository,
+        private readonly FavoriteRepositoryInterface $favoriteRepository,
     ) {}
 
     public function list(array $filters): LengthAwarePaginator
@@ -95,6 +101,30 @@ class UserService
     public function setOnboardingCompleted(User $user, bool $completed): User
     {
         return $this->userRepository->setOnboardingCompleted($user, $completed);
+    }
+
+    /**
+     * Сводка для мобильного профиля: is_premium/tariff/store/stats
+     * (mobile_docs/BACKEND_API.md §2).
+     *
+     * @return array{is_premium: bool, tariff: array|null, store: array|null, stats: array}
+     */
+    public function profileSummary(User $user): array
+    {
+        $usage = $this->tariffService->usageSummary($user);
+        $tariff = $usage['tariff'];
+        unset($usage['tariff']);
+
+        return [
+            'is_premium' => $tariff !== null && ! $tariff->is_free,
+            'tariff'     => $tariff ? [...$usage, 'name' => $tariff->name] : null,
+            'store'      => $this->storeService->forProfile($user, $tariff?->canHaveStore() ?? false),
+            'stats'      => [
+                'views_count'       => $this->listingRepository->sumViewsByUser($user->id),
+                'likes_count'       => $this->favoriteRepository->countForUser($user->id),
+                'premium_days_left' => $usage['days_left'],
+            ],
+        ];
     }
 
     /** Карточка пользователя в админке: последние объявления + счётчики. */

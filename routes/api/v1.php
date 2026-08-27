@@ -33,12 +33,16 @@ Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group
         Route::get('/', [ProfileController::class, 'show']);
         Route::get('/tariff', [TariffController::class, 'show']);
         Route::put('/', [ProfileController::class, 'update']);
+        Route::put('/subscription', [TariffController::class, 'updateSubscription']);
         Route::put('/fcm-token', [ProfileController::class, 'updateFcmToken']);
         Route::post('/avatar', [ProfileController::class, 'updateAvatar']);
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar']);
         Route::post('/phone/send-code', [ProfileController::class, 'sendPhoneCode'])->middleware('throttle:5,1');
         Route::post('/phone/confirm', [ProfileController::class, 'confirmPhone'])->middleware('throttle:10,1');
     });
+
+    // Каталог тарифных планов для выбора в профиле
+    Route::get('/tariffs', [TariffController::class, 'catalog'])->middleware('auth:sanctum');
 
     // Настройки, синхронизируемые между устройствами (язык и тема — device-local)
     Route::middleware('auth:sanctum')->prefix('preferences')->group(function () {

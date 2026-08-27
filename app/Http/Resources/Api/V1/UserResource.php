@@ -8,6 +8,17 @@ use Illuminate\Support\Facades\Storage;
 
 class UserResource extends JsonResource
 {
+    /**
+     * @param array{is_premium: bool, tariff: array|null, store: array|null, stats: array}|null $summary
+     *        Сводка store/tariff/stats из UserService::profileSummary() (mobile_docs/BACKEND_API.md §2).
+     *        Опциональна: там, где сводка не нужна (например AuthController::verify),
+     *        передавать её незачем — тогда поля уходят с безопасными дефолтами.
+     */
+    public function __construct($resource, private readonly ?array $summary = null)
+    {
+        parent::__construct($resource);
+    }
+
     public function toArray(Request $request): array
     {
         return [
@@ -24,6 +35,11 @@ class UserResource extends JsonResource
             'district_id' => $this->district_id,
             // Роутинг splash/OTP в мобильном приложении: false → /register
             'is_profile_complete' => $this->resource->isProfileComplete(),
+            'is_premium'   => $this->summary['is_premium'] ?? false,
+            'store'        => $this->summary['store'] ?? null,
+            'tariff'       => $this->summary['tariff'] ?? null,
+            'subscription' => $this->summary['tariff'] ?? null, // алиас — мобилка читает любое из двух
+            'stats'        => $this->summary['stats'] ?? null,
             'region'     => $this->whenLoaded('region', fn () => [
                 'id'      => $this->region->id,
                 'name_tk' => $this->region->name_tk,

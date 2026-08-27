@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Actions\RegisterFcmTokenAction;
+use App\Actions\UpdateUserStoreAction;
 use App\Http\Requests\Api\V1\ChangePhoneRequest;
 use App\Http\Requests\Api\V1\ConfirmPhoneRequest;
 use App\Http\Requests\Api\V1\UpdateAvatarRequest;
@@ -20,6 +21,7 @@ class ProfileController extends Controller
         private readonly UserService $userService,
         private readonly AuthService $authService,
         private readonly RegisterFcmTokenAction $registerFcmToken,
+        private readonly UpdateUserStoreAction $updateUserStore,
     ) {}
 
     /**
@@ -31,7 +33,7 @@ class ProfileController extends Controller
     public function show(Request $request)
     {
         return response()->json([
-            'data'    => new UserResource($request->user()->load('region', 'city', 'district')),
+            'data'    => new UserResource($request->user()->load('region', 'city', 'district'), $this->userService->profileSummary($request->user())),
             'message' => 'Success',
         ]);
     }
@@ -44,10 +46,18 @@ class ProfileController extends Controller
      */
     public function update(UpdateProfileRequest $request)
     {
-        $user = $this->userService->update($request->user(), $request->validated());
+        $data = $request->validated();
+        $storeData = $data['store'] ?? null;
+        unset($data['store']);
+
+        $user = $this->userService->update($request->user(), $data);
+
+        if ($storeData !== null) {
+            $this->updateUserStore->execute($user, $storeData);
+        }
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city', 'district')),
+            'data'    => new UserResource($user->load('region', 'city', 'district'), $this->userService->profileSummary($user)),
             'message' => __('messages.updated'),
         ]);
     }
@@ -85,7 +95,7 @@ class ProfileController extends Controller
         $user = $this->userService->updateAvatar($request->user(), $request->file('avatar'));
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city', 'district')),
+            'data'    => new UserResource($user->load('region', 'city', 'district'), $this->userService->profileSummary($user)),
             'message' => __('messages.updated'),
         ]);
     }
@@ -101,7 +111,7 @@ class ProfileController extends Controller
         $user = $this->userService->removeAvatar($request->user());
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city', 'district')),
+            'data'    => new UserResource($user->load('region', 'city', 'district'), $this->userService->profileSummary($user)),
             'message' => __('messages.updated'),
         ]);
     }
@@ -140,7 +150,7 @@ class ProfileController extends Controller
         );
 
         return response()->json([
-            'data'    => new UserResource($user->load('region', 'city', 'district')),
+            'data'    => new UserResource($user->load('region', 'city', 'district'), $this->userService->profileSummary($user)),
             'message' => __('messages.phone_changed'),
         ]);
     }

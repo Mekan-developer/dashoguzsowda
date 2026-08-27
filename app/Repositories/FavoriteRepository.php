@@ -21,6 +21,11 @@ class FavoriteRepository implements FavoriteRepositoryInterface
         Favorite::where('user_id', $userId)->where('listing_id', $listingId)->delete();
     }
 
+    public function countForUser(int $userId): int
+    {
+        return Favorite::where('user_id', $userId)->count();
+    }
+
     public function paginateForUser(int $userId, int $perPage = 20): LengthAwarePaginator
     {
         return Favorite::with('listing.media', 'listing.category')

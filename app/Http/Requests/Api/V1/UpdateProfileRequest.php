@@ -25,6 +25,14 @@ class UpdateProfileRequest extends FormRequest
             'region_id'   => ['sometimes', 'nullable', Rule::exists('regions', 'id')->where('is_hidden', 0)],
             'city_id'     => ['sometimes', 'nullable', Rule::exists('cities', 'id')->where('is_hidden', 0)],
             'district_id' => ['sometimes', 'nullable', Rule::exists('districts', 'id')->where('is_hidden', 0)],
+            // Вложенный магазин (mobile_docs/BACKEND_API.md §2) — только для тарифов
+            // с can_have_store, проверяется ниже в withValidator().
+            'store'             => ['sometimes', 'array'],
+            'store.name'        => ['required_with:store', 'string', 'max:255'],
+            'store.description' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'store.phone'       => ['sometimes', 'nullable', 'string', 'max:32'],
+            'store.address'     => ['sometimes', 'nullable', 'string', 'max:255'],
+            'store.category_id' => ['sometimes', 'nullable', Rule::exists('categories', 'id')->where('is_active', 1)],
         ];
     }
 
@@ -56,6 +64,12 @@ class UpdateProfileRequest extends FormRequest
 
             if ($districtId && ! District::whereKey($districtId)->where('city_id', $cityId)->exists()) {
                 $v->errors()->add('district_id', __('messages.district_not_in_city'));
+
+                return;
+            }
+
+            if ($this->has('store') && ! $user->activeTariff()?->canHaveStore()) {
+                $v->errors()->add('store', __('messages.store_requires_premium_tariff'));
             }
         });
     }

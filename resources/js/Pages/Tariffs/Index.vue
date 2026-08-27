@@ -1,10 +1,12 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import AppDrawer from '@/Components/AppDrawer.vue'
 import DrawerField from '@/Components/DrawerField.vue'
+import DrawerFooter from '@/Components/DrawerFooter.vue'
+import CreateButton from '@/Components/CreateButton.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 
 const { t } = useI18n()
@@ -13,18 +15,19 @@ const props = defineProps({ tariffs: Array })
 
 const drawer    = ref(false)
 const editItem  = ref(null)
-const form      = ref({ name_ru: '', name_tk: '', listings_limit: 10, videos_limit: 5, boost_limit: 3, duration_days: 30, is_active: true, is_free: false })
+const emptyForm = () => ({ name: '', name_ru: '', name_tk: '', listings_limit: 10, videos_limit: 5, boost_limit: 3, duration_days: 30, is_active: true, is_free: false, can_have_store: false })
+const form      = ref(emptyForm())
 const errors    = ref({})
 
 function openCreate() {
     editItem.value = null
-    form.value = { name_ru: '', name_tk: '', listings_limit: 10, videos_limit: 5, boost_limit: 3, duration_days: 30, is_active: true, is_free: false }
+    form.value = emptyForm()
     errors.value = {}
     drawer.value = true
 }
 function openEdit(item) {
     editItem.value = item
-    form.value = { name_ru: item.name_ru, name_tk: item.name_tk, listings_limit: item.listings_limit, videos_limit: item.videos_limit, boost_limit: item.boost_limit, duration_days: item.duration_days, is_active: item.is_active, is_free: item.is_free }
+    form.value = { name: item.name ?? '', name_ru: item.name_ru, name_tk: item.name_tk, listings_limit: item.listings_limit, videos_limit: item.videos_limit, boost_limit: item.boost_limit, duration_days: item.duration_days, is_active: item.is_active, is_free: item.is_free, can_have_store: item.can_have_store ?? false }
     errors.value = {}
     drawer.value = true
 }
@@ -36,6 +39,8 @@ function save() {
         onError: e => { errors.value = e },
     })
 }
+const canSave = computed(() => form.value.name_ru.trim().length > 0 && form.value.name_tk.trim().length > 0)
+
 function toggle(item) { router.patch(route('tariffs.toggle', item.id)) }
 function destroy(item) {
     if (confirm(t('tariffs.confirmDelete', { name: item.name_ru }))) router.delete(route('tariffs.destroy', item.id))
@@ -48,9 +53,7 @@ function destroy(item) {
 
     <div class="space-y-4">
       <div class="flex justify-end">
-        <button @click="openCreate" class="px-4 py-2 rounded-btn bg-blue text-white text-sm font-bold hover:bg-blue/90 transition">
-          {{ t('tariffs.addBtn') }}
-        </button>
+        <CreateButton :label="t('tariffs.addBtn')" @click="openCreate" />
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -99,12 +102,15 @@ function destroy(item) {
       </div>
     </div>
 
-    <AppDrawer :open="drawer" :title="editItem ? t('tariffs.editTitle') : t('tariffs.newTitle')" @close="drawer = false" @save="save">
+    <AppDrawer :open="drawer" :title="editItem ? t('tariffs.editTitle') : t('tariffs.newTitle')" @close="drawer = false">
       <DrawerField :label="t('tariffs.nameRu')" :error="errors.name_ru">
         <input v-model="form.name_ru" class="input" />
       </DrawerField>
       <DrawerField :label="t('tariffs.nameTk')" :error="errors.name_tk">
         <input v-model="form.name_tk" class="input" />
+      </DrawerField>
+      <DrawerField :label="t('tariffs.mobileSlug')" :error="errors.name">
+        <input v-model="form.name" class="input" :placeholder="t('tariffs.mobileSlugPlaceholder')" />
       </DrawerField>
       <div class="grid grid-cols-2 gap-3">
         <DrawerField :label="t('tariffs.limitListings')" :error="errors.listings_limit">
@@ -127,7 +133,19 @@ function destroy(item) {
         <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
           <ToggleSwitch v-model="form.is_free" /> {{ t('tariffs.freeLabel') }}
         </label>
+        <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
+          <ToggleSwitch v-model="form.can_have_store" /> {{ t('tariffs.canHaveStoreLabel') }}
+        </label>
       </div>
+
+      <template #footer>
+        <DrawerFooter
+          :can-save="canSave"
+          :save-label="editItem ? t('actions.save') : t('actions.create')"
+          @cancel="drawer = false"
+          @save="save"
+        />
+      </template>
     </AppDrawer>
   </AppLayout>
 </template>

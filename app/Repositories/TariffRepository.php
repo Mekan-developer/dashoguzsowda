@@ -48,4 +48,14 @@ class TariffRepository implements TariffRepositoryInterface
     {
         Tariff::where('is_free', true)->update(['is_free' => false]);
     }
+
+    public function findByName(string $name): ?Tariff
+    {
+        return Tariff::where('name', $name)->where('is_active', true)->first();
+    }
+
+    public function catalogActive(): Collection
+    {
+        return Tariff::where('is_active', true)->whereNotNull('name')->orderBy('id')->get();
+    }
 }

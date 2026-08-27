@@ -1,9 +1,15 @@
 <?php
 
+use App\Models\Category;
 use App\Models\City;
+use App\Models\Favorite;
+use App\Models\Listing;
 use App\Models\Region;
 use App\Models\SmsCode;
+use App\Models\Store;
+use App\Models\Tariff;
 use App\Models\User;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -124,4 +130,104 @@ it('rejects phone change with a wrong code', function () {
         ->assertStatus(422);
 
     expect($this->user->fresh()->phone)->toBe($oldPhone);
+});
+
+// mobile_docs/BACKEND_API.md §2 — store/tariff/stats/is_premium в профиле
+
+it('reports is_premium false and no store on the free tariff', function () {
+    Tariff::create([
+        'name' => 'Basic', 'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt',
+        'listings_limit' => 5, 'videos_limit' => 2, 'boost_limit' => 3,
+        'duration_days' => 30, 'is_free' => true, 'is_active' => true, 'can_have_store' => false,
+    ]);
+
+    $this->getJson('/api/v1/profile')
+        ->assertOk()
+        ->assertJsonPath('data.is_premium', false)
+        ->assertJsonPath('data.store', null)
+        ->assertJsonPath('data.tariff.name', 'Basic')
+        ->assertJsonPath('data.tariff.ads_limit', 5)
+        ->assertJsonPath('data.subscription.name', 'Basic');
+});
+
+it('reports is_premium true on a paid tariff', function () {
+    $premium = Tariff::create([
+        'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium',
+        'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+    ]);
+    app(UserRepositoryInterface::class)->assignTariff($this->user, $premium->id, now()->addDays(30));
+
+    $this->getJson('/api/v1/profile')
+        ->assertOk()
+        ->assertJsonPath('data.is_premium', true)
+        ->assertJsonPath('data.tariff.name', 'Premium');
+});
+
+it('rejects a nested store update on a tariff without can_have_store', function () {
+    Tariff::create([
+        'name' => 'Basic', 'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt',
+        'listings_limit' => 5, 'videos_limit' => 2, 'boost_limit' => 3,
+        'duration_days' => 30, 'is_free' => true, 'is_active' => true, 'can_have_store' => false,
+    ]);
+
+    $this->putJson('/api/v1/profile', ['store' => ['name' => 'My shop']])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('store');
+
+    expect(Store::where('user_id', $this->user->id)->exists())->toBeFalse();
+});
+
+it('saves a nested store on a premium tariff and returns it in the profile', function () {
+    $premium = Tariff::create([
+        'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium',
+        'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+    ]);
+    app(UserRepositoryInterface::class)->assignTariff($this->user, $premium->id, now()->addDays(30));
+
+    $category = Category::create(['name_ru' => 'Одежда', 'name_tk' => 'Egin-eşik', 'slug' => 'clothes', 'level' => 1]);
+
+    $this->putJson('/api/v1/profile', [
+        'store' => [
+            'name'        => 'Altyn Bazar',
+            'description' => 'Optom harytlar',
+            'phone'       => '+99361234567',
+            'address'     => 'Aşgabat, Berkarar',
+            'category_id' => $category->id,
+        ],
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.store.name', 'Altyn Bazar')
+        ->assertJsonPath('data.store.category_name_ru', 'Одежда');
+
+    $store = Store::where('user_id', $this->user->id)->first();
+    expect($store)->not->toBeNull()
+        ->and($store->name)->toBe('Altyn Bazar')
+        ->and($store->category_id)->toBe($category->id);
+});
+
+it('aggregates views_count and likes_count into stats', function () {
+    $region   = Region::create(['name_ru' => 'Ахал', 'name_tk' => 'Ahal']);
+    $city     = City::create(['region_id' => $region->id, 'name_ru' => 'Анау', 'name_tk' => 'Änew']);
+    $category = Category::create(['name_ru' => 'Разное', 'name_tk' => 'Dürli', 'slug' => 'misc', 'level' => 1]);
+
+    $mine = Listing::create([
+        'user_id' => $this->user->id, 'category_id' => $category->id, 'region_id' => $region->id, 'city_id' => $city->id,
+        'title' => 'Моё объявление', 'type' => 'goods', 'phone' => $this->user->phone, 'status' => 'approved',
+    ]);
+    // views не в $fillable (защита от мобильного клиента) — проставляем напрямую
+    $mine->forceFill(['views' => 42])->save();
+
+    $other = User::factory()->create();
+    $otherListing = Listing::create([
+        'user_id' => $other->id, 'category_id' => $category->id, 'region_id' => $region->id, 'city_id' => $city->id,
+        'title' => 'Чужое объявление', 'type' => 'goods', 'phone' => $other->phone, 'status' => 'approved',
+    ]);
+    Favorite::create(['user_id' => $this->user->id, 'listing_id' => $otherListing->id]);
+
+    $this->getJson('/api/v1/profile')
+        ->assertOk()
+        ->assertJsonPath('data.stats.views_count', 42)
+        ->assertJsonPath('data.stats.likes_count', 1);
 });
