@@ -24,16 +24,20 @@ FROM php:8.3-fpm AS php
 ARG UID=1000
 ARG GID=1000
 
-# deb.debian.org is unreachable from the office network, so apt goes through a
-# mirror. Override at build time when a direct connection is available:
-#   docker compose build --build-arg DEBIAN_MIRROR=https://deb.debian.org php
-ARG DEBIAN_MIRROR=https://mirror.yandex.ru
-RUN sed -i "s|https\?://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources
+ARG APT_MIRROR=https://nexus.telecom.tm/repository/debian-proxy
+
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+ && printf '%s\n' \
+      "deb ${APT_MIRROR} trixie main contrib non-free non-free-firmware" \
+      "deb ${APT_MIRROR} trixie-updates main contrib non-free non-free-firmware" \
+      > /etc/apt/sources.list \
+ && cat /etc/apt/sources.list
 
 # GD (with JPEG/WebP/FreeType) powers PhotoConverter — without it every upload
 # silently falls back to storing the original file instead of a WebP.
-RUN apt-get update \
+    RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+    ffmpeg \
     git \
     unzip \
     libzip-dev \
@@ -43,8 +47,6 @@ RUN apt-get update \
     libwebp-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" gd pcntl pdo_mysql zip exif \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupmod -g ${GID} www-data \
