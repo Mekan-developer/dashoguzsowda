@@ -5,11 +5,12 @@
 
 | Часть | Технологии |
 |---|---|
-| Backend | Laravel 11, PHP 8.3 |
-| Админка | Inertia.js + Vue 3, Tailwind CSS |
+| Backend | Laravel 11, PHP 8.3 (php-fpm) |
+| Веб-сервер | nginx 1.27 |
+| Админка | Inertia.js + Vue 3, Tailwind CSS, Vite |
 | Mobile API | REST `/api/v1/*`, Sanctum |
-| База данных | MySQL 8.4 |
-| Очереди | Redis + Laravel Horizon |
+| База данных | MySQL 8.0 |
+| Очереди | Redis 7 + Laravel Horizon |
 | WebSocket | Laravel Reverb (чат) |
 | Push | Firebase Cloud Messaging |
 | Медиа | Intervention Image (WebP), FFmpeg (видео) |
@@ -28,23 +29,27 @@ cd dashoguzsowda
 
 cp .env.example .env
 
-# Собрать образы и поднять стек (первый раз — 10–20 минут)
-docker compose up -d --build
+# Собрать образы (первый раз — 10–20 минут)
+docker compose build
 
-# Зависимости PHP
-docker compose exec app composer install
+# PHP-зависимости. В dev-стеке корень репозитория монтируется в контейнер
+# и перекрывает vendor/ из образа, поэтому composer нужно прогнать на хосте.
+docker compose run --rm --no-deps app composer install
 
-# Ключ приложения
+# Поднять стек
+docker compose up -d
+
+# Ключ приложения, таблицы и стартовые данные, ссылка на загруженные файлы
 docker compose exec app php artisan key:generate
-
-# Таблицы и стартовые данные
 docker compose exec app php artisan migrate --seed
-
-# Публичная ссылка на загруженные файлы
 docker compose exec app php artisan storage:link
 ```
 
 Готово: **http://localhost:8000**
+
+Контейнер `node` при первом старте сам выполняет `npm ci` и поднимает Vite —
+это ещё несколько минут, и до их истечения страницы админки будут без стилей.
+Прогресс виден в `docker compose logs -f node`.
 
 ### Учётные записи после сидинга
 
@@ -62,34 +67,63 @@ docker compose exec app php artisan storage:link
 
 | Адрес | Что это |
 |---|---|
-| http://localhost:8000 | Админка и API |
-| http://localhost:8081 | phpMyAdmin |
+| http://localhost:8000 | Админка и API (nginx → php-fpm) |
 | http://localhost:5173 | Vite dev-сервер (hot reload) |
-| `localhost:3306` | MySQL |
-| `localhost:8080` | Reverb (WebSocket) |
-| `localhost:3000` | Socket.IO OTP-шлюз |
+| http://localhost:3000 | Socket.IO OTP-шлюз, страница-тестер на `/test` |
+| `localhost:8070` | Reverb (WebSocket-чат) |
+| `localhost:3366` | MySQL |
+| `localhost:6379` | Redis |
+
+phpMyAdmin в стеке нет. К базе подключаться на `127.0.0.1:3366` любым клиентом
+(DBeaver, TablePlus) или прямо в контейнере:
+
+```bash
+docker compose exec db mysql -u admin -p dashoguzsowda
+```
+
+Порты и монтирование кода задаёт `docker-compose.override.yml` — Compose
+подхватывает его автоматически, отдельных флагов не нужно.
 
 ---
 
 ## Если что-то не поднялось
 
-**Контейнер перезапускается.** Первым делом логи:
+**Первым делом — состояние и логи:**
 
 ```bash
-docker compose ps
+docker compose ps -a
 docker compose logs --tail=50 app
 docker compose logs --tail=50 horizon
 ```
 
-**`horizon` или `reverb` в Restarting.** Обычно не установлен `vendor/`:
+**`horizon`, `reverb` или `scheduler` сразу в `Exited`.** Почти всегда не
+установлен `vendor/` (см. выше — бинд-маунт перекрывает vendor из образа):
 
 ```bash
-docker compose exec app composer install
-docker compose restart horizon reverb
+docker compose run --rm --no-deps app composer install
+docker compose up -d
 ```
 
-**Порт занят.** Если 8000, 3306 или 5173 уже используются, поменяйте левую
-часть в `ports:` в `docker-compose.yml` — например `8001:80`.
+**Ошибка подключения к БД.** Значения в `.env` должны совпадать с
+`docker/db.env`: `DB_HOST=db`, пользователь `admin`, пароль `secret!`.
+Если `docker/db.env` правили уже после первого запуска — том с данными создан
+со старыми учётками, помогает только пересоздание:
+
+```bash
+docker compose down -v && docker compose up -d
+```
+
+**Порт занят.** Поменяйте левую часть в `ports:` в
+`docker-compose.override.yml` — например `"8001:80"` у `nginx`.
+
+**Чат не подключается.** Reverb опубликован наружу на `8070`, поэтому
+браузерная переменная в `.env` — `VITE_REVERB_PORT=8070`, а серверная
+`REVERB_PORT=8080` (по ней backend ходит внутри docker-сети). Значения `VITE_*`
+вкомпилируются в бандл, после правки нужен перезапуск сборщика:
+
+```bash
+docker compose restart node
+```
 
 **Права на `storage/`.** Контейнеры собираются под UID хоста. Если ваш UID
 не 1000:
@@ -102,6 +136,13 @@ UID=$(id -u) GID=$(id -g) docker compose up -d --build
 
 ```bash
 docker compose exec app php artisan config:clear
+```
+
+**apt не достучался до `deb.debian.org` при сборке.** Образ по умолчанию идёт
+через зеркало Яндекса. Если прямой доступ есть, соберите с ним:
+
+```bash
+docker compose build --build-arg DEBIAN_MIRROR=https://deb.debian.org app
 ```
 
 ---
@@ -119,13 +160,21 @@ docker compose down                                  # остановить
 docker compose down -v                               # остановить и стереть БД
 ```
 
+Для разовых artisan-команд есть отдельный сервис (профиль `tools`) — работает
+и тогда, когда `app` не поднят:
+
+```bash
+docker compose run --rm artisan migrate:status
+```
+
 Фронтенд пересобирается сам — контейнер `node` держит Vite в режиме
 hot reload, отдельная команда не нужна.
 
 ### Проверка окружения
 
 Статус очередей, WebSocket, FCM и SMS-шлюза виден в админке:
-**Настройки → мониторинг** (доступно роли admin).
+**Настройки → Мониторинг** (роль admin). Отдельная страница по шлюзу —
+**Настройки → SMS-шлюз**, там же кнопка тестовой отправки.
 
 ---
 
@@ -146,16 +195,19 @@ app/
   Services/           бизнес-логика
 
 resources/js/
-  Pages/Admin/        страницы админки
+  Pages/              страницы админки по доменам (Listings/, Users/, ...)
   Components/         Vue-компоненты
-  Stores/             Pinia
+  Layouts/
+  i18n/               словари tk / ru
 
 routes/
   web.php             админка
   api/v1.php          мобильное API
 
-docker/                конфигурация образов
+docker/                Dockerfile и конфиги образов (php, nginx, mysql)
 socket-server/         Socket.IO-шлюз для OTP
+bruno/                 коллекция запросов к API
+mobile_docs/           спецификация API для мобильного приложения
 docs/DEPLOY.md         развёртывание на сервере
 CLAUDE.md              архитектурные правила проекта
 ```
@@ -168,44 +220,54 @@ CLAUDE.md              архитектурные правила проекта
 
 ## Документация API
 
-Генерируется Scribe, доступна на `/docs` запущенного приложения.
-Пересобрать после изменения роутов:
+Генератора документации в проекте нет — Scribe убран, `/docs` больше не
+отдаётся. Актуальные источники:
 
-```bash
-docker compose exec app php artisan scribe:generate
-```
-
-Коллекция для Bruno — в каталоге [bruno/](bruno/).
+| Где | Что |
+|---|---|
+| [bruno/](bruno/) | коллекция запросов, открывается в [Bruno](https://usebruno.com) |
+| [mobile_docs/BACKEND_API.md](mobile_docs/BACKEND_API.md) | спецификация эндпоинтов для мобильного приложения |
+| [docs/flutter-chat-integration.md](docs/flutter-chat-integration.md) | подключение чата со стороны Flutter |
+| [socket-server/README.md](socket-server/README.md) | контракт OTP-шлюза и пример клиента |
 
 ---
 
 ## Развёртывание на сервере
 
-Отдельный стек: Caddy с TLS, собранные образы вместо монтирования кода,
-без phpMyAdmin и dev-сервера, с планировщиком и бэкапами.
-
-Пошаговая инструкция — **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+`docker-compose.prod.yml` — это **оверрайд**, а не самостоятельный файл:
+указывать нужно оба, иначе Compose ругнётся на сервисы без образа.
 
 ```bash
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-Локальный и прод-стек используют одинаковые имена контейнеров, поэтому
-одновременно на одной машине не запускаются.
+Отличия от dev: код и собранные ассеты лежат внутри образа (ничего не
+монтируется с хоста), `storage/app` — в named-томе, общем для php-контейнеров,
+nginx отдаёт статику из своего образа, контейнеров `node` и dev-портов нет.
+
+Пошаговая инструкция — **[docs/DEPLOY.md](docs/DEPLOY.md)**. Учтите: часть
+разделов там описывает прежнюю схему с Caddy и TLS, которой в текущих
+compose-файлах уже нет — перед деплоем сверяйтесь с самими compose-файлами.
+
+Dev- и прод-стек используют одно имя проекта (`dzsowda`) и одинаковые
+`container_name`, поэтому одновременно на одной машине не запускаются.
 
 ---
 
 ## Особенности, о которых стоит знать заранее
 
 **SMS-коды.** Отправляются не через сторонний сервис, а через свой
-Socket.IO-шлюз: Laravel шлёт код в `socket-server`, тот передаёт его на
-телефон, а телефон отправляет SMS. Локально по умолчанию включён
-`LogSmsService` — коды пишутся в `storage/logs/laravel.log`, реальная
-отправка не нужна.
+Socket.IO-шлюз: Laravel шлёт код в `sms-gateway`, тот передаёт его на телефон,
+а телефон отправляет SMS. Локально по умолчанию `SMS_DRIVER=log` — коды пишутся
+в `storage/logs/laravel.log`, реальная отправка не нужна. Проверить шлюз в
+браузере: http://localhost:3000/test (страница включена флагом
+`SMS_GATEWAY_TEST_PAGE`).
 
 **Видео.** Загрузка кусками (chunked), сборка на сервере, обработка через
-FFmpeg в очереди `media`. Ограничение — 60 секунд.
+FFmpeg в очереди `media`. Ограничение — 60 секунд. Внимание: `ffmpeg` в
+php-образ сейчас не устанавливается, поэтому `ProcessVideoJob` в докере упадёт —
+пакет нужно добавить в [docker/php/Dockerfile](docker/php/Dockerfile).
 
 **Изображения.** Все фото конвертируются в WebP в трёх размерах. Требует
 PHP-расширения `gd` со сборкой `--with-webp` — в образе оно уже есть.
