@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Events\AdminReplied;
 use App\Events\ListingApproved;
 use App\Events\ListingRejected;
+use App\Events\ListingSearched;
 use App\Events\SmsCodeRequested;
+use App\Listeners\LogSearchQuery;
 use App\Listeners\SendChatReplyPush;
 use App\Listeners\SendListingApprovedPush;
 use App\Listeners\SendListingRejectedPush;
@@ -26,6 +28,9 @@ class EventServiceProvider extends ServiceProvider
         ],
         SmsCodeRequested::class => [
             SendSmsCode::class,
+        ],
+        ListingSearched::class => [
+            LogSearchQuery::class,
         ],
     ];
 }

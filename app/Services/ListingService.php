@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Actions\AttachListingPhotosAction;
 use App\Actions\CheckTariffLimitAction;
+use App\Events\ListingSearched;
 use App\Models\Listing;
 use App\Models\ListingMedia;
 use App\Models\Setting;
@@ -95,6 +96,10 @@ class ListingService
      */
     public function searchForApi(array $filters, int $perPage = 20, ?User $viewer = null): LengthAwarePaginator
     {
+        if (! empty($filters['search'])) {
+            ListingSearched::dispatch(trim($filters['search']));
+        }
+
         if (! empty($filters['category_id'])) {
             $category = $this->categoryRepository->find((int) $filters['category_id']);
             $filters['category_ids'] = [

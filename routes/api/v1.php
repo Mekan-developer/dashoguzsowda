@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\NewsController;
 use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RegionController;
+use App\Http\Controllers\Api\V1\SearchPopularController;
 use App\Http\Controllers\Api\V1\SearchRecentController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\StoreController;
@@ -75,6 +76,9 @@ Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group
     Route::get('/stores/popular', [StoreController::class, 'popular']);
     Route::get('/stores/{store}', [StoreController::class, 'show']);
     Route::get('/stores/{store}/listings', [StoreController::class, 'listings']);
+
+    // Популярные поисковые запросы по всему сайту (публичный, в отличие от /search/recent)
+    Route::get('/search/popular', [SearchPopularController::class, 'index']);
 
     // Объявления
     Route::get('/listings', [ListingController::class, 'index']);
