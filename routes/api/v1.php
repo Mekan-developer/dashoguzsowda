@@ -9,8 +9,10 @@ use App\Http\Controllers\Api\V1\ComplaintReasonController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\ListingController;
 use App\Http\Controllers\Api\V1\NewsController;
+use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RegionController;
+use App\Http\Controllers\Api\V1\SearchRecentController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\TariffController;
 use App\Http\Controllers\Api\V1\VideoController;
@@ -35,6 +37,19 @@ Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group
         Route::delete('/avatar', [ProfileController::class, 'deleteAvatar']);
         Route::post('/phone/send-code', [ProfileController::class, 'sendPhoneCode'])->middleware('throttle:5,1');
         Route::post('/phone/confirm', [ProfileController::class, 'confirmPhone'])->middleware('throttle:10,1');
+    });
+
+    // Настройки, синхронизируемые между устройствами (язык и тема — device-local)
+    Route::middleware('auth:sanctum')->prefix('preferences')->group(function () {
+        Route::get('/', [PreferenceController::class, 'show']);
+        Route::put('/', [PreferenceController::class, 'update']);
+    });
+
+    // История поиска: только для авторизованных, гость хранит её на устройстве
+    Route::middleware('auth:sanctum')->prefix('search')->group(function () {
+        Route::get('/recent',    [SearchRecentController::class, 'index']);
+        Route::post('/recent',   [SearchRecentController::class, 'store']);
+        Route::delete('/recent', [SearchRecentController::class, 'destroy']);
     });
 
     // Новости (публичные)
