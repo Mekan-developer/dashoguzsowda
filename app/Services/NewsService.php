@@ -26,6 +26,20 @@ class NewsService
         return $this->newsRepository->paginate($filters);
     }
 
+    /** Лента новостей для мобильного приложения (только опубликованные). */
+    public function feedForApi(array $filters, int $perPage = 20): LengthAwarePaginator
+    {
+        return $this->newsRepository->paginateForApi($filters, $perPage);
+    }
+
+    /** Карточка новости: неопубликованная и отложенная для приложения не существует. */
+    public function findPublishedOrFail(News $news): News
+    {
+        abort_unless($this->newsRepository->isVisibleToPublic($news), 404);
+
+        return $news;
+    }
+
     public function counts(): array
     {
         $published = $this->newsRepository->countByPublished(true);

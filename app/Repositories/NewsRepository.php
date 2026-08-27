@@ -22,6 +22,30 @@ class NewsRepository implements NewsRepositoryInterface
             ->withQueryString();
     }
 
+    /**
+     * Публичная лента для мобильного приложения: только опубликованные и уже
+     * наступившие новости. published_at может быть null (админ включил флаг
+     * в форме, минуя кнопку «Опубликовать») — такие показываем сразу.
+     */
+    public function paginateForApi(array $filters, int $perPage = 20): LengthAwarePaginator
+    {
+        return News::query()
+            ->where('is_published', true)
+            ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()))
+            ->when($filters['type'] ?? null, fn ($q, $type) => $q->where('type', $type))
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    /** Та же видимость, что и в ленте — для карточки одной новости. */
+    public function isVisibleToPublic(News $news): bool
+    {
+        return $news->is_published
+            && ($news->published_at === null || ! $news->published_at->isFuture());
+    }
+
     public function countByPublished(bool $published): int
     {
         return News::where('is_published', $published)->count();
