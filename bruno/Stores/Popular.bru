@@ -1,0 +1,48 @@
+meta {
+  name: Популярные магазины
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/v1/stores/popular
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Витрина на главной (ТЗ §1). Публичный endpoint, токен не нужен.
+
+  Отдаются только прошедшие модерацию (status=approved) и не погашенные
+  (is_active=1) магазины с is_popular=true, порядок — по sort_order
+  (и то и другое ставится вручную в админке: Магазины → «В популярные»
+  и стрелки перестановки). Обычный магазин пользователя сюда не попадает,
+  пока его не подняли в админке.
+
+  Пагинации нет — отдаётся до 20 магазинов сразу.
+  Поля: id, name, subtitle_tk/subtitle_ru/subtitle (категория магазина),
+  logo_url, photos[] (они же photo_urls[] — ссылки на фото галереи).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("response has data array", function() {
+    expect(res.getBody().data).to.be.an('array');
+  });
+
+  test("store card has name and logo fields", function() {
+    const data = res.getBody().data;
+    if (data.length) {
+      expect(data[0]).to.have.property('name');
+      expect(data[0]).to.have.property('logo_url');
+      expect(data[0]).to.have.property('photos');
+    }
+  });
+}

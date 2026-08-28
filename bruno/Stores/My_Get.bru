@@ -1,0 +1,43 @@
+meta {
+  name: Мой магазин
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/v1/my/store
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Свой магазин. Один магазин на пользователя, поэтому в URL нет id.
+  404, если магазин ещё не создан.
+
+  Помимо публичных полей карточки отдаёт то, что видит только владелец:
+  - status — pending|approved|rejected. В витрине магазин появляется
+    только после approved.
+  - rejection_reason { id, name_tk, name_ru } — при status=rejected.
+  - is_active — false означает, что тариф с правом на магазин истёк:
+    магазин сохранён, но покупателям не показывается. Его товары при этом
+    остаются в общей выдаче как обычные объявления.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns own store with moderation state", function() {
+    const data = res.getBody().data;
+    expect(data).to.have.property('status');
+    expect(data).to.have.property('is_active');
+    expect(data).to.have.property('sells_retail');
+    expect(data).to.have.property('has_delivery');
+  });
+}

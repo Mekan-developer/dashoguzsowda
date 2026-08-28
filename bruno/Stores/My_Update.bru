@@ -1,0 +1,59 @@
+meta {
+  name: Изменить магазин
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/v1/my/store
+  body: multipartForm
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:multipart-form {
+  _method: PUT
+  ~name: Altyn Bazar
+  ~phone: +99361234567
+  ~region_id: 1
+  ~city_id: 1
+  ~district_id: 1
+  ~category_id: 1
+  ~description: Оптом и в розницу
+  ~address: Ориентир: напротив рынка
+  ~sells_retail: 1
+  ~sells_wholesale: 1
+  has_delivery: 0
+  ~logo: @file()
+  ~photos[]: @file()
+}
+
+docs {
+  Правка своего магазина. Обновление частичное — присылать только изменённые
+  поля. Магазина ещё нет — 404, тариф без can_have_store — 403.
+
+  Метод PUT, но с файлами шлётся POST + _method=PUT (multipart), как и везде
+  в проекте.
+
+  Правка витринных полей — name, description, address — и загрузка нового
+  логотипа возвращают магазин на модерацию: status снова pending, старая
+  причина отказа очищается. Телефон, вид торговли и доставка — рабочие
+  настройки: их правка статус не меняет.
+
+  По этому же признаку строится message в ответе: «Магазин отправлен на
+  модерацию» либо «Сохранено».
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("delivery flag is updated without re-moderation", function() {
+    expect(res.getBody().data.has_delivery).to.equal(false);
+  });
+}

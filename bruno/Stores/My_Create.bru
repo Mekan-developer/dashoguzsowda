@@ -1,0 +1,64 @@
+meta {
+  name: Создать магазин
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/v1/my/store
+  body: multipartForm
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:multipart-form {
+  name: Altyn Bazar
+  phone: +99361234567
+  region_id: 1
+  city_id: 1
+  ~district_id: 1
+  ~category_id: 1
+  ~description: Оптом и в розницу
+  ~address: Ориентир: напротив рынка
+  sells_retail: 1
+  sells_wholesale: 1
+  has_delivery: 1
+  ~logo: @file()
+  ~photos[]: @file()
+}
+
+docs {
+  Создание своего магазина. Один магазин на пользователя: если он уже есть — 422.
+
+  Доступно только на тарифе с can_have_store (сейчас Premium) — иначе 403.
+  Магазин создаётся в статусе pending и попадает в витрину только после
+  одобрения модератором; ответ — 201.
+
+  Обязательны: name, phone (формат +993 и 8 цифр), region_id, city_id.
+  district_id опционален и должен принадлежать выбранному городу.
+
+  Вид торговли — два независимых флага: sells_retail и sells_wholesale.
+  Магазин может торговать и оптом, и в розницу; если сняты оба — 422 по
+  полю sells_retail.
+
+  has_delivery — только флаг. Стоимость и сроки система не считает: с доставкой
+  стороны созваниваются и договариваются сами, без неё — самовывоз с оплатой
+  на месте.
+
+  logo — квадрат, конвертируется в WebP; photos[] — до 6 фото галереи
+  суммарно (существующие + новые).
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("store goes to moderation", function() {
+    expect(res.getBody().data.status).to.equal('pending');
+  });
+}

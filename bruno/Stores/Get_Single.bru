@@ -1,0 +1,47 @@
+meta {
+  name: Карточка магазина
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/v1/stores/1
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Карточка магазина по id — публично, токен не нужен.
+
+  Открывается и для непопулярного магазина: is_popular влияет только
+  на витрину /v1/stores/popular. А вот магазин, не прошедший модерацию
+  (status != approved) или с погашенной витриной (is_active=0, у владельца
+  истёк тариф), публично не существует — 404, как и несуществующий id.
+  Свой такой магазин владелец видит через GET /v1/my/store.
+
+  В ответе: id, name, description, phone, sells_retail, sells_wholesale,
+  has_delivery, address, region/city/district {id, name_tk, name_ru},
+  subtitle_tk/subtitle_ru (категория магазина), subtitle (по Accept-Language),
+  logo_url, photos[] = photo_urls[].
+
+  Тексты «Розница», «Опт», «Самовывоз, оплата на месте» и иконки рисует
+  мобилка из своих словарей — бэкенд отдаёт только флаги.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns a store card", function() {
+    const data = res.getBody().data;
+    expect(data).to.have.property('id');
+    expect(data).to.have.property('name');
+    expect(data).to.have.property('subtitle_ru');
+    expect(data).to.have.property('subtitle_tk');
+  });
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Удалить фото магазина
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{base_url}}/v1/my/store/photos/1
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Удаляет одно фото из галереи своего магазина вместе с файлом на диске.
+
+  Чужое фото или фото при отсутствующем магазине — 404. Логотип этим
+  endpoint-ом не удаляется: он заменяется загрузкой нового через
+  PUT /v1/my/store.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

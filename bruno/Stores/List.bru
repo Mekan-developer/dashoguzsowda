@@ -1,0 +1,71 @@
+meta {
+  name: Список магазинов
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/v1/stores?type=wholesale&region_id=1&has_delivery=1&limit=20
+  body: none
+}
+
+params:query {
+  type: wholesale
+  region_id: 1
+  has_delivery: 1
+  limit: 20
+  ~city_id: 1
+  ~district_id: 1
+  ~category_id: 1
+  ~search: bazar
+  ~page: 1
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Публичный список магазинов с фильтрами — токен не нужен.
+
+  Отдаются только магазины, прошедшие модерацию (status=approved) и с горящей
+  витриной (is_active=1). Витрина гаснет, когда у владельца истекает тариф
+  с правом на магазин: сам магазин при этом не удаляется, а его объявления
+  остаются в общей выдаче как обычные.
+
+  Фильтры:
+  - type=retail|wholesale — вид торговли. Флаги независимы, поэтому магазин
+    «оптом и в розницу» попадает в обе выдачи.
+  - has_delivery=1|0 — есть ли доставка. Стоимость и сроки система не считает:
+    покупатель и владелец созваниваются сами. Без доставки — самовывоз
+    с оплатой на месте.
+  - region_id / city_id / district_id — адрес магазина.
+  - category_id, search (по названию).
+
+  Порядок: сначала курируемые из админки (is_popular с их sort_order),
+  затем остальные — свежими.
+
+  Поля карточки: id, name, description, phone, sells_retail, sells_wholesale,
+  has_delivery, address, region/city/district {id, name_tk, name_ru},
+  subtitle_tk/subtitle_ru/subtitle (категория), logo_url,
+  photos[] = photo_urls[]. Тексты «Розница»/«Опт»/«Самовывоз» и иконки
+  рисует мобилка сама — бэкенд отдаёт только флаги.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("response is paginated", function() {
+    expect(res.getBody().data).to.be.an('array');
+    expect(res.getBody().meta).to.have.property('total');
+  });
+
+  test("wholesale filter returns wholesale stores only", function() {
+    for (const store of res.getBody().data) {
+      expect(store.sells_wholesale).to.equal(true);
+    }
+  });
+}

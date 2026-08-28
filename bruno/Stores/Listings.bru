@@ -1,0 +1,66 @@
+meta {
+  name: Объявления магазина
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/v1/stores/1/listings?page=1&limit=20&trade=wholesale&in_stock=1
+  body: none
+}
+
+params:query {
+  page: 1
+  limit: 20
+  trade: wholesale
+  in_stock: 1
+  ~search: rys
+  ~category_id: 1
+  ~sort: price_asc
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Витрина одного магазина: approved-товары, привязанные к нему по store_id.
+  Публично, токен не нужен. Магазин на модерации или с погашенной витриной —
+  404, как и несуществующий.
+
+  Товар магазина — это обычное объявление: отдельной сущности products нет,
+  оптовая цена и остаток живут в самом объявлении.
+
+  Параметры: page, limit (1–50, по умолчанию 20), search, category_id,
+  sort (latest|price_asc|price_desc) и два товарных фильтра:
+  - trade=wholesale — только позиции с оптовой ценой; trade=retail —
+    с розничной. Товар может иметь обе.
+  - in_stock=1 — прячет то, что владелец пометил как закончившееся
+    (stock_qty=0). stock_qty=null означает «в наличии, учёт не ведётся»
+    и из выдачи не убирается.
+
+  Ответ: { data, meta } — схема Listing из /v1/listings плюс торговые поля:
+  price (розница), wholesale_price + min_order_qty (опт, за единицу при
+  заказе от min_order_qty), stock_qty и блок store { id, name, logo_url,
+  sells_retail, sells_wholesale, has_delivery } — по нему мобилка рисует
+  условия покупки.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("has pagination meta", function() {
+    expect(res.getBody().meta).to.have.property('total');
+  });
+
+  test("only approved listings", function() {
+    res.getBody().data.forEach(l => expect(l.status).to.equal('approved'));
+  });
+
+  test("wholesale filter returns priced wholesale items", function() {
+    res.getBody().data.forEach(l => expect(l.wholesale_price).to.not.equal(null));
+  });
+}

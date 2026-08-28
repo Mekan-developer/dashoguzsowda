@@ -1,0 +1,61 @@
+meta {
+  name: Сменить тариф
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{base_url}}/v1/profile/subscription
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "tariff_name": "Premium"
+  }
+}
+
+docs {
+  Заявка на тариф по его name из каталога GET /v1/tariffs.
+
+  Онлайн-оплаты в проекте нет, деньги пользователь передаёт админу наличными,
+  поэтому платный тариф здесь НЕ выдаётся: создаётся заявка (tariff_requests)
+  со статусом pending и суммой, зафиксированной на момент подачи. Тариф
+  включается только после того, как админ подтвердит получение оплаты
+  в разделе «Заявки на тариф». Ответ — 202 Accepted.
+
+  Бесплатный тариф назначается сразу и без заявки (это способ отказаться
+  от платного) — ответ 200, data.tariff.name уже новый.
+
+  Одна незакрытая заявка на пользователя: вторая попытка — 422 по полю
+  tariff_name. tariff_name должен быть активным тарифом (is_active=1);
+  неизвестное или архивное название — тоже 422.
+
+  Ответ — профиль целиком (как GET /v1/profile). Состояние заявки —
+  в data.tariff_request: { id, tariff_name, amount, status, comment,
+  created_at, processed_at }. Пока status=pending, мобилка показывает
+  «Заявка на рассмотрении» вместо кнопки смены тарифа; при rejected —
+  comment с причиной отказа от админа.
+}
+
+tests {
+  test("status is 202 for a paid tariff", function() {
+    expect(res.getStatus()).to.equal(202);
+  });
+
+  test("a pending request is returned in the profile", function() {
+    const request = res.getBody().data.tariff_request;
+    expect(request.status).to.equal('pending');
+    expect(request.tariff_name).to.equal('Premium');
+  });
+
+  test("the tariff itself is not granted yet", function() {
+    expect(res.getBody().data.is_premium).to.equal(false);
+  });
+}
