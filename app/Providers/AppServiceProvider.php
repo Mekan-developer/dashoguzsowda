@@ -53,6 +53,7 @@ use App\Services\Sms\LogSmsService;
 use App\Services\Sms\SmsSenderInterface;
 use App\Services\Video\FfprobeVideoProbe;
 use App\Services\Video\VideoProbeInterface;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
@@ -97,5 +98,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
         Listing::observe(ListingObserver::class);
+        Auth::guard('web')->setRememberDuration(60 * 24 * 30);
     }
 }
