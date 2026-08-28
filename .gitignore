@@ -19,5 +19,8 @@ yarn-error.log
 
 local_zapusk.md
 
+# Окружения Bruno: у каждого разработчика свой base_url (свой IP в сети, свой порт)
+bruno/environments/*.bru
+
 # Windows NTFS alternate-data-stream metadata (leaks in when copying from a Windows drive into WSL)
 *:Zone.Identifier
