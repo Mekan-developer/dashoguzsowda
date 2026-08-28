@@ -72,7 +72,11 @@ RUN mkdir -p storage/framework/cache storage/framework/sessions \
  && chmod -R 775 storage bootstrap/cache
 
 
- USER www-data
+COPY docker/php/php.prod.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/php/www.prod.conf /usr/local/etc/php-fpm.d/www.conf
+
+
+USER www-data
 
 
 FROM nginx:1.27-alpine AS nginx
