@@ -50,15 +50,43 @@ it('lists only active tariffs with a mobile slug, with zeroed usage', function (
         ->assertJsonPath('data.1.ads_used', 0);
 });
 
-it('switches the subscription to a valid tariff slug', function () {
+it('creates a request instead of granting a paid tariff', function () {
     Sanctum::actingAs($this->user);
 
+    // Оплата идёт наличными админу, поэтому платный тариф здесь не выдаётся
     $this->putJson('/api/v1/profile/subscription', ['tariff_name' => 'Premium'])
-        ->assertOk()
-        ->assertJsonPath('data.tariff.name', 'Premium')
-        ->assertJsonPath('data.is_premium', true);
+        ->assertStatus(202)
+        ->assertJsonPath('data.tariff_request.status', 'pending')
+        ->assertJsonPath('data.tariff_request.tariff_name', 'Premium')
+        ->assertJsonPath('data.is_premium', false);
 
-    expect($this->user->fresh()->tariff->name)->toBe('Premium');
+    expect($this->user->fresh()->tariff)->toBeNull();
+    $this->assertDatabaseHas('tariff_requests', [
+        'user_id' => $this->user->id,
+        'status'  => 'pending',
+    ]);
+});
+
+it('rejects a second pending request', function () {
+    Sanctum::actingAs($this->user);
+
+    $this->putJson('/api/v1/profile/subscription', ['tariff_name' => 'Premium'])->assertStatus(202);
+
+    $this->putJson('/api/v1/profile/subscription', ['tariff_name' => 'Premium'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('tariff_name');
+});
+
+it('assigns a free tariff immediately', function () {
+    Sanctum::actingAs($this->user);
+
+    // Бесплатный тариф денег не требует — это способ отказаться от платного
+    $this->putJson('/api/v1/profile/subscription', ['tariff_name' => 'Basic'])
+        ->assertOk()
+        ->assertJsonPath('data.tariff.name', 'Basic');
+
+    expect($this->user->fresh()->tariff->name)->toBe('Basic');
+    $this->assertDatabaseCount('tariff_requests', 0);
 });
 
 it('rejects an unknown tariff slug', function () {

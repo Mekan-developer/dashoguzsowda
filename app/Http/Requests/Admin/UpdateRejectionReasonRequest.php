@@ -22,7 +22,7 @@ class UpdateRejectionReasonRequest extends FormRequest
         return [
             'name_ru'   => ['sometimes', 'required', 'string', 'max:255'],
             'name_tk'   => ['sometimes', 'required', 'string', 'max:255'],
-            'type'      => ['sometimes', 'required', 'in:listing,video,review'],
+            'type'      => ['sometimes', 'required', 'in:listing,video,review,store'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

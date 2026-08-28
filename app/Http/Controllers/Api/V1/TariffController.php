@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\AssignTariffAction;
+use App\Actions\RequestTariffAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\UpdateSubscriptionRequest;
 use App\Http\Resources\Api\V1\TariffResource;
@@ -17,7 +17,7 @@ class TariffController extends Controller
     public function __construct(
         private readonly TariffService $tariffService,
         private readonly UserService $userService,
-        private readonly AssignTariffAction $assignTariffAction,
+        private readonly RequestTariffAction $requestTariffAction,
     ) {}
 
     /**
@@ -54,9 +54,13 @@ class TariffController extends Controller
     }
 
     /**
-     * Смена тарифа. Платёжного шлюза в проекте нет — тариф назначается напрямую,
-     * как и из админки (AssignTariffAction).
+     * Заявка на смену тарифа.
      * PUT /api/v1/profile/subscription
+     *
+     * Платного шлюза в проекте нет: деньги за тариф человек передаёт админу
+     * наличными. Поэтому платный тариф здесь НЕ выдаётся — создаётся заявка
+     * (`tariff_requests`), которую админ подтверждает после получения оплаты.
+     * Бесплатный тариф назначается сразу: денег он не требует.
      *
      * @authenticated
      */
@@ -64,13 +68,15 @@ class TariffController extends Controller
     {
         $tariff = $this->tariffService->findBySlug($request->validated('tariff_name'));
 
-        $this->assignTariffAction->execute($request->user(), $tariff);
+        $tariffRequest = $this->requestTariffAction->execute($request->user(), $tariff);
 
         $user = $request->user()->fresh()->load('region', 'city', 'district');
 
         return response()->json([
             'data'    => new UserResource($user, $this->userService->profileSummary($user)),
-            'message' => __('messages.tariff_assigned'),
-        ]);
+            'message' => $tariffRequest
+                ? __('messages.tariff_request_created')
+                : __('messages.tariff_assigned'),
+        ], $tariffRequest ? 202 : 200);
     }
 }

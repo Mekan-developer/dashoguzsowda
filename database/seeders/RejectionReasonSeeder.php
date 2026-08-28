@@ -17,10 +17,17 @@ class RejectionReasonSeeder extends Seeder
             ['name_ru' => 'Запрещённый товар',         'name_tk' => 'Gadagan edilen haryt',     'type' => 'listing'],
             ['name_ru' => 'Неприемлемое видео',        'name_tk' => 'Kabul edilmeýän wideo',    'type' => 'video'],
             ['name_ru' => 'Оскорбительный отзыв',      'name_tk' => 'Kemsidiji syn',            'type' => 'review'],
+            ['name_ru' => 'Некорректное название магазина',       'name_tk' => 'Dükanyň ady nädogry',                          'type' => 'store'],
+            ['name_ru' => 'Логотип нарушает права третьих лиц',   'name_tk' => 'Logotip üçünji taraplaryň hukuklaryny bozýar', 'type' => 'store'],
+            ['name_ru' => 'Недостоверный адрес или телефон',      'name_tk' => 'Salgy ýa-da telefon ynamsyz',                  'type' => 'store'],
         ];
 
         foreach ($rejections as $r) {
-            RejectionReason::create($r);
+            // Причины магазина уже могли прийти из миграции 2026_08_28_000002
+            RejectionReason::firstOrCreate(
+                ['name_ru' => $r['name_ru'], 'type' => $r['type']],
+                $r,
+            );
         }
     }
 }

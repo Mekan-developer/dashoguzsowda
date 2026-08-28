@@ -30,10 +30,23 @@ class StoreService
         private readonly ImageConversionService $imageConversion,
     ) {}
 
+    /**
+     * Поля, правка которых возвращает магазин на модерацию: это всё, что видит
+     * покупатель в витрине. Телефон, доставка и вид торговли меняются свободно —
+     * иначе владелец боялся бы трогать рабочие настройки.
+     */
+    private const MODERATED_FIELDS = ['name', 'description', 'address'];
+
     /** GET /v1/stores/popular */
     public function popular(int $limit = 20): Collection
     {
         return $this->storeRepository->popular($limit);
+    }
+
+    /** GET /v1/stores — публичный список с фильтрами (регион/город/тип/доставка/поиск). */
+    public function publicList(array $filters, int $perPage = 20): LengthAwarePaginator
+    {
+        return $this->storeRepository->paginatePublic($filters, $perPage);
     }
 
     /**
@@ -42,16 +55,54 @@ class StoreService
      */
     public function listingsForStore(Store $store, array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        return $this->listingRepository->paginateForApi([...$filters, 'user_id' => $store->user_id], $perPage);
+        return $this->listingRepository->paginateForApi([...$filters, 'store_id' => $store->id], $perPage);
     }
 
-    /** PUT /v1/profile — только текстовые поля, вызывается из UpdateUserStoreAction. */
-    public function updateOwnStore(User $user, array $data): Store
+    public function findByUser(User $user): ?Store
     {
-        return $this->storeRepository->upsertForUser(
-            $user,
-            Arr::only($data, ['name', 'description', 'phone', 'address', 'category_id']),
-        );
+        return $this->storeRepository->findByUser($user->id);
+    }
+
+    /**
+     * Создание/правка своего магазина из мобильного приложения.
+     *
+     * Новый магазин и правка витринных полей уходят в статус pending: логотип,
+     * название и адрес видны всем покупателям, значит проходят модерацию, как
+     * остальной UGC. При отправке на перемодерацию причина прошлого отказа
+     * сбрасывается, чтобы в мобилке не висел устаревший текст.
+     *
+     * @param UploadedFile[] $photos
+     */
+    public function saveOwnStore(User $user, array $data, ?UploadedFile $logo = null, array $crop = [], array $photos = []): Store
+    {
+        $existing = $this->storeRepository->findByUser($user->id);
+
+        $attributes = Arr::only($data, [
+            'name', 'description', 'phone', 'address', 'category_id',
+            'region_id', 'city_id', 'district_id',
+            'sells_retail', 'sells_wholesale', 'has_delivery',
+        ]);
+
+        if ($this->needsModeration($existing, $attributes, $logo)) {
+            $attributes['status'] = 'pending';
+            $attributes['rejection_reason_id'] = null;
+        }
+
+        // Тариф уже проверен CheckStoreTariffAction — витрина зажигается сразу,
+        // видимой она станет только после одобрения модератором.
+        $attributes['is_active'] = true;
+
+        $store = $this->storeRepository->upsertForUser($user, $attributes);
+
+        if ($logo) {
+            $store = $this->storeRepository->update($store, ['logo' => $this->storeLogo($store, $logo, $crop)]);
+        }
+
+        if ($photos !== []) {
+            $this->addPhotos($store, $photos);
+        }
+
+        return $store->fresh(['photos', 'category', 'region', 'city', 'district', 'rejectionReason']);
     }
 
     /** Плоский массив для UserResource — null, если тариф не даёт право или магазина ещё нет. */
@@ -68,14 +119,87 @@ class StoreService
         }
 
         return [
+            'id'               => $store->id,
             'name'             => $store->name,
             'description'      => $store->description,
             'phone'            => $store->phone,
             'address'          => $store->address,
+            'region_id'        => $store->region_id,
+            'city_id'          => $store->city_id,
+            'district_id'      => $store->district_id,
+            'sells_retail'     => $store->sells_retail,
+            'sells_wholesale'  => $store->sells_wholesale,
+            'has_delivery'     => $store->has_delivery,
+            'status'           => $store->status,
+            'is_active'        => $store->is_active,
+            'rejection_reason' => $store->status === 'rejected' && $store->rejectionReason ? [
+                'id'      => $store->rejectionReason->id,
+                'name_tk' => $store->rejectionReason->name_tk,
+                'name_ru' => $store->rejectionReason->name_ru,
+            ] : null,
+            'logo_url'         => $store->logo ? Storage::disk('public')->url($store->logo) : null,
             'category_id'      => $store->category_id,
             'category_name_tk' => $store->category?->name_tk,
             'category_name_ru' => $store->category?->name_ru,
         ];
+    }
+
+    // ---------------------------------------------------------------
+    // Модерация
+    // ---------------------------------------------------------------
+
+    public function approve(Store $store): Store
+    {
+        return $this->storeRepository->update($store, [
+            'status'              => 'approved',
+            'rejection_reason_id' => null,
+        ]);
+    }
+
+    public function reject(Store $store, int $rejectionReasonId): Store
+    {
+        return $this->storeRepository->update($store, [
+            'status'              => 'rejected',
+            'rejection_reason_id' => $rejectionReasonId,
+        ]);
+    }
+
+    /**
+     * Приводит видимость витрины в соответствие с тарифом владельца: тариф с
+     * can_have_store кончился — магазин гаснет, но не удаляется, а его товары
+     * остаются обычными объявлениями. Вернулся тариф — витрина зажигается
+     * с тем же статусом модерации, что был.
+     */
+    public function syncVisibility(User $user): void
+    {
+        $canHaveStore = (bool) $user->activeTariff()?->canHaveStore();
+
+        $this->storeRepository->setActiveForUser($user->id, $canHaveStore);
+    }
+
+    /**
+     * То же самое для всех магазинов сразу — тариф истекает по времени, без
+     * запроса от пользователя, поэтому раз в сутки прогоняется по расписанию
+     * (stores:sync-visibility).
+     *
+     * @return int сколько магазинов сменили видимость
+     */
+    public function syncAllVisibility(): int
+    {
+        $changed = 0;
+
+        foreach ($this->storeRepository->allWithOwners() as $store) {
+            $canHaveStore = (bool) $store->user?->activeTariff()?->canHaveStore();
+
+            if ((bool) $store->is_active === $canHaveStore) {
+                continue;
+            }
+
+            $this->storeRepository->setActiveForUser($store->user_id, $canHaveStore);
+            $changed++;
+        }
+
+        return $changed;
     }
 
     // ---------------------------------------------------------------
@@ -85,6 +209,12 @@ class StoreService
     public function list(array $filters): LengthAwarePaginator
     {
         return $this->storeRepository->paginate($filters);
+    }
+
+    /** Счётчик очереди модерации для вкладок админки. */
+    public function moderationCounts(): array
+    {
+        return ['pending' => $this->storeRepository->countPending()];
     }
 
     /**
@@ -103,21 +233,10 @@ class StoreService
         $store = $this->storeRepository->update($store, $data);
 
         if ($newPhotos !== []) {
-            $order = $this->storeRepository->maxPhotoOrder($store);
-
-            foreach ($newPhotos as $photo) {
-                $order++;
-                $path = $this->imageConversion->toWebp(
-                    $photo,
-                    "stores/{$store->id}/photos",
-                    maxWidth: self::PHOTO_MAX_WIDTH,
-                    maxBytes: self::PHOTO_MAX_BYTES,
-                );
-                $this->storeRepository->createPhoto($store, ['path' => $path, 'order' => $order]);
-            }
+            $this->addPhotos($store, $newPhotos);
         }
 
-        return $store->fresh(['photos', 'category', 'user']);
+        return $store->fresh(['photos', 'category', 'user', 'region', 'city', 'district']);
     }
 
     public function togglePopular(Store $store): Store
@@ -160,6 +279,52 @@ class StoreService
     {
         Storage::disk('public')->delete($photo->path);
         $this->storeRepository->deletePhoto($photo);
+    }
+
+    public function countPhotos(Store $store): int
+    {
+        return $this->storeRepository->countPhotos($store);
+    }
+
+    /** @param UploadedFile[] $photos */
+    private function addPhotos(Store $store, array $photos): void
+    {
+        $order = $this->storeRepository->maxPhotoOrder($store);
+
+        foreach ($photos as $photo) {
+            $order++;
+            $path = $this->imageConversion->toWebp(
+                $photo,
+                "stores/{$store->id}/photos",
+                maxWidth: self::PHOTO_MAX_WIDTH,
+                maxBytes: self::PHOTO_MAX_BYTES,
+            );
+            $this->storeRepository->createPhoto($store, ['path' => $path, 'order' => $order]);
+        }
+    }
+
+    /**
+     * Новый магазин — всегда на модерацию. Существующий — только если реально
+     * изменилось витринное поле или логотип: перекладывать магазин в pending
+     * из-за сохранения формы без правок было бы наказанием ни за что.
+     */
+    private function needsModeration(?Store $existing, array $attributes, ?UploadedFile $logo): bool
+    {
+        if (! $existing) {
+            return true;
+        }
+
+        if ($logo) {
+            return true;
+        }
+
+        foreach (self::MODERATED_FIELDS as $field) {
+            if (array_key_exists($field, $attributes) && $attributes[$field] !== $existing->{$field}) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function storeLogo(Store $store, UploadedFile $logo, array $crop): string

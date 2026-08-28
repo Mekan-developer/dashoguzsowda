@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\IndexStoresRequest;
 use App\Http\Requests\Api\V1\StoreListingsRequest;
 use App\Http\Resources\Api\V1\ListingResource;
 use App\Http\Resources\Api\V1\StoreResource;
@@ -17,6 +18,28 @@ class StoreController extends Controller
     ) {}
 
     /**
+     * Список магазинов с фильтрами: регион/город/район, категория,
+     * тип торговли (retail|wholesale), наличие доставки, поиск по названию.
+     * GET /api/v1/stores
+     */
+    public function index(IndexStoresRequest $request)
+    {
+        $filters = $request->validated();
+
+        $stores = $this->storeService->publicList($filters, (int) ($filters['limit'] ?? 20));
+
+        return response()->json([
+            'data' => StoreResource::collection($stores->items()),
+            'meta' => [
+                'current_page' => $stores->currentPage(),
+                'last_page'    => $stores->lastPage(),
+                'per_page'     => $stores->perPage(),
+                'total'        => $stores->total(),
+            ],
+        ]);
+    }
+
+    /**
      * Популярные магазины для главной страницы (курируется из админки).
      * GET /api/v1/stores/popular
      */
@@ -28,13 +51,16 @@ class StoreController extends Controller
     }
 
     /**
-     * Карточка магазина.
+     * Карточка магазина. Не прошедший модерацию или погашенный (истёк тариф
+     * владельца) магазин публично не существует — 404, как и удалённый.
      * GET /api/v1/stores/{store}
      */
     public function show(Store $store)
     {
+        abort_unless($store->isPublic(), 404);
+
         return response()->json([
-            'data'    => new StoreResource($store->load('photos', 'category')),
+            'data'    => new StoreResource($store->load('photos', 'category', 'region', 'city', 'district')),
             'message' => 'Success',
         ]);
     }
@@ -45,6 +71,8 @@ class StoreController extends Controller
      */
     public function listings(StoreListingsRequest $request, Store $store)
     {
+        abort_unless($store->isPublic(), 404);
+
         $listings = $this->storeService->listingsForStore(
             $store,
             $request->validated(),

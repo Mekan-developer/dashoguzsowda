@@ -74,8 +74,10 @@ class NotificationRepository implements NotificationRepositoryInterface
                 (select count(*) from videos where status = ?) as pending_videos,
                 (select count(distinct user_id) from messages where sender = ? and is_read = ?) as unread_chats,
                 (select count(*) from complaints where status = ?) as new_complaints,
-                (select count(*) from reviews where status = ?) as pending_reviews',
-            ['user', now()->subDay(), 'pending', 'pending', 'user', 0, 'new', 'pending'],
+                (select count(*) from reviews where status = ?) as pending_reviews,
+                (select count(*) from stores where status = ?) as pending_stores,
+                (select count(*) from tariff_requests where status = ?) as pending_tariff_requests',
+            ['user', now()->subDay(), 'pending', 'pending', 'user', 0, 'new', 'pending', 'pending', 'pending'],
         );
 
         return [
@@ -85,6 +87,8 @@ class NotificationRepository implements NotificationRepositoryInterface
             'unreadChats'     => (int) $row->unread_chats,
             'newComplaints'   => (int) $row->new_complaints,
             'pendingReviews'  => (int) $row->pending_reviews,
+            'pendingStores'   => (int) $row->pending_stores,
+            'pendingTariffRequests' => (int) $row->pending_tariff_requests,
         ];
     }
 

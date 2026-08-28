@@ -13,6 +13,9 @@ class TariffResource extends JsonResource
             'id'             => $this->id,
             'name_tk'        => $this->name_tk,
             'name_ru'        => $this->name_ru,
+            // Сумма, которую нужно передать админу наличными
+            'price'          => (float) $this->price,
+            'can_have_store' => (bool) $this->can_have_store,
             'listings_limit' => (int) $this->listings_limit,
             'videos_limit'   => (int) $this->videos_limit,
             'boost_limit'    => (int) $this->boost_limit,

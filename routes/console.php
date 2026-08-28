@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Чистка брошенных временных файлов chunked-загрузки видео
 Schedule::command('videos:prune-uploads')->hourly();
+
+// Витрины магазинов гаснут, когда у владельца истекает тариф с can_have_store
+Schedule::command('stores:sync-visibility')->dailyAt('03:10');

@@ -7,20 +7,22 @@ use Illuminate\Database\Eloquent\Model;
 class Tariff extends Model
 {
     protected $fillable = [
-        'name', 'name_ru', 'name_tk', 'listings_limit', 'videos_limit', 'boost_limit',
+        'name', 'name_ru', 'name_tk', 'price', 'listings_limit', 'videos_limit', 'boost_limit',
         'duration_days', 'is_free', 'is_active', 'can_have_store',
     ];
 
     protected function casts(): array
     {
         return [
+            'price'          => 'decimal:2',
             'is_free'        => 'boolean',
             'is_active'      => 'boolean',
             'can_have_store' => 'boolean',
         ];
     }
 
-    public function users() { return $this->hasMany(User::class); }
+    public function users()   { return $this->hasMany(User::class); }
+    public function requests() { return $this->hasMany(TariffRequest::class); }
 
     public function canHaveStore(): bool
     {

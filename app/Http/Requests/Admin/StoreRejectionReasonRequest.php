@@ -18,7 +18,7 @@ class StoreRejectionReasonRequest extends FormRequest
         return [
             'name_ru'   => ['required', 'string', 'max:255'],
             'name_tk'   => ['required', 'string', 'max:255'],
-            'type'      => ['required', 'in:listing,video,review'],
+            'type'      => ['required', 'in:listing,video,review,store'],
             'is_active' => ['boolean'],
         ];
     }

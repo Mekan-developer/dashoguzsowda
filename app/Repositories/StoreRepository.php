@@ -7,22 +7,48 @@ use App\Models\StorePhoto;
 use App\Models\User;
 use App\Repositories\Interfaces\StoreRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class StoreRepository implements StoreRepositoryInterface
 {
     public function popular(int $limit = 20): Collection
     {
-        return Store::with('photos', 'category')
+        return Store::with('photos', 'category', 'region', 'city', 'district')
             ->where('is_popular', true)
+            ->tap($this->publicScope(...))
             ->orderBy('sort_order')
             ->limit($limit)
             ->get();
     }
 
+    public function paginatePublic(array $filters, int $perPage = 20): LengthAwarePaginator
+    {
+        return Store::with('photos', 'category', 'region', 'city', 'district')
+            ->tap($this->publicScope(...))
+            ->when($filters['region_id'] ?? null, fn ($q, $id) => $q->where('region_id', $id))
+            ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
+            ->when($filters['district_id'] ?? null, fn ($q, $id) => $q->where('district_id', $id))
+            ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
+            // type=retail показывает и «оптом и в розницу» — флаги независимы
+            ->when(($filters['type'] ?? null) === 'retail', fn ($q) => $q->where('sells_retail', true))
+            ->when(($filters['type'] ?? null) === 'wholesale', fn ($q) => $q->where('sells_wholesale', true))
+            ->when(isset($filters['has_delivery']), fn ($q) => $q->where('has_delivery', (bool) $filters['has_delivery']))
+            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', '%'.addcslashes($s, '%_\\').'%'))
+            // Курируемые из админки идут первыми, остальные — свежими
+            ->orderByDesc('is_popular')
+            ->orderByRaw('sort_order IS NULL')
+            ->orderBy('sort_order')
+            ->latest('id')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
     public function findByUser(int $userId): ?Store
     {
-        return Store::with('category')->where('user_id', $userId)->first();
+        return Store::with('category', 'region', 'city', 'district', 'photos', 'rejectionReason')
+            ->where('user_id', $userId)
+            ->first();
     }
 
     public function upsertForUser(User $user, array $data): Store
@@ -32,8 +58,9 @@ class StoreRepository implements StoreRepositoryInterface
 
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
-        return Store::with('user', 'category', 'photos')
+        return Store::with('user', 'category', 'photos', 'region', 'city', 'district', 'rejectionReason')
             ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
+            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when(array_key_exists('is_popular', $filters) && $filters['is_popular'] !== null && $filters['is_popular'] !== '',
                 fn ($q) => $q->where('is_popular', (bool) $filters['is_popular']))
             ->latest()
@@ -81,5 +108,26 @@ class StoreRepository implements StoreRepositoryInterface
     public function countPhotos(Store $store): int
     {
         return $store->photos()->count();
+    }
+
+    public function countPending(): int
+    {
+        return Store::where('status', 'pending')->count();
+    }
+
+    public function setActiveForUser(int $userId, bool $isActive): int
+    {
+        return Store::where('user_id', $userId)->update(['is_active' => $isActive]);
+    }
+
+    public function allWithOwners(): Collection
+    {
+        return Store::with('user.tariff')->get()->toBase();
+    }
+
+    /** Единственное определение «магазин виден публично» — не размазывать по вызовам. */
+    private function publicScope(Builder $query): void
+    {
+        $query->where('status', 'approved')->where('is_active', true);
     }
 }

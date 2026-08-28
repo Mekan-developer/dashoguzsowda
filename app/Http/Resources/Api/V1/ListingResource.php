@@ -16,6 +16,13 @@ class ListingResource extends JsonResource
             'description' => $this->description,
             'type'        => $this->type,
             'price'       => $this->price !== null ? (float) $this->price : null,
+            // Опт: цена за единицу при заказе от min_order_qty. Оба ценника
+            // независимы — товар может продаваться и в розницу, и оптом,
+            // мобилка показывает те плашки, у которых цена не null.
+            'wholesale_price' => $this->wholesale_price !== null ? (float) $this->wholesale_price : null,
+            'min_order_qty'   => $this->min_order_qty !== null ? (int) $this->min_order_qty : null,
+            // null = «в наличии» (владелец не ведёт учёт), 0 = нет в наличии, N = N шт
+            'stock_qty'       => $this->stock_qty !== null ? (int) $this->stock_qty : null,
             'phone'       => $this->phone,
             'tags'        => $this->tags ?? [],
             'location'    => $this->location,
@@ -54,6 +61,21 @@ class ListingResource extends JsonResource
                 'name_tk' => $this->city->name_tk,
                 'name_ru' => $this->city->name_ru,
             ]),
+            'district'   => $this->whenLoaded('district', fn () => $this->district ? [
+                'id'      => $this->district->id,
+                'name_tk' => $this->district->name_tk,
+                'name_ru' => $this->district->name_ru,
+            ] : null),
+            // Товар магазина: мобилка по этому блоку рисует условия покупки
+            // (опт/розница, доставка или самовывоз с оплатой на месте)
+            'store'      => $this->whenLoaded('store', fn () => $this->store ? [
+                'id'              => $this->store->id,
+                'name'            => $this->store->name,
+                'logo_url'        => $this->store->logo ? Storage::disk('public')->url($this->store->logo) : null,
+                'sells_retail'    => (bool) $this->store->sells_retail,
+                'sells_wholesale' => (bool) $this->store->sells_wholesale,
+                'has_delivery'    => (bool) $this->store->has_delivery,
+            ] : null),
             'user'       => $this->whenLoaded('user', fn () => [
                 'id'     => $this->user->id,
                 'name'   => $this->user->name,

@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\RegionController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SearchPopularController;
 use App\Http\Controllers\Api\V1\SearchRecentController;
+use App\Http\Controllers\Api\V1\MyStoreController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\TariffController;
 use App\Http\Controllers\Api\V1\VideoController;
@@ -81,6 +82,18 @@ Route::prefix('v1')
             // Каталог тарифных планов для выбора в профиле
             Route::get('/tariffs', [TariffController::class, 'catalog'])->name('tariffs.catalog');
 
+            // Свой магазин: один на пользователя, поэтому без {id}.
+            // Доступен только на тарифе с can_have_store, каждая правка
+            // витринных полей заново уходит на модерацию.
+            Route::prefix('my/store')->name('my.store.')->group(function () {
+                Route::get('/',    [MyStoreController::class, 'show'])->name('show');
+                Route::post('/',   [MyStoreController::class, 'store'])
+                    ->middleware(['not_blocked', 'throttle:10,1'])->name('store');
+                Route::put('/',    [MyStoreController::class, 'update'])
+                    ->middleware(['not_blocked', 'throttle:20,1'])->name('update');
+                Route::delete('/photos/{photo}', [MyStoreController::class, 'destroyPhoto'])->name('photos.destroy');
+            });
+
             // Настройки, синхронизируемые между устройствами (язык и тема — device-local)
             Route::prefix('preferences')->name('preferences.')->group(function () {
                 Route::get('/', [PreferenceController::class, 'show'])->name('show');
@@ -118,6 +131,7 @@ Route::prefix('v1')
         Route::prefix('stores')->name('stores.')->group(function () {
             // popular — ДО /{store}, иначе уйдёт в model binding
             Route::get('/popular',           [StoreController::class, 'popular'])->name('popular');
+            Route::get('/',                  [StoreController::class, 'index'])->name('index');
             Route::get('/{store}',           [StoreController::class, 'show'])->name('show');
             Route::get('/{store}/listings',  [StoreController::class, 'listings'])->name('listings');
         });

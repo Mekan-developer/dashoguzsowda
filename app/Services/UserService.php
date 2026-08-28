@@ -22,6 +22,7 @@ class UserService
         private readonly ImageConversionService $imageConversion,
         private readonly SendSmsCodeAction $sendSmsCode,
         private readonly TariffService $tariffService,
+        private readonly TariffRequestService $tariffRequestService,
         private readonly StoreService $storeService,
         private readonly ListingRepositoryInterface $listingRepository,
         private readonly FavoriteRepositoryInterface $favoriteRepository,
@@ -118,6 +119,9 @@ class UserService
         return [
             'is_premium' => $tariff !== null && ! $tariff->is_free,
             'tariff'     => $tariff ? [...$usage, 'name' => $tariff->name] : null,
+            // Пока заявка в статусе pending, мобилка показывает «На рассмотрении»
+            // вместо кнопки смены тарифа, а после отказа — комментарий админа
+            'tariff_request' => $this->tariffRequestService->forProfile($user),
             'store'      => $this->storeService->forProfile($user, $tariff?->canHaveStore() ?? false),
             'stats'      => [
                 'views_count'       => $this->listingRepository->sumViewsByUser($user->id),

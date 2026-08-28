@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
+use App\Repositories\Interfaces\StoreRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,6 +22,7 @@ class ListingService
         private readonly ListingRepositoryInterface $listingRepository,
         private readonly TariffService $tariffService,
         private readonly CategoryRepositoryInterface $categoryRepository,
+        private readonly StoreRepositoryInterface $storeRepository,
         private readonly CheckTariffLimitAction $checkTariffLimitAction,
         private readonly AttachListingPhotosAction $attachListingPhotosAction,
     ) {}
@@ -131,6 +133,7 @@ class ListingService
 
         $listing = $this->listingRepository->create([
             ...$data,
+            ...$this->storeAttributes($user),
             'user_id' => $user->id,
             'phone'   => $data['phone'] ?? $user->phone,
             'status'  => 'pending',
@@ -160,6 +163,7 @@ class ListingService
 
         $this->listingRepository->update($listing, [
             ...$data,
+            ...$this->storeAttributes($listing->user),
             'status'              => 'pending',
             'rejection_reason_id' => null,
         ]);
@@ -169,6 +173,34 @@ class ListingService
         }
 
         return $this->listingRepository->find($listing->id);
+    }
+
+    /**
+     * Объявление автора, у которого есть магазин, — это товар магазина: оно
+     * привязывается к нему автоматически и берёт его адрес (решение команды:
+     * адрес указывает вручную только тот, у кого магазина нет).
+     *
+     * Магазин на модерации или погашенный тоже проставляется: товар всё равно
+     * его, а из витрины он не покажется, пока не одобрят.
+     */
+    private function storeAttributes(?User $user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        $store = $this->storeRepository->findByUser($user->id);
+
+        if (! $store) {
+            return [];
+        }
+
+        return [
+            'store_id'    => $store->id,
+            'region_id'   => $store->region_id ?? $user->region_id,
+            'city_id'     => $store->city_id ?? $user->city_id,
+            'district_id' => $store->district_id,
+        ];
     }
 
     public function deleteFromApi(Listing $listing): void

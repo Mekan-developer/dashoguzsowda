@@ -19,6 +19,8 @@ function tariffPayload(array $overrides = []): array
 {
     return array_merge([
         'name_ru' => 'Золотой', 'name_tk' => 'Altyn',
+        // Цена нужна админу: тариф оплачивается наличными на руки
+        'price' => 250,
         'listings_limit' => 15, 'videos_limit' => 6, 'boost_limit' => 4,
         'duration_days' => 30, 'is_active' => true, 'is_free' => false,
     ], $overrides);

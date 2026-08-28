@@ -111,6 +111,8 @@ class TariffService
     {
         return $this->tariffRepository->catalogActive()->map(fn (Tariff $tariff) => [
             'name'         => $tariff->name,
+            'price'        => $tariff->price,
+            'can_have_store' => $tariff->can_have_store,
             'ads_limit'    => $tariff->listings_limit,
             'ads_used'     => 0,
             'videos_limit' => $tariff->videos_limit,

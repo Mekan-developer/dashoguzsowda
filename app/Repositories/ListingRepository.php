@@ -28,7 +28,7 @@ class ListingRepository implements ListingRepositoryInterface
 
     public function find(int $id): Listing
     {
-        return Listing::with('user', 'category.parent.parent', 'region', 'city', 'media', 'rejectionReason')->findOrFail($id);
+        return Listing::with('user', 'store', 'category.parent.parent', 'region', 'city', 'district', 'media', 'rejectionReason')->findOrFail($id);
     }
 
     public function create(array $data): Listing
@@ -84,16 +84,26 @@ class ListingRepository implements ListingRepositoryInterface
 
     public function paginateForApi(array $filters, int $perPage = 20, ?int $viewerId = null): LengthAwarePaginator
     {
-        $query = Listing::with('user', 'category.parent.parent', 'region', 'city', 'media')
+        $query = Listing::with('user', 'store', 'category.parent.parent', 'region', 'city', 'district', 'media')
             ->where('status', 'approved')
             ->when($viewerId, fn ($q, $id) => $q->withExists([
                 'favorites as is_favorite' => fn ($f) => $f->where('user_id', $id),
             ]))
             ->when($filters['category_ids'] ?? null, fn ($q, $ids) => $q->whereIn('category_id', $ids))
             ->when($filters['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
+            ->when($filters['store_id'] ?? null, fn ($q, $id) => $q->where('store_id', $id))
             ->when($filters['region_id'] ?? null, fn ($q, $id) => $q->where('region_id', $id))
             ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
+            ->when($filters['district_id'] ?? null, fn ($q, $id) => $q->where('district_id', $id))
             ->when($filters['type'] ?? null, fn ($q, $t) => $q->where('type', $t))
+            // trade=wholesale — только товары с оптовой ценой, trade=retail — с розничной
+            ->when(($filters['trade'] ?? null) === 'wholesale', fn ($q) => $q->whereNotNull('wholesale_price'))
+            ->when(($filters['trade'] ?? null) === 'retail', fn ($q) => $q->whereNotNull('price'))
+            // in_stock=1 прячет товары, которые владелец пометил как закончившиеся
+            // (null = учёт не ведётся, такие остаются в выдаче)
+            ->when(! empty($filters['in_stock']), fn ($q) => $q->where(fn ($w) => $w
+                ->whereNull('stock_qty')
+                ->orWhere('stock_qty', '>', 0)))
             ->when(isset($filters['price_min']), fn ($q) => $q->where('price', '>=', $filters['price_min']))
             ->when(isset($filters['price_max']), fn ($q) => $q->where('price', '<=', $filters['price_max']))
             ->when($filters['search'] ?? null, function ($q, $s) {
@@ -115,7 +125,7 @@ class ListingRepository implements ListingRepositoryInterface
 
     public function paginateByUser(int $userId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        return Listing::with('category.parent.parent', 'region', 'city', 'media', 'rejectionReason')
+        return Listing::with('store', 'category.parent.parent', 'region', 'city', 'district', 'media', 'rejectionReason')
             ->where('user_id', $userId)
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->latest()

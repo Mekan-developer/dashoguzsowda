@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 class UserResource extends JsonResource
 {
     /**
-     * @param array{is_premium: bool, tariff: array|null, store: array|null, stats: array}|null $summary
+     * @param array{is_premium: bool, tariff: array|null, tariff_request: array|null, store: array|null, stats: array}|null $summary
      *        Сводка store/tariff/stats из UserService::profileSummary() (mobile_docs/BACKEND_API.md §2).
      *        Опциональна: там, где сводка не нужна (например AuthController::verify),
      *        передавать её незачем — тогда поля уходят с безопасными дефолтами.
@@ -39,6 +39,8 @@ class UserResource extends JsonResource
             'store'        => $this->summary['store'] ?? null,
             'tariff'       => $this->summary['tariff'] ?? null,
             'subscription' => $this->summary['tariff'] ?? null, // алиас — мобилка читает любое из двух
+            // Заявка на платный тариф: pending — деньги ещё не переданы админу
+            'tariff_request' => $this->summary['tariff_request'] ?? null,
             'stats'        => $this->summary['stats'] ?? null,
             'region'     => $this->whenLoaded('region', fn () => [
                 'id'      => $this->region->id,
