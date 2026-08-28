@@ -1,5 +1,11 @@
 FROM composer:2 AS vendor
 WORKDIR /build
+
+ARG COMPOSER_MIRROR=https://nexus.telecom.tm/repository/composer-proxy/
+# -g (global), а не в composer.json проекта — иначе меняем content-hash,
+# который composer.lock сверяет при install.
+RUN if [ -n "$COMPOSER_MIRROR" ]; then composer config -g repo.packagist composer "$COMPOSER_MIRROR"; fi
+
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader \
     --prefer-dist --ignore-platform-reqs
@@ -9,6 +15,10 @@ RUN composer install --no-dev --no-scripts --no-autoloader \
 
 FROM node:22 AS assets
 WORKDIR /build
+
+ARG NPM_REGISTRY=https://nexus.telecom.tm/repository/npm-proxy/
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
+
 COPY package*.json ./
 RUN npm ci
 COPY vite.config.* tailwind.config.js postcss.config.js ./

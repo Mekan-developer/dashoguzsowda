@@ -17,7 +17,9 @@ services:
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
-        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-https://mirror.yandex.ru}
+        APT_MIRROR: ${APT_MIRROR:-https://nexus.telecom.tm/repository/debian-proxy}
+        COMPOSER_MIRROR: ${COMPOSER_MIRROR:-https://nexus.telecom.tm/repository/composer-proxy/}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://nexus.telecom.tm/repository/npm-proxy/}
     container_name: dzsowda_app
 
   nginx:

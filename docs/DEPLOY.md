@@ -185,13 +185,8 @@ php-стейдж образа собирается на `php:8.3-fpm` (Debian tr
 
 По умолчанию `APT_MIRROR` в `docker/php/Dockerfile` уже указывает на
 внутреннее зеркало — если сервер и так в закрытой сети, публичный
-`deb.debian.org` не требуется. Переопределяется build-arg `APT_MIRROR`.
-
-⚠ **Известная нестыковка:** build-arg в `docker-compose.yml` называется
-`DEBIAN_MIRROR`, а `Dockerfile` читает `APT_MIRROR` — значение из `.env` до
-сборки не долетает из-за разных имён. Пока имена не приведены к одному —
-переопределять зеркало через `.env` бесполезно, нужно передавать явно:
-`$CO build --build-arg APT_MIRROR=...`.
+`deb.debian.org` не требуется. Переопределяется через `.env` (build-arg
+`APT_MIRROR` в `docker-compose.yml` прокидывается в `Dockerfile`).
 
 Проверить одной командой:
 
