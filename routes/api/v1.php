@@ -154,11 +154,11 @@ Route::prefix('v1')
                 // Публикация и повторная публикация (update возвращает объявление
                 // в pending) — заблокированному недоступны (ТЗ 13.3).
                 Route::post('/', [ListingController::class, 'store'])
-                    ->middleware('not_blocked')->name('store');
+                    ->middleware(['not_blocked', 'throttle:20,1'])->name('store');
 
                 // Multipart-PUT PHP не парсит — обновление слать POST-ом
                 Route::match(['put', 'post'], '/{listing}', [ListingController::class, 'update'])
-                    ->middleware('not_blocked')->can('update', 'listing')->name('update');
+                    ->middleware(['not_blocked', 'throttle:20,1'])->can('update', 'listing')->name('update');
 
                 Route::delete('/{listing}',      [ListingController::class, 'destroy'])->can('delete', 'listing')->name('destroy');
                 Route::post('/{listing}/boost',  [ListingController::class, 'boost'])->can('boost', 'listing')->name('boost');
@@ -181,6 +181,7 @@ Route::prefix('v1')
 
                 // Chunked / streaming-загрузка (видео любого размера). Статический
                 // сегмент «upload» не конфликтует с model binding /videos/{video}.
+                // Частей у большого файла много — throttle здесь не вешаем.
                 Route::prefix('upload')->name('upload.')->group(function () {
                     Route::post('/init',                 [VideoUploadController::class, 'init'])->middleware('not_blocked')->name('init');
                     Route::post('/{uploadId}/chunk',     [VideoUploadController::class, 'chunk'])->middleware('not_blocked')->name('chunk');
@@ -190,10 +191,11 @@ Route::prefix('v1')
 
                 // Загрузка ролика одним запросом (для мелких файлов)
                 Route::post('/', [VideoController::class, 'store'])
-                    ->middleware('not_blocked')->name('store');
+                    ->middleware(['not_blocked', 'throttle:10,1'])->name('store');
 
+                // Лайк тоже накручивает чужие счётчики — закрыт для заблокированных
                 Route::post('/{video}/like', [VideoController::class, 'like'])
-                    ->middleware('throttle:60,1')->name('like');
+                    ->middleware(['not_blocked', 'throttle:60,1'])->name('like');
 
                 Route::delete('/{video}', [VideoController::class, 'destroy'])->can('delete', 'video')->name('destroy');
             });
@@ -211,8 +213,8 @@ Route::prefix('v1')
         */
         Route::middleware('auth:sanctum')->prefix('favorites')->name('favorites.')->group(function () {
             Route::get('/', [FavoriteController::class, 'index'])->name('index');
-            Route::post('/', [FavoriteController::class, 'store'])->name('store');
-            Route::delete('/{listing}', [FavoriteController::class, 'destroy'])->name('destroy');
+            Route::post('/', [FavoriteController::class, 'store'])->middleware('throttle:60,1')->name('store');
+            Route::delete('/{listing}', [FavoriteController::class, 'destroy'])->middleware('throttle:60,1')->name('destroy');
         });
 
         /*
@@ -232,7 +234,7 @@ Route::prefix('v1')
         */
         Route::middleware('auth:sanctum')->prefix('chat')->name('chat.')->group(function () {
             Route::get('/',       [ChatController::class, 'index'])->name('index');
-            Route::post('/',      [ChatController::class, 'store'])->name('store');
+            Route::post('/',      [ChatController::class, 'store'])->middleware('throttle:30,1')->name('store');
             Route::patch('/read', [ChatController::class, 'markRead'])->name('read');
         });
     });

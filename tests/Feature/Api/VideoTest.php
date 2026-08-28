@@ -237,6 +237,17 @@ it('does not allow liking an unapproved video', function () {
     $this->postJson("/api/v1/videos/{$video->id}/like")->assertNotFound();
 });
 
+it('forbids a blocked user from liking a video', function () {
+    // Публикация закрыта через not_blocked — накрутка лайков тоже (ТЗ 13.3)
+    $video = makeVideo();
+    Sanctum::actingAs(User::factory()->blocked()->create());
+
+    $this->postJson("/api/v1/videos/{$video->id}/like")->assertForbidden();
+
+    expect(VideoLike::count())->toBe(0)
+        ->and($video->fresh()->likes_count)->toBe(0);
+});
+
 // ─── Просмотры (ТЗ §7.2) ────────────────────────────────────────────────────
 
 it('increments views atomically, skipping the author', function () {
