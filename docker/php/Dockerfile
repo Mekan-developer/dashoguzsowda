@@ -85,8 +85,12 @@ RUN mkdir -p storage/framework/cache storage/framework/sessions \
 COPY docker/php/php.prod.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/www.prod.conf /usr/local/etc/php-fpm.d/www.conf
 
+COPY docker/php/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 USER www-data
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 
 FROM nginx:1.27-alpine AS nginx

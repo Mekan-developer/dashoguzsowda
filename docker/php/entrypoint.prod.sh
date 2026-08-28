@@ -3,10 +3,10 @@
 # Миграции выполняет только один контейнер — тот, где RUN_MIGRATIONS=true (app).
 set -e
 
-cd /var/www
+cd /var/www/dzsowda
 
 if [ ! -f .env ]; then
-    echo "FATAL: /var/www/.env не смонтирован. См. docs/DEPLOY.md" >&2
+    echo "FATAL: /var/www/dzsowda/.env не смонтирован. См. docs/DEPLOY.md" >&2
     exit 1
 fi
 
@@ -22,8 +22,8 @@ fi
 echo "[entrypoint] ожидание базы данных..."
 i=0
 until php -r '
-    require "/var/www/vendor/autoload.php";
-    Dotenv\Dotenv::createImmutable("/var/www")->safeLoad();
+    require "/var/www/dzsowda/vendor/autoload.php";
+    Dotenv\Dotenv::createImmutable("/var/www/dzsowda")->safeLoad();
     $dsn = sprintf("mysql:host=%s;port=%s", $_ENV["DB_HOST"] ?? "mysql", $_ENV["DB_PORT"] ?? 3306);
     try { new PDO($dsn, $_ENV["DB_USERNAME"] ?? "", $_ENV["DB_PASSWORD"] ?? ""); exit(0); }
     catch (Throwable $e) { exit(1); }
@@ -44,10 +44,8 @@ php artisan package:discover --ansi
 # Символическая ссылка public/storage → storage/app/public (том с загрузками).
 php artisan storage:link --force >/dev/null 2>&1 || true
 
-if [ "${RUN_MIGRATIONS}" = "true" ]; then
-    echo "[entrypoint] миграции..."
-    php artisan migrate --force --no-interaction
-fi
+echo "[entrypoint] очистка старых кэшей..."
+php artisan optimize:clear
 
 echo "[entrypoint] прогрев кэшей..."
 php artisan config:cache
