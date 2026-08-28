@@ -31,7 +31,7 @@ class StoreListingRequest extends FormRequest
             'location.lat' => ['required_with:location', 'numeric', 'between:-90,90'],
             'location.lng' => ['required_with:location', 'numeric', 'between:-180,180'],
             'photos'       => ['required', 'array', 'min:1', 'max:8'],
-            'photos.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'photos.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:15360'],
         ];
     }
 

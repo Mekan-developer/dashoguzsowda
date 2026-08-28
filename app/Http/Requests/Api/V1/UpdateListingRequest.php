@@ -30,7 +30,7 @@ class UpdateListingRequest extends FormRequest
             'location.lat' => ['required_with:location', 'numeric', 'between:-90,90'],
             'location.lng' => ['required_with:location', 'numeric', 'between:-180,180'],
             'photos'       => ['sometimes', 'array', 'max:8'],
-            'photos.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'photos.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:15360'],
             'remove_media_ids'   => ['sometimes', 'array'],
             'remove_media_ids.*' => [
                 'integer',

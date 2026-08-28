@@ -15,7 +15,7 @@ class StoreBannerRequest extends FormRequest
         return [
             'title_ru'   => 'required|string|max:255',
             'title_tk'   => 'nullable|string|max:255',
-            'image'      => [$isUpdate ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'image'      => [$isUpdate ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:15360'],
             'crop_x'     => 'nullable|numeric|between:0,100',
             'crop_y'     => 'nullable|numeric|between:0,100',
             'link_type'  => 'nullable|in:url,listing',

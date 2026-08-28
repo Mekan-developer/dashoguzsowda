@@ -19,7 +19,7 @@ class StoreCategoryRequest extends FormRequest
             'icon'        => 'nullable|file|mimes:svg|max:1024',
             'icon_path'   => 'nullable|string|exists:category_icons,path',
             // Изображение — только для корневых категорий (нет parent_id)
-            'image'       => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', Rule::prohibitedIf(fn () => $this->filled('parent_id'))],
+            'image'       => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:15360', Rule::prohibitedIf(fn () => $this->filled('parent_id'))],
             'crop_x'      => 'nullable|numeric|between:0,100',
             'crop_y'      => 'nullable|numeric|between:0,100',
         ];

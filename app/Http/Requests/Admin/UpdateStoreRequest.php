@@ -21,7 +21,7 @@ class UpdateStoreRequest extends FormRequest
             'phone'       => 'nullable|string|max:32',
             'address'     => 'nullable|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
-            'logo'        => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'logo'        => 'nullable|image|mimes:jpg,jpeg,png,webp|max:15360',
             'crop_x'      => 'nullable|numeric|between:0,100',
             'crop_y'      => 'nullable|numeric|between:0,100',
             'photos'      => 'nullable|array',
