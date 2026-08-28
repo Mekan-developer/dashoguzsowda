@@ -24,8 +24,10 @@ body:json {
 docs {
   Отправляет сообщение от лица текущего пользователя (sender=user).
   Событие NewMessageEvent транслируется в реальном времени в приватный канал
-  Reverb private-chat.{user_id} — если открыть в это время /chat в админке
+  Reverb private-chat.{user_id} — если открыть в это время /admin/chat в админке
   (и BROADCAST_CONNECTION=reverb), сообщение появится там без перезагрузки страницы.
+
+  Лимит частоты — 30 сообщений в минуту (429 сверх того).
 }
 
 tests {

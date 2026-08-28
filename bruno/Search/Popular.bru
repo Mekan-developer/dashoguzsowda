@@ -1,0 +1,40 @@
+meta {
+  name: Популярные запросы (по всему сайту)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/v1/search/popular
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Топ поисковых запросов всего сайта — публичный, в отличие от истории
+  /v1/search/recent, которая персональная и требует токен.
+
+  Источник — search_query_logs: счётчик растёт при каждом поиске объявлений
+  (?search= в /v1/listings), в том числе от гостей. Регистр не важен:
+  «iPhone» и «IPHONE» — один запрос.
+
+  Отдаётся до 10 запросов за последние 30 дней, ответ — плоский массив строк:
+  { "data": ["iPhone", "Toyota"] }. Результат кэшируется на 5 минут, поэтому
+  свежий поиск появляется здесь не мгновенно. Пока ничего не искали — [].
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns an array of at most 10 queries", function() {
+    const data = res.getBody().data;
+    expect(data).to.be.an("array");
+    expect(data.length).to.be.at.most(10);
+  });
+}

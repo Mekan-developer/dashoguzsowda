@@ -1,0 +1,45 @@
+meta {
+  name: Каталог тарифов (для выбора)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base_url}}/v1/tariffs
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Список планов для экрана смены тарифа. Требует токен (401 без него).
+
+  Попадают только активные тарифы, у которых заполнено поле name
+  (мобильный slug: Basic, Premium, …) — архивные и созданные «под клиента»
+  в каталоге не показываются и не принимаются сменой подписки.
+
+  Поля: name, ads_limit, videos_limit, boosts_limit, days_left, а также
+  ads_used / videos_used — в каталоге они всегда 0: это описание плана,
+  а не остаток. Фактический расход — GET /v1/profile/tariff.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("catalog entry describes the plan", function() {
+    const data = res.getBody().data;
+    expect(data).to.be.an('array');
+    if (data.length) {
+      expect(data[0]).to.have.property('name');
+      expect(data[0]).to.have.property('ads_limit');
+      expect(data[0]).to.have.property('videos_limit');
+      expect(data[0].ads_used).to.equal(0);
+    }
+  });
+}
