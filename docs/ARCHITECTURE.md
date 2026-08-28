@@ -108,7 +108,7 @@ flowchart LR
 
 | Слой | Каталог | Задача | Пример |
 |---|---|---|---|
-| Роуты API | `routes/api/v1.php` | префикс `/v1`, middleware | `Route::post('/listings', ...)` |
+| Роуты API | `routes/api/v1.php` | префикс `/api/v1`, имена `api.v1.*` | `Route::post('/listings', ...)` |
 | Роуты админки | `routes/web.php` | Inertia-страницы | `Route::resource('listings', ...)` |
 | Form Request | `app/Http/Requests/Api/V1/`, `.../Admin/` | **вся** валидация | `StoreListingRequest` |
 | Controller | `app/Http/Controllers/Api/V1/`, `.../Admin/` | принять → вызвать → вернуть | `ListingController` |

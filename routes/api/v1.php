@@ -12,134 +12,227 @@ use App\Http\Controllers\Api\V1\NewsController;
 use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RegionController;
+use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\SearchPopularController;
 use App\Http\Controllers\Api\V1\SearchRecentController;
-use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\TariffController;
 use App\Http\Controllers\Api\V1\VideoController;
 use App\Http\Controllers\Api\V1\VideoUploadController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->middleware(\App\Http\Middleware\SetApiLocale::class)->group(function () {
-    // Аутентификация по SMS (регистрация и вход — один сценарий)
-    Route::prefix('auth')->group(function () {
-        Route::post('/send-code', [AuthController::class, 'sendCode'])->middleware('throttle:5,1');
-        Route::post('/verify', [AuthController::class, 'verify'])->middleware('throttle:10,1');
-        Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+/*
+|--------------------------------------------------------------------------
+| Мобильное API v1
+|--------------------------------------------------------------------------
+| Разложено по доменам: один домен — один непрерывный блок, внутри него
+| сначала публичное, затем то, что требует auth:sanctum.
+|
+| Два правила порядка, которые нельзя нарушать при правках:
+|   1. статический сегмент объявляется ДО model binding — иначе «my»,
+|      «popular», «upload» уедут в {listing}/{store}/{video};
+|   2. заблокированному пользователю закрыто всё, что публикует контент
+|      или влияет на чужие счётчики (ТЗ 13.3) — middleware not_blocked.
+|
+| Имена: api.v1.<домен>.<действие>. В @routes они не попадают —
+| см. config/ziggy.php.
+*/
+Route::prefix('v1')
+    ->name('api.v1.')
+    ->middleware(\App\Http\Middleware\SetApiLocale::class)
+    ->group(function () {
+
+        /*
+        |----------------------------------------------------------------------
+        | Аутентификация по SMS (регистрация и вход — один сценарий)
+        |----------------------------------------------------------------------
+        */
+        Route::prefix('auth')->name('auth.')->group(function () {
+            Route::post('/send-code', [AuthController::class, 'sendCode'])->middleware('throttle:5,1')->name('send-code');
+            Route::post('/verify',    [AuthController::class, 'verify'])->middleware('throttle:10,1')->name('verify');
+            Route::post('/logout',    [AuthController::class, 'logout'])->middleware('auth:sanctum')->name('logout');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Профиль, тариф и настройки текущего пользователя
+        |----------------------------------------------------------------------
+        */
+        Route::middleware('auth:sanctum')->group(function () {
+
+            Route::prefix('profile')->name('profile.')->group(function () {
+                Route::get('/',  [ProfileController::class, 'show'])->name('show');
+                Route::put('/',  [ProfileController::class, 'update'])->name('update');
+
+                Route::post('/avatar',   [ProfileController::class, 'updateAvatar'])->name('avatar.update');
+                Route::delete('/avatar', [ProfileController::class, 'deleteAvatar'])->name('avatar.destroy');
+
+                Route::put('/fcm-token', [ProfileController::class, 'updateFcmToken'])->name('fcm-token');
+
+                // Смена номера требует повторного подтверждения по SMS
+                Route::post('/phone/send-code', [ProfileController::class, 'sendPhoneCode'])->middleware('throttle:5,1')->name('phone.send-code');
+                Route::post('/phone/confirm',   [ProfileController::class, 'confirmPhone'])->middleware('throttle:10,1')->name('phone.confirm');
+
+                // Тариф пользователя живёт в TariffController, но по URL — часть профиля
+                Route::get('/tariff',       [TariffController::class, 'show'])->name('tariff');
+                Route::put('/subscription', [TariffController::class, 'updateSubscription'])->name('subscription');
+            });
+
+            // Каталог тарифных планов для выбора в профиле
+            Route::get('/tariffs', [TariffController::class, 'catalog'])->name('tariffs.catalog');
+
+            // Настройки, синхронизируемые между устройствами (язык и тема — device-local)
+            Route::prefix('preferences')->name('preferences.')->group(function () {
+                Route::get('/', [PreferenceController::class, 'show'])->name('show');
+                Route::put('/', [PreferenceController::class, 'update'])->name('update');
+            });
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Публичные справочники
+        |----------------------------------------------------------------------
+        */
+        // Дерево категорий для мобильного приложения
+        Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+        // Регионы и города — для форм регистрации/профиля/объявлений
+        Route::get('/regions',    [RegionController::class, 'index'])->name('regions.index');
+        // Промо-карусель на главной
+        Route::get('/banners',    [BannerController::class, 'index'])->name('banners.index');
+        // Справочник для формы жалобы (ТЗ 8.3)
+        Route::get('/complaint-reasons', [ComplaintReasonController::class, 'index'])->name('complaint-reasons.index');
+
+        /*
+        |----------------------------------------------------------------------
+        | Новости
+        |----------------------------------------------------------------------
+        */
+        Route::get('/news',        [NewsController::class, 'index'])->name('news.index');
+        Route::get('/news/{news}', [NewsController::class, 'show'])->name('news.show');
+
+        /*
+        |----------------------------------------------------------------------
+        | Магазины (витрина курируется из админки, ТЗ §1)
+        |----------------------------------------------------------------------
+        */
+        Route::prefix('stores')->name('stores.')->group(function () {
+            // popular — ДО /{store}, иначе уйдёт в model binding
+            Route::get('/popular',           [StoreController::class, 'popular'])->name('popular');
+            Route::get('/{store}',           [StoreController::class, 'show'])->name('show');
+            Route::get('/{store}/listings',  [StoreController::class, 'listings'])->name('listings');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Поиск
+        |----------------------------------------------------------------------
+        */
+        Route::prefix('search')->name('search.')->group(function () {
+            // Популярные запросы по всему сайту — публичные
+            Route::get('/popular', [SearchPopularController::class, 'index'])->name('popular');
+
+            // История запросов — только для авторизованных, гость хранит её на устройстве
+            Route::middleware('auth:sanctum')->group(function () {
+                Route::get('/recent',    [SearchRecentController::class, 'index'])->name('recent.index');
+                Route::post('/recent',   [SearchRecentController::class, 'store'])->name('recent.store');
+                Route::delete('/recent', [SearchRecentController::class, 'destroy'])->name('recent.destroy');
+            });
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Объявления
+        |----------------------------------------------------------------------
+        */
+        Route::prefix('listings')->name('listings.')->group(function () {
+            Route::get('/', [ListingController::class, 'index'])->name('index');
+
+            Route::middleware('auth:sanctum')->group(function () {
+                // my — ДО /{listing}, иначе уйдёт в model binding
+                Route::get('/my', [ListingController::class, 'my'])->name('my');
+
+                // Публикация и повторная публикация (update возвращает объявление
+                // в pending) — заблокированному недоступны (ТЗ 13.3).
+                Route::post('/', [ListingController::class, 'store'])
+                    ->middleware('not_blocked')->name('store');
+
+                // Multipart-PUT PHP не парсит — обновление слать POST-ом
+                Route::match(['put', 'post'], '/{listing}', [ListingController::class, 'update'])
+                    ->middleware('not_blocked')->can('update', 'listing')->name('update');
+
+                Route::delete('/{listing}',      [ListingController::class, 'destroy'])->can('delete', 'listing')->name('destroy');
+                Route::post('/{listing}/boost',  [ListingController::class, 'boost'])->can('boost', 'listing')->name('boost');
+            });
+
+            Route::get('/{listing}', [ListingController::class, 'show'])->name('show');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Ролики (ТЗ §7): публичная лента отдаёт только approved
+        |----------------------------------------------------------------------
+        */
+        Route::prefix('videos')->name('videos.')->group(function () {
+            Route::get('/', [VideoController::class, 'index'])->name('index');
+
+            Route::middleware('auth:sanctum')->group(function () {
+                // my — ДО /{video}, иначе уйдёт в model binding
+                Route::get('/my', [VideoController::class, 'my'])->name('my');
+
+                // Chunked / streaming-загрузка (видео любого размера). Статический
+                // сегмент «upload» не конфликтует с model binding /videos/{video}.
+                Route::prefix('upload')->name('upload.')->group(function () {
+                    Route::post('/init',                 [VideoUploadController::class, 'init'])->middleware('not_blocked')->name('init');
+                    Route::post('/{uploadId}/chunk',     [VideoUploadController::class, 'chunk'])->middleware('not_blocked')->name('chunk');
+                    Route::post('/{uploadId}/complete',  [VideoUploadController::class, 'complete'])->middleware('not_blocked')->name('complete');
+                    Route::delete('/{uploadId}',         [VideoUploadController::class, 'destroy'])->name('destroy');
+                });
+
+                // Загрузка ролика одним запросом (для мелких файлов)
+                Route::post('/', [VideoController::class, 'store'])
+                    ->middleware('not_blocked')->name('store');
+
+                Route::post('/{video}/like', [VideoController::class, 'like'])
+                    ->middleware('throttle:60,1')->name('like');
+
+                Route::delete('/{video}', [VideoController::class, 'destroy'])->can('delete', 'video')->name('destroy');
+            });
+
+            Route::get('/{video}', [VideoController::class, 'show'])->name('show');
+
+            // Просмотр из ленты доступен и гостю (лента публичная)
+            Route::post('/{video}/view', [VideoController::class, 'view'])->middleware('throttle:60,1')->name('view');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Избранное (ТЗ 8.1)
+        |----------------------------------------------------------------------
+        */
+        Route::middleware('auth:sanctum')->prefix('favorites')->name('favorites.')->group(function () {
+            Route::get('/', [FavoriteController::class, 'index'])->name('index');
+            Route::post('/', [FavoriteController::class, 'store'])->name('store');
+            Route::delete('/{listing}', [FavoriteController::class, 'destroy'])->name('destroy');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Отзывы и жалобы — уходят на модерацию (ТЗ 8.2/8.3)
+        |----------------------------------------------------------------------
+        */
+        Route::middleware(['auth:sanctum', 'not_blocked', 'throttle:10,1'])->group(function () {
+            Route::post('/reviews',    [ReviewController::class, 'store'])->name('reviews.store');
+            Route::post('/complaints', [ComplaintController::class, 'store'])->name('complaints.store');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Чат с поддержкой (единственный диалог пользователя с админом)
+        |----------------------------------------------------------------------
+        */
+        Route::middleware('auth:sanctum')->prefix('chat')->name('chat.')->group(function () {
+            Route::get('/',       [ChatController::class, 'index'])->name('index');
+            Route::post('/',      [ChatController::class, 'store'])->name('store');
+            Route::patch('/read', [ChatController::class, 'markRead'])->name('read');
+        });
     });
-
-    // Профиль текущего пользователя
-    Route::middleware('auth:sanctum')->prefix('profile')->group(function () {
-        Route::get('/', [ProfileController::class, 'show']);
-        Route::get('/tariff', [TariffController::class, 'show']);
-        Route::put('/', [ProfileController::class, 'update']);
-        Route::put('/subscription', [TariffController::class, 'updateSubscription']);
-        Route::put('/fcm-token', [ProfileController::class, 'updateFcmToken']);
-        Route::post('/avatar', [ProfileController::class, 'updateAvatar']);
-        Route::delete('/avatar', [ProfileController::class, 'deleteAvatar']);
-        Route::post('/phone/send-code', [ProfileController::class, 'sendPhoneCode'])->middleware('throttle:5,1');
-        Route::post('/phone/confirm', [ProfileController::class, 'confirmPhone'])->middleware('throttle:10,1');
-    });
-
-    // Каталог тарифных планов для выбора в профиле
-    Route::get('/tariffs', [TariffController::class, 'catalog'])->middleware('auth:sanctum');
-
-    // Настройки, синхронизируемые между устройствами (язык и тема — device-local)
-    Route::middleware('auth:sanctum')->prefix('preferences')->group(function () {
-        Route::get('/', [PreferenceController::class, 'show']);
-        Route::put('/', [PreferenceController::class, 'update']);
-    });
-
-    // История поиска: только для авторизованных, гость хранит её на устройстве
-    Route::middleware('auth:sanctum')->prefix('search')->group(function () {
-        Route::get('/recent',    [SearchRecentController::class, 'index']);
-        Route::post('/recent',   [SearchRecentController::class, 'store']);
-        Route::delete('/recent', [SearchRecentController::class, 'destroy']);
-    });
-
-    // Новости (публичные)
-    Route::get('/news', [NewsController::class, 'index']);
-    Route::get('/news/{news}', [NewsController::class, 'show']);
-
-    // Категории (публичные, дерево для мобильного приложения)
-    Route::get('/categories', [CategoryController::class, 'index']);
-
-    // Регионы и города (публичные, для форм регистрации/профиля/объявлений)
-    Route::get('/regions', [RegionController::class, 'index']);
-
-    // Баннеры (публичные, промо-карусель для мобильного приложения)
-    Route::get('/banners', [BannerController::class, 'index']);
-
-    // Магазины (публичные — витрина курируется из админки, ТЗ §1). /popular
-    // объявлен ДО /{store}, иначе «popular» уйдёт в model binding.
-    Route::get('/stores/popular', [StoreController::class, 'popular']);
-    Route::get('/stores/{store}', [StoreController::class, 'show']);
-    Route::get('/stores/{store}/listings', [StoreController::class, 'listings']);
-
-    // Популярные поисковые запросы по всему сайту (публичный, в отличие от /search/recent)
-    Route::get('/search/popular', [SearchPopularController::class, 'index']);
-
-    // Объявления
-    Route::get('/listings', [ListingController::class, 'index']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        // /listings/my объявлен ДО /listings/{listing}, иначе «my» уйдёт в model binding
-        Route::get('/listings/my', [ListingController::class, 'my']);
-        // Публикация и повторная публикация (update возвращает объявление в pending) —
-        // заблокированному пользователю недоступны (ТЗ 13.3)
-        Route::post('/listings', [ListingController::class, 'store'])->middleware('not_blocked');
-        // Multipart-PUT PHP не парсит — обновление слать POST-ом
-        Route::match(['put', 'post'], '/listings/{listing}', [ListingController::class, 'update'])->middleware('not_blocked')->can('update', 'listing');
-        Route::delete('/listings/{listing}', [ListingController::class, 'destroy'])->can('delete', 'listing');
-        Route::post('/listings/{listing}/boost', [ListingController::class, 'boost'])->can('boost', 'listing');
-    });
-
-    Route::get('/listings/{listing}', [ListingController::class, 'show']);
-
-    // Чат с поддержкой (единственный диалог пользователя с админом)
-    Route::middleware('auth:sanctum')->prefix('chat')->group(function () {
-        Route::get('/', [ChatController::class, 'index']);
-        Route::post('/', [ChatController::class, 'store']);
-        Route::patch('/read', [ChatController::class, 'markRead']);
-    });
-
-    // Причины жалоб (публичный справочник — для формы жалобы, ТЗ 8.3)
-    Route::get('/complaint-reasons', [ComplaintReasonController::class, 'index']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        // Отзывы и жалобы уходят на модерацию (ТЗ 8.2/8.3);
-        // заблокированный пользователь публиковать контент не может (ТЗ 13.3)
-        Route::post('/reviews', [ReviewController::class, 'store'])->middleware(['not_blocked', 'throttle:10,1']);
-        Route::post('/complaints', [ComplaintController::class, 'store'])->middleware(['not_blocked', 'throttle:10,1']);
-
-        // Избранное (ТЗ 8.1)
-        Route::get('/favorites', [FavoriteController::class, 'index']);
-        Route::post('/favorites', [FavoriteController::class, 'store']);
-        Route::delete('/favorites/{listing}', [FavoriteController::class, 'destroy']);
-    });
-
-    // Ролики (ТЗ §7): публичная лента отдаёт только approved
-    Route::get('/videos', [VideoController::class, 'index']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        // /videos/my объявлен ДО /videos/{video}, иначе «my» уйдёт в model binding
-        Route::get('/videos/my', [VideoController::class, 'my']);
-
-        // Chunked / streaming-загрузка (видео любого размера) — заблокированному недоступна (ТЗ 13.3).
-        // Статические сегменты «upload/...» не конфликтуют с model binding /videos/{video}.
-        Route::post('/videos/upload/init', [VideoUploadController::class, 'init'])->middleware('not_blocked');
-        Route::post('/videos/upload/{uploadId}/chunk', [VideoUploadController::class, 'chunk'])->middleware('not_blocked');
-        Route::post('/videos/upload/{uploadId}/complete', [VideoUploadController::class, 'complete'])->middleware('not_blocked');
-        Route::delete('/videos/upload/{uploadId}', [VideoUploadController::class, 'destroy']);
-
-        // Загрузка ролика одним запросом (для мелких файлов) — заблокированному недоступна (ТЗ 13.3)
-        Route::post('/videos', [VideoController::class, 'store'])->middleware('not_blocked');
-        Route::post('/videos/{video}/like', [VideoController::class, 'like'])->middleware('throttle:60,1');
-        Route::delete('/videos/{video}', [VideoController::class, 'destroy'])->can('delete', 'video');
-    });
-
-    Route::get('/videos/{video}', [VideoController::class, 'show']);
-    // Просмотр из ленты доступен и гостю (лента публичная)
-    Route::post('/videos/{video}/view', [VideoController::class, 'view'])->middleware('throttle:60,1');
-});
