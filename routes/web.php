@@ -172,9 +172,15 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         Route::get('push',       [PushController::class, 'index'])->name('push.index');
         Route::post('push/send', [PushController::class, 'send'])->name('push.send');
 
-        // Справочники причин
-        Route::resource('rejection-reasons', RejectionReasonController::class)->except('create', 'edit', 'show');
-        Route::resource('complaint-reasons', ComplaintReasonController::class)->except('create', 'edit', 'show');
+        // Справочники причин: собственной страницы у них нет — обоими списками
+        // управляет Settings/Index.vue, поэтому index-роутов здесь тоже нет.
+        Route::post('rejection-reasons',                      [RejectionReasonController::class, 'store'])->name('rejection-reasons.store');
+        Route::put('rejection-reasons/{rejection_reason}',     [RejectionReasonController::class, 'update'])->name('rejection-reasons.update');
+        Route::delete('rejection-reasons/{rejection_reason}',  [RejectionReasonController::class, 'destroy'])->name('rejection-reasons.destroy');
+
+        Route::post('complaint-reasons',                       [ComplaintReasonController::class, 'store'])->name('complaint-reasons.store');
+        Route::put('complaint-reasons/{complaint_reason}',      [ComplaintReasonController::class, 'update'])->name('complaint-reasons.update');
+        Route::delete('complaint-reasons/{complaint_reason}',   [ComplaintReasonController::class, 'destroy'])->name('complaint-reasons.destroy');
 
         // Настройки (мониторинг, права менеджера, локализация, SMS-шлюз)
         Route::get('settings',                       [SettingsController::class, 'index'])->name('settings.index');

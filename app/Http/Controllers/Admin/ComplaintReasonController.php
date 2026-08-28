@@ -7,20 +7,16 @@ use App\Http\Requests\Admin\StoreComplaintReasonRequest;
 use App\Http\Requests\Admin\UpdateComplaintReasonRequest;
 use App\Models\ComplaintReason;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
-use Inertia\Inertia;
 
+/**
+ * Собственной страницы у справочника нет: список приезжает в пропах
+ * Settings/Index.vue, отсюда — только запись. См. routes/web.php.
+ */
 class ComplaintReasonController extends Controller
 {
     public function __construct(
         private readonly ReasonRepositoryInterface $reasons,
     ) {}
-
-    public function index()
-    {
-        return Inertia::render('ComplaintReasons/Index', [
-            'reasons' => $this->reasons->allComplaintReasons(),
-        ]);
-    }
 
     public function store(StoreComplaintReasonRequest $request)
     {

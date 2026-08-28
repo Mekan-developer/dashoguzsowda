@@ -15,9 +15,6 @@ use Illuminate\Database\Eloquent\Collection;
  */
 interface ReasonRepositoryInterface
 {
-    /** @return Collection<int, RejectionReason> */
-    public function allRejectionReasons(): Collection;
-
     /** Все причины отклонения указанного типа, включая выключенные. */
     public function rejectionReasonsByType(string $type): Collection;
 

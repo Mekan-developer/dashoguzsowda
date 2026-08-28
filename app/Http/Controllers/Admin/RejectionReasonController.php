@@ -7,20 +7,16 @@ use App\Http\Requests\Admin\StoreRejectionReasonRequest;
 use App\Http\Requests\Admin\UpdateRejectionReasonRequest;
 use App\Models\RejectionReason;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
-use Inertia\Inertia;
 
+/**
+ * Собственной страницы у справочника нет: список приезжает в пропах
+ * Settings/Index.vue, отсюда — только запись. См. routes/web.php.
+ */
 class RejectionReasonController extends Controller
 {
     public function __construct(
         private readonly ReasonRepositoryInterface $reasons,
     ) {}
-
-    public function index()
-    {
-        return Inertia::render('RejectionReasons/Index', [
-            'reasons' => $this->reasons->allRejectionReasons(),
-        ]);
-    }
 
     public function store(StoreRejectionReasonRequest $request)
     {

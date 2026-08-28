@@ -67,10 +67,15 @@ it('closes push, settings and reason directories to a manager', function () {
     $this->post(route('push.send'), [])->assertForbidden();
     $this->get(route('settings.index'))->assertForbidden();
     $this->patch(route('settings.boost'), [])->assertForbidden();
-    $this->get(route('rejection-reasons.index'))->assertForbidden();
+
+    // У справочников причин index-роута нет — списками управляет страница
+    // настроек, так что граница проверяется на пишущих роутах.
+    $this->post(route('rejection-reasons.store'), [])->assertForbidden();
     $this->put(route('rejection-reasons.update', $rejection), [])->assertForbidden();
-    $this->get(route('complaint-reasons.index'))->assertForbidden();
+    $this->delete(route('rejection-reasons.destroy', $rejection))->assertForbidden();
+    $this->post(route('complaint-reasons.store'), [])->assertForbidden();
     $this->put(route('complaint-reasons.update', $complaint), [])->assertForbidden();
+    $this->delete(route('complaint-reasons.destroy', $complaint))->assertForbidden();
 });
 
 it('does not let a manager delete content', function () {

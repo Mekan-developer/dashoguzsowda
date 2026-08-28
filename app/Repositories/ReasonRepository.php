@@ -9,11 +9,6 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ReasonRepository implements ReasonRepositoryInterface
 {
-    public function allRejectionReasons(): Collection
-    {
-        return RejectionReason::orderBy('type')->orderBy('id')->get();
-    }
-
     public function rejectionReasonsByType(string $type): Collection
     {
         return RejectionReason::where('type', $type)->orderBy('id')->get();
