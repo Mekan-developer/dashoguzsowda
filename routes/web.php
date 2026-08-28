@@ -32,6 +32,11 @@ Route::get('/', fn() => redirect()->route('dashboard'));
 |--------------------------------------------------------------------------
 | Админка
 |--------------------------------------------------------------------------
+| URL-префикс — /admin (CLAUDE.md → «Структура роутов»); корень домена остаётся
+| свободным под публичную часть. Имена роутов префикса не несут: во фронтенде и
+| тестах всё идёт через Ziggy route('users.index'), поэтому смена URI их не задела.
+| Страницы входа (routes/auth.php) намеренно живут в корне: /login, /logout.
+|
 | Доступ описан здесь и только здесь — контроллеры его не дублируют.
 |
 | admin + manager: модерация объявлений/роликов/отзывов/жалоб, чат,
@@ -40,7 +45,7 @@ Route::get('/', fn() => redirect()->route('dashboard'));
 |   география, push-рассылка, справочники причин и системные настройки.
 | См. CLAUDE.md → «Роли».
 */
-Route::middleware(['auth', 'role:admin,manager'])->group(function () {
+Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(function () {
 
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 

@@ -109,7 +109,7 @@ flowchart LR
 | Слой | Каталог | Задача | Пример |
 |---|---|---|---|
 | Роуты API | `routes/api/v1.php` | префикс `/api/v1`, имена `api.v1.*` | `Route::post('/listings', ...)` |
-| Роуты админки | `routes/web.php` | Inertia-страницы | `Route::resource('listings', ...)` |
+| Роуты админки | `routes/web.php` | префикс `/admin`, Inertia-страницы | `Route::get('listings', ...)` |
 | Form Request | `app/Http/Requests/Api/V1/`, `.../Admin/` | **вся** валидация | `StoreListingRequest` |
 | Controller | `app/Http/Controllers/Api/V1/`, `.../Admin/` | принять → вызвать → вернуть | `ListingController` |
 | Service | `app/Services/` | сценарий домена | `ListingService` |
@@ -636,6 +636,11 @@ flowchart TB
 **Доступ описан в `routes/web.php` и только там** — контроллеры его не дублируют.
 Всё, что закрыто от менеджера, лежит внутри вложенной группы `role:admin`.
 Раскладка целиком зафиксирована тестом `tests/Feature/ManagerPermissionsTest.php`.
+
+Страницы админки живут под префиксом `/admin` (`/admin/dashboard`, `/admin/users`, …);
+корень `/` редиректит туда же. Имена роутов префикса не несут — во фронтенде и тестах
+адрес берётся только через Ziggy `route('users.index')`. Вход (`/login`, `/logout`,
+восстановление пароля) намеренно остаётся в корне: это `routes/auth.php`.
 
 ### 5.3 Middleware
 
