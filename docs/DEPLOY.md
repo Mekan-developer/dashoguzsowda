@@ -488,9 +488,3 @@ ssh -L 3306:127.0.0.1:3306 user@server \
    мобильное приложение.
 4. **Проверить FCM** на реальном устройстве после деплоя (ключ, `FIREBASE_PROJECT_ID`).
 5. **Настроить мониторинг диска** — видео и WebP-варианты растут быстро.
-6. **Проверить `REDIS_CLIENT` в `.env`.** `composer.json` тянет `predis/predis`
-   (чистый PHP-клиент), расширение `ext-redis` (`phpredis`) в образе не
-   ставится. `.env.production.example` при этом задаёт `REDIS_CLIENT=phpredis` —
-   с ним сессии/кэш/очереди на старте не подключатся к Redis. Поставить
-   `REDIS_CLIENT=predis`, либо (если осознанно нужен именно phpredis) добавить
-   установку расширения в `docker/php/Dockerfile`.
