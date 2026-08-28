@@ -35,7 +35,7 @@ class VideoController extends Controller
     public function show(Video $video)
     {
         return Inertia::render('Videos/Show', [
-            'video'            => $video->load('user', 'rejectionReason'),
+            'video'            => $this->videoService->forAdmin($video),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('video'),
         ]);
     }

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { router, usePage } from '@inertiajs/vue3'
+import { Link, router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import Pagination from '@/Components/Pagination.vue'
@@ -159,7 +159,11 @@ function doDelete() {
           <tr v-for="video in videos.data" :key="video.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
             <!-- Превью 38×56 (кадр 9:16) с бейджем длительности -->
             <td class="px-4 py-[10px] border-b border-line dark:border-dline">
-              <div class="relative h-[56px] w-[38px] flex-none overflow-hidden rounded-[8px] bg-navy">
+              <Link
+                :href="route('videos.show', video.id)"
+                class="relative block h-[56px] w-[38px] flex-none overflow-hidden rounded-[8px] bg-navy"
+                :title="t('videos.openCard')"
+              >
                 <img
                   v-if="video.preview_url"
                   :src="video.preview_url"
@@ -172,12 +176,12 @@ function doDelete() {
                 <span class="absolute bottom-0.5 left-1/2 -translate-x-1/2 rounded-[4px] bg-black/60 px-1 text-[9px] font-bold leading-[14px] text-white font-data">
                   {{ formatDuration(video.duration_seconds) }}
                 </span>
-              </div>
+              </Link>
             </td>
 
             <!-- Название + теги -->
             <td class="max-w-[260px] px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
-              <div class="truncate font-bold text-ink dark:text-slate-200">{{ video.title }}</div>
+              <Link :href="route('videos.show', video.id)" class="block truncate font-bold text-ink transition hover:text-blue dark:text-slate-200">{{ video.title }}</Link>
               <div v-if="video.tags?.length" class="mt-0.5 truncate text-[12px] font-semibold text-blue">
                 <span v-for="tag in video.tags" :key="tag" class="mr-1.5">#{{ tag }}</span>
               </div>

@@ -29,6 +29,12 @@ class VideoService
         return $this->videoRepository->paginate($filters);
     }
 
+    /** Карточка ролика в админке — те же поля, что отдаёт список модерации. */
+    public function forAdmin(Video $video): Video
+    {
+        return $this->videoRepository->findForAdmin($video);
+    }
+
     public function counts(): array
     {
         return [

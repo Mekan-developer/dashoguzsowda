@@ -193,6 +193,18 @@ export default {
         rejectTitle: 'Ret etmegiň sebäbi',
         notFound: 'Bu status bilen wideo ýok',
         deleteConfirm: 'Wideony pozmalymy? Faýllar we halamalar gaýtaryp bolmajak görnüşde pozular.',
+        // Wideo kartoçkasy
+        player: 'Wideo',
+        info: 'Maglumat',
+        moderation: 'Moderasiýa',
+        duration: 'Dowamlylygy',
+        tags: 'Bellikler',
+        notProcessed: 'Wideo entek işlenýär — asyl faýl görkezilýär',
+        profileLink: 'Ulanyjynyň profili →',
+        approveBtn: '✓ Tassyklamak',
+        rejectBtn: '✕ Ret etmek',
+        deleteBtn: 'Wideony pozmak',
+        openCard: 'Kartoçkany açmak',
     },
     chat: {
         dialogsWithUsers: 'Ulanyjylar bilen söhbetler',

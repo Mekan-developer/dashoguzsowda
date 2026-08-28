@@ -68,6 +68,19 @@ class VideoRepository implements VideoRepositoryInterface
         return Video::with('user', 'rejectionReason')->findOrFail($id);
     }
 
+    /**
+     * Карточка модерации: те же вычисляемые поля, что и в списке
+     * (preview_url / video_url / tariff_usage) — иначе странице нечего играть.
+     */
+    public function findForAdmin(Video $video): Video
+    {
+        $video->load('user.tariff', 'rejectionReason');
+
+        $this->attachAdminMeta([$video]);
+
+        return $video;
+    }
+
     public function create(array $data): Video
     {
         return Video::create($data);

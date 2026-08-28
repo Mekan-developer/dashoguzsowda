@@ -11,6 +11,9 @@ interface VideoRepositoryInterface
     public function paginateForApi(array $filters, int $perPage = 20, ?int $viewerId = null): LengthAwarePaginator;
     public function paginateByUser(int $userId, array $filters, int $perPage = 20): LengthAwarePaginator;
     public function find(int $id): Video;
+
+    /** Ролик для карточки модерации: связи + preview_url/video_url/tariff_usage. */
+    public function findForAdmin(Video $video): Video;
     public function create(array $data): Video;
     public function update(Video $video, array $data): Video;
     public function delete(Video $video): void;

@@ -60,6 +60,40 @@ it('filters the index by status on the server', function () {
             ->where('videos.data.0.title', 'В очереди'));
 });
 
+it('renders the moderation card with a playable url and the author tariff', function () {
+    $video = makeAdminVideo([
+        'path'           => 'videos/abc/original.mp4',
+        'processed_path' => 'videos/abc/processed.mp4',
+        'preview_path'   => 'videos/abc/preview.jpg',
+    ]);
+
+    $this->actingAs(User::factory()->manager()->create());
+
+    $this->get(route('videos.show', $video))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Videos/Show')
+            ->where('video.id', $video->id)
+            // Плееру нужна сжатая версия, а не сырой оригинал
+            ->where('video.video_url', Storage::disk('public')->url('videos/abc/processed.mp4'))
+            ->where('video.preview_url', Storage::disk('public')->url('videos/abc/preview.jpg'))
+            ->where('video.tariff_usage.limit', 2)
+            ->has('video.user')
+            ->has('rejectionReasons'));
+});
+
+it('lets a manager rename a video from the moderation card', function () {
+    $video = makeAdminVideo(['title' => 'Старое имя']);
+
+    $this->actingAs(User::factory()->manager()->create());
+
+    $this->put(route('videos.update', $video), ['title' => 'Новое имя'])->assertRedirect();
+    expect($video->fresh()->title)->toBe('Новое имя');
+
+    // Пустой заголовок упирался бы в NOT NULL-колонку
+    $this->put(route('videos.update', $video), ['title' => ''])->assertSessionHasErrors('title');
+});
+
 it('lets a manager approve a pending video', function () {
     $video = makeAdminVideo();
 
