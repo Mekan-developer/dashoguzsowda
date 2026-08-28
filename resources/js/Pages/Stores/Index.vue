@@ -8,6 +8,7 @@ import DrawerField from '@/Components/DrawerField.vue'
 import Icon from '@/Components/Icon.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import DataTable from '@/Components/DataTable.vue'
+import StatusBadge from '@/Components/StatusBadge.vue'
 
 const { t } = useI18n()
 const page = usePage()
@@ -16,6 +17,9 @@ const isAdmin = computed(() => page.props.auth?.user?.role === 'admin')
 const props = defineProps({
     stores: Object,
     categories: Array,
+    regions: Array,
+    rejectionReasons: Array,
+    counts: Object,
     filters: Object,
 })
 
@@ -32,17 +36,43 @@ const drawer   = ref(false)
 const editItem = ref(null)
 const emptyForm = () => ({
     name: '', description: '', phone: '', address: '', category_id: null,
+    region_id: null, city_id: null, district_id: null,
+    sells_retail: true, sells_wholesale: false, has_delivery: false,
     logo: null, crop_x: 50, crop_y: 50, photos: [],
 })
 const form   = ref(emptyForm())
 const errors = ref({})
 const newPhotoPreviews = ref([])
 
+// Города и районы — от выбранного региона: справочник приходит деревом
+const cityOptions = computed(() =>
+    (props.regions || []).find(r => r.id === form.value.region_id)?.cities || [])
+const districtOptions = computed(() =>
+    cityOptions.value.find(c => c.id === form.value.city_id)?.districts || [])
+
+function onRegionChange() { form.value.city_id = null; form.value.district_id = null }
+function onCityChange() { form.value.district_id = null }
+
+const statusFilter = ref(props.filters?.status || '')
+const statusChips = computed(() => [
+    { value: '',         label: t('common.all') },
+    { value: 'pending',  label: t('stores.tabPending'),  count: props.counts?.pending, tint: 'bg-orange/15 text-orange' },
+    { value: 'approved', label: t('stores.tabApproved'), tint: 'bg-green/15 text-green' },
+    { value: 'rejected', label: t('stores.tabRejected'), tint: 'bg-red/15 text-red' },
+])
+function setStatus(value) {
+    statusFilter.value = value
+    router.get(route('stores.index'), { ...props.filters, status: value || undefined }, {
+        preserveState: true, preserveScroll: true, replace: true,
+    })
+}
+
 const dataTableColumns = computed(() => [
     { key: 'logo', label: '', width: '40px', type: 'image' },
     { key: 'name', label: t('common.title'), type: 'text' },
     { key: 'user', label: t('stores.ownerColumn') },
-    { key: 'category', label: t('common.category') },
+    { key: 'trade', label: t('stores.tradeColumn') },
+    { key: 'status', label: t('common.status') },
     { key: 'is_popular', label: t('stores.popularColumn') },
     { key: 'sort_order', label: '', width: '56px' },
 ])
@@ -66,6 +96,9 @@ function openEdit(s) {
     form.value = {
         name: s.name ?? '', description: s.description ?? '', phone: s.phone ?? '',
         address: s.address ?? '', category_id: s.category_id ?? null,
+        region_id: s.region_id ?? null, city_id: s.city_id ?? null, district_id: s.district_id ?? null,
+        sells_retail: !!s.sells_retail, sells_wholesale: !!s.sells_wholesale,
+        has_delivery: !!s.has_delivery,
         logo: null, crop_x: 50, crop_y: 50, photos: [],
     }
     newPhotoPreviews.value = []
@@ -109,11 +142,49 @@ function move(s, direction) { router.patch(route('stores.move', s.id), { directi
 function destroy(s) {
     if (confirm(t('actions.confirmDelete', { name: s.name }))) router.delete(route('stores.destroy', s.id))
 }
+
+// Модерация: магазин попадает в мобильную витрину только после одобрения
+function approve(s) { router.patch(route('stores.approve', s.id), {}, { preserveScroll: true }) }
+
+const rejectTarget = ref(null)
+const rejectReason = ref('')
+function openReject(s) { rejectTarget.value = s; rejectReason.value = '' }
+function doReject() {
+    if (!rejectReason.value) return
+    router.patch(route('stores.reject', rejectTarget.value.id), { rejection_reason_id: rejectReason.value }, {
+        preserveScroll: true,
+        onSuccess: () => { rejectTarget.value = null },
+    })
+}
+
+function reasonName(reason) {
+    return reason?.name_ru || reason?.name_tk || ''
+}
 </script>
 
 <template>
   <AppLayout>
     <template #header>{{ t('nav.stores') }}</template>
+
+    <!-- Фильтр по статусу модерации: магазин виден в мобилке только после одобрения -->
+    <div class="mb-4 flex flex-wrap gap-2">
+      <button
+        v-for="chip in statusChips"
+        :key="chip.value"
+        @click="setStatus(chip.value)"
+        class="flex items-center gap-1.5 rounded-[20px] px-3.5 py-1.5 text-[13px] font-bold transition"
+        :class="statusFilter === chip.value
+          ? 'bg-[var(--accent)] text-white shadow-[0_4px_12px_var(--accent-tint)]'
+          : 'bg-white dark:bg-dcard border border-line dark:border-dline text-ink dark:text-slate-200 hover:bg-surface dark:hover:bg-white/5'"
+      >
+        {{ chip.label }}
+        <span
+          v-if="chip.count"
+          class="rounded-pill px-1.5 py-px text-[11px] font-extrabold"
+          :class="statusFilter === chip.value ? 'bg-white/25 text-white' : chip.tint"
+        >{{ chip.count }}</span>
+      </button>
+    </div>
 
     <DataTable
       :columns="dataTableColumns"
@@ -128,8 +199,43 @@ function destroy(s) {
         <span class="text-[13px] text-[var(--text-secondary)]">{{ item.user?.name || item.user?.phone || '—' }}</span>
       </template>
 
-      <template #cell-category="{ item }">
-        <span class="text-[13px] text-[var(--text-secondary)]">{{ item.category?.name_ru || '—' }}</span>
+      <template #cell-trade="{ item }">
+        <div class="flex flex-wrap items-center gap-1">
+          <span v-if="item.sells_retail" class="rounded-pill bg-blue/15 px-2 py-px text-[11px] font-bold text-blue">
+            {{ t('stores.retail') }}
+          </span>
+          <span v-if="item.sells_wholesale" class="rounded-pill bg-orange/15 px-2 py-px text-[11px] font-bold text-orange">
+            {{ t('stores.wholesale') }}
+          </span>
+          <span v-if="item.has_delivery" class="rounded-pill bg-green/15 px-2 py-px text-[11px] font-bold text-green">
+            {{ t('stores.delivery') }}
+          </span>
+        </div>
+      </template>
+
+      <template #cell-status="{ item }">
+        <div class="flex items-center gap-2">
+          <span :title="item.status === 'rejected' && item.rejection_reason ? reasonName(item.rejection_reason) : undefined">
+            <StatusBadge :status="item.status" />
+          </span>
+          <!-- Витрина погашена: у владельца истёк тариф с правом на магазин -->
+          <span v-if="!item.is_active" class="rounded-pill bg-muted/15 px-2 py-px text-[11px] font-bold text-muted">
+            {{ t('stores.inactive') }}
+          </span>
+          <template v-if="isAdmin && item.status !== 'approved'">
+            <button
+              @click.stop="approve(item)"
+              class="flex h-7 w-7 items-center justify-center rounded-[8px] bg-green/15 text-green transition hover:bg-green/25"
+              :title="t('actions.approve')" :aria-label="t('actions.approve')"
+            ><Icon kind="check" :size="13" /></button>
+          </template>
+          <button
+            v-if="isAdmin && item.status !== 'rejected'"
+            @click.stop="openReject(item)"
+            class="flex h-7 w-7 items-center justify-center rounded-[8px] bg-red/15 text-red transition hover:bg-red/25"
+            :title="t('actions.reject')" :aria-label="t('actions.reject')"
+          ><Icon kind="close" :size="13" /></button>
+        </div>
       </template>
 
       <template #cell-is_popular="{ item }">
@@ -182,8 +288,48 @@ function destroy(s) {
         </DrawerField>
       </div>
 
+      <div class="grid grid-cols-3 gap-3">
+        <DrawerField :label="t('common.region')" :error="errors.region_id">
+          <select v-model="form.region_id" class="input" @change="onRegionChange">
+            <option :value="null">—</option>
+            <option v-for="r in regions || []" :key="r.id" :value="r.id">{{ r.name_ru || r.name_tk }}</option>
+          </select>
+        </DrawerField>
+        <DrawerField :label="t('common.city')" :error="errors.city_id">
+          <select v-model="form.city_id" class="input" :disabled="!form.region_id" @change="onCityChange">
+            <option :value="null">—</option>
+            <option v-for="c in cityOptions" :key="c.id" :value="c.id">{{ c.name_ru || c.name_tk }}</option>
+          </select>
+        </DrawerField>
+        <DrawerField :label="t('common.district')" :error="errors.district_id">
+          <select v-model="form.district_id" class="input" :disabled="!form.city_id">
+            <option :value="null">—</option>
+            <option v-for="d in districtOptions" :key="d.id" :value="d.id">{{ d.name_ru || d.name_tk }}</option>
+          </select>
+        </DrawerField>
+      </div>
+
       <DrawerField :label="t('common.address')" :error="errors.address">
         <input v-model="form.address" class="input" />
+      </DrawerField>
+
+      <!-- Опт и розница — независимые флаги: магазин может торговать и так, и так -->
+      <DrawerField :label="t('stores.tradeColumn')" :error="errors.sells_retail">
+        <div class="flex flex-wrap gap-4">
+          <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+            <input type="checkbox" v-model="form.sells_retail" class="accent-blue" />
+            {{ t('stores.retail') }}
+          </label>
+          <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+            <input type="checkbox" v-model="form.sells_wholesale" class="accent-blue" />
+            {{ t('stores.wholesale') }}
+          </label>
+          <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+            <input type="checkbox" v-model="form.has_delivery" class="accent-blue" />
+            {{ t('stores.delivery') }}
+          </label>
+        </div>
+        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.deliveryHint') }}</p>
       </DrawerField>
 
       <DrawerField :label="t('stores.logoLabel')" :error="errors.logo">
@@ -233,5 +379,23 @@ function destroy(s) {
         </div>
       </template>
     </AppDrawer>
+
+    <!-- Отказ по магазину — с причиной из общего справочника (тип store) -->
+    <div v-if="rejectTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="rejectTarget = null">
+      <div class="w-full max-w-md rounded-card bg-white p-6 shadow-soft dark:bg-dcard">
+        <h3 class="mb-4 text-[17px] font-extrabold text-ink dark:text-slate-100">{{ t('stores.rejectTitle') }}</h3>
+        <div class="mb-5 space-y-1 max-h-72 overflow-y-auto">
+          <label v-for="r in rejectionReasons || []" :key="r.id" class="flex items-center gap-3 cursor-pointer rounded-btn p-3 hover:bg-surface dark:hover:bg-white/5 transition">
+            <input type="radio" :value="r.id" v-model="rejectReason" class="accent-blue" />
+            <span class="text-[13px] text-ink dark:text-slate-200">{{ r.name_ru || r.name_tk }}</span>
+          </label>
+          <p v-if="!(rejectionReasons || []).length" class="p-3 text-[13px] text-muted">{{ t('stores.noRejectionReasons') }}</p>
+        </div>
+        <div class="flex gap-2">
+          <button @click="rejectTarget = null" class="flex-1 rounded-btn border-2 border-line py-[11px] text-[13px] font-bold text-muted hover:border-blue hover:text-blue transition dark:border-dline">{{ t('actions.cancel') }}</button>
+          <button @click="doReject" :disabled="!rejectReason" class="flex-1 rounded-btn bg-red py-[11px] text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40 transition">{{ t('actions.reject') }}</button>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>

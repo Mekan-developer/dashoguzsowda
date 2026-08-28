@@ -85,7 +85,7 @@ const sections = computed(() => [
         ] : []),
         { label: t('nav.news'),        routeName: 'news.index',        icon: 'news' },
         { label: t('nav.banners'),     routeName: 'banners.index',     icon: 'layers' },
-        { label: t('nav.stores'),      routeName: 'stores.index',      icon: 'shop' },
+        { label: t('nav.stores'),      routeName: 'stores.index',      icon: 'shop', badge: 'pendingStores' },
     ]},
     { title: t('layout.sectionModeration').toUpperCase(), eyebrow: t('layout.sectionModeration'), items: [
         { label: t('nav.complaints'),  routeName: 'complaints.index',  icon: 'flag',  badge: 'newComplaints' },
@@ -93,7 +93,11 @@ const sections = computed(() => [
     ]},
     { title: t('layout.sectionSystem').toUpperCase(), eyebrow: t('layout.sectionSystem'), items: [
         // Тарифы — лимиты и деньги, только admin
-        ...(isAdmin.value ? [{ label: t('nav.tariffs'), routeName: 'tariffs.index', icon: 'coin' }] : []),
+        ...(isAdmin.value ? [
+            { label: t('nav.tariffs'), routeName: 'tariffs.index', icon: 'coin' },
+            // Заявки на тариф — деньги принимает лично админ
+            { label: t('nav.tariffRequests'), routeName: 'tariff-requests.index', icon: 'coin', badge: 'pendingTariffRequests' },
+        ] : []),
         { label: t('nav.statistics'), routeName: 'statistics.index',  icon: 'chart' },
         ...(isAdmin.value ? [
             { label: t('nav.push'),     routeName: 'push.index',     icon: 'bell' },

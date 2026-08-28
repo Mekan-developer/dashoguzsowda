@@ -15,7 +15,7 @@ const props = defineProps({ tariffs: Array })
 
 const drawer    = ref(false)
 const editItem  = ref(null)
-const emptyForm = () => ({ name: '', name_ru: '', name_tk: '', listings_limit: 10, videos_limit: 5, boost_limit: 3, duration_days: 30, is_active: true, is_free: false, can_have_store: false })
+const emptyForm = () => ({ name: '', name_ru: '', name_tk: '', price: 0, listings_limit: 10, videos_limit: 5, boost_limit: 3, duration_days: 30, is_active: true, is_free: false, can_have_store: false })
 const form      = ref(emptyForm())
 const errors    = ref({})
 
@@ -27,7 +27,7 @@ function openCreate() {
 }
 function openEdit(item) {
     editItem.value = item
-    form.value = { name: item.name ?? '', name_ru: item.name_ru, name_tk: item.name_tk, listings_limit: item.listings_limit, videos_limit: item.videos_limit, boost_limit: item.boost_limit, duration_days: item.duration_days, is_active: item.is_active, is_free: item.is_free, can_have_store: item.can_have_store ?? false }
+    form.value = { name: item.name ?? '', name_ru: item.name_ru, name_tk: item.name_tk, price: Number(item.price ?? 0), listings_limit: item.listings_limit, videos_limit: item.videos_limit, boost_limit: item.boost_limit, duration_days: item.duration_days, is_active: item.is_active, is_free: item.is_free, can_have_store: item.can_have_store ?? false }
     errors.value = {}
     drawer.value = true
 }
@@ -85,6 +85,7 @@ function destroy(item) {
           </div>
 
           <div class="flex items-center gap-2 text-xs text-muted">
+            <span class="font-bold text-ink dark:text-slate-200">{{ item.price }} {{ t('tariffRequests.amountUnit') }}</span>
             <span>{{ item.duration_days }} {{ t('tariffs.days') }}</span>
             <span v-if="item.is_free" class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold">{{ t('tariffs.free') }}</span>
             <span class="ml-auto text-[11px]">{{ item.users_count }} {{ t('tariffs.usersCount') }}</span>
@@ -111,6 +112,11 @@ function destroy(item) {
       </DrawerField>
       <DrawerField :label="t('tariffs.mobileSlug')" :error="errors.name">
         <input v-model="form.name" class="input" :placeholder="t('tariffs.mobileSlugPlaceholder')" />
+      </DrawerField>
+      <!-- Цену админ принимает наличными и сверяет с суммой в заявке -->
+      <DrawerField :label="t('tariffs.priceLabel')" :error="errors.price">
+        <input v-model.number="form.price" type="number" min="0" step="0.01" class="input" />
+        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('tariffs.priceHint') }}</p>
       </DrawerField>
       <div class="grid grid-cols-2 gap-3">
         <DrawerField :label="t('tariffs.limitListings')" :error="errors.listings_limit">

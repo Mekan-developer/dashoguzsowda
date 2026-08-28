@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\StatisticsController;
 use App\Http\Controllers\Admin\StatusController;
 use App\Http\Controllers\Admin\StoreController;
 use App\Http\Controllers\Admin\TariffController;
+use App\Http\Controllers\Admin\TariffRequestController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VideoController;
 use Illuminate\Support\Facades\Route;
@@ -144,7 +145,17 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         Route::resource('tariffs', TariffController::class)->except('create', 'edit', 'show');
         Route::patch('tariffs/{tariff}/toggle', [TariffController::class, 'toggle'])->name('tariffs.toggle');
 
-        // Магазины — правка, кураторство «популярных», удаление
+        // Заявки на платный тариф: оплата принимается наличными вне системы,
+        // «Подтвердить» = «деньги получены», только после него тариф включается
+        Route::get('tariff-requests', [TariffRequestController::class, 'index'])->name('tariff-requests.index');
+        Route::patch('tariff-requests/{tariffRequest}/approve', [TariffRequestController::class, 'approve'])->name('tariff-requests.approve');
+        Route::patch('tariff-requests/{tariffRequest}/reject',  [TariffRequestController::class, 'reject'])->name('tariff-requests.reject');
+
+        // Магазины — правка, модерация, кураторство «популярных», удаление.
+        // Модерация тоже только у admin: по CLAUDE.md → «Роли» магазин не входит
+        // в список сущностей, модерируемых менеджером.
+        Route::patch('stores/{store}/approve', [StoreController::class, 'approve'])->name('stores.approve');
+        Route::patch('stores/{store}/reject',  [StoreController::class, 'reject'])->name('stores.reject');
         Route::put('stores/{store}',    [StoreController::class, 'update'])->name('stores.update');
         Route::patch('stores/{store}/toggle', [StoreController::class, 'toggle'])->name('stores.toggle');
         Route::patch('stores/{store}/move',   [StoreController::class, 'move'])->name('stores.move');
