@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Setting;
+use App\Models\SmsCode;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -76,4 +77,53 @@ it('forbids manager from changing the boost interval', function () {
     actingAsSettingsRole('manager');
 
     $this->patch(route('settings.boost'), ['boost_interval_hours' => 12])->assertForbidden();
+});
+
+it('shows admin the recent OTP codes with their status', function () {
+    actingAsSettingsRole('admin');
+
+    $owner = User::factory()->create(['name' => 'Кодовладелец', 'phone' => '+99361000001', 'role' => 'user']);
+
+    SmsCode::create(['phone' => $owner->phone, 'code' => '111111', 'expires_at' => now()->addMinutes(5)]);
+    SmsCode::create(['phone' => '+99361000002', 'code' => '222222', 'expires_at' => now()->addMinutes(5), 'used_at' => now()]);
+    SmsCode::create(['phone' => '+99361000003', 'code' => '333333', 'expires_at' => now()->subMinute()]);
+
+    $codes = collect($this->getJson(route('settings.otp-codes'))->assertOk()->json('codes'))
+        ->keyBy('code');
+
+    expect($codes)->toHaveCount(3);
+    expect($codes['111111']['status'])->toBe('active');
+    expect($codes['111111']['user_name'])->toBe('Кодовладелец');
+    expect($codes['111111']['expires_in'])->toBeGreaterThan(0);
+    expect($codes['222222']['status'])->toBe('used');
+    // Номер без зарегистрированного пользователя — фронт покажет «Новый номер»
+    expect($codes['222222']['user_name'])->toBeNull();
+    expect($codes['333333']['status'])->toBe('expired');
+});
+
+it('renders the settings page with the OTP codes already loaded', function () {
+    actingAsSettingsRole('admin');
+
+    SmsCode::create(['phone' => '+99361000001', 'code' => '111111', 'expires_at' => now()->addMinutes(5)]);
+
+    $this->get(route('settings.index'))
+        ->assertInertia(fn ($page) => $page->where('otpCodes.0.code', '111111'));
+});
+
+it('filters OTP codes by phone fragment', function () {
+    actingAsSettingsRole('admin');
+
+    SmsCode::create(['phone' => '+99361000001', 'code' => '111111', 'expires_at' => now()->addMinutes(5)]);
+    SmsCode::create(['phone' => '+99362000002', 'code' => '222222', 'expires_at' => now()->addMinutes(5)]);
+
+    $codes = $this->getJson(route('settings.otp-codes', ['phone' => '62000002']))->assertOk()->json('codes');
+
+    expect($codes)->toHaveCount(1);
+    expect($codes[0]['code'])->toBe('222222');
+});
+
+it('forbids manager from reading OTP codes', function () {
+    actingAsSettingsRole('manager');
+
+    $this->getJson(route('settings.otp-codes'))->assertForbidden();
 });

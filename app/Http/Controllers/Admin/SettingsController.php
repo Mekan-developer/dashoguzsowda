@@ -12,6 +12,7 @@ use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Repositories\Interfaces\SettingRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\MonitoringService;
+use App\Services\Sms\OtpMonitorService;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -22,10 +23,13 @@ class SettingsController extends Controller
         private readonly ReasonRepositoryInterface $reasons,
     ) {}
 
-    public function index(MonitoringService $monitoring)
+    public function index(MonitoringService $monitoring, OtpMonitorService $otpMonitor)
     {
         return Inertia::render('Settings/Index', [
             'monitoring'         => $monitoring->getStatus(),
+            // Первая отрисовка — сразу с кодами; дальше секция обновляет себя
+            // сама через settings.otp-codes.
+            'otpCodes'           => $otpMonitor->recent(),
             'canManageNews'      => (bool) $this->settings->get('manager_can_manage_news', false),
             'canManageBanners'   => (bool) $this->settings->get('manager_can_manage_banners', false),
             // Страница управляет только причинами отклонения объявлений

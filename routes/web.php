@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\ListingController;
 use App\Http\Controllers\Admin\LocaleController;
 use App\Http\Controllers\Admin\NewsController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\OtpMonitorController;
 use App\Http\Controllers\Admin\PushController;
 use App\Http\Controllers\Admin\RegionController;
 use App\Http\Controllers\Admin\RejectionReasonController;
@@ -201,6 +202,9 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         Route::patch('settings/boost',                [SettingsController::class, 'updateBoostSettings'])->name('settings.boost');
         Route::get('settings/sms-gateway',            [SmsGatewayController::class, 'status'])->name('settings.sms-gateway');
         Route::post('settings/sms-gateway/test',      [SmsGatewayController::class, 'test'])->name('settings.sms-gateway.test');
+        // Выданные OTP-коды: подстраховка на случай, когда телефон-отправитель
+        // молчит и код приходится диктовать пользователю вручную.
+        Route::get('settings/otp-codes',               OtpMonitorController::class)->name('settings.otp-codes');
     });
 });
 

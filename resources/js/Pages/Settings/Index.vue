@@ -5,12 +5,14 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GeoColumn from '@/Components/GeoColumn.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
+import SearchInput from '@/Components/SearchInput.vue'
 import Icon from '@/Components/Icon.vue'
 
 const { t } = useI18n()
 
 const props = defineProps({
     monitoring:        { type: Object, required: true },
+    otpCodes:          { type: Array, default: () => [] },
     canManageNews:     { type: Boolean, default: false },
     canManageBanners:  { type: Boolean, default: false },
     rejectionReasons:  { type: Array, default: () => [] },
@@ -99,6 +101,91 @@ function smsStatusLabel(sms) {
     if (sms.connected) return t('settings.connected')
     return sms.configured ? t('settings.notConnected') : t('settings.testMode')
 }
+
+// ── Мониторинг OTP-кодов ───────────────────────────────────
+// Страховка на случай, когда телефон-отправитель молчит: код уже лежит в базе,
+// а до пользователя не дошёл — админ читает его здесь и диктует вручную.
+const otpCodes     = ref(props.otpCodes)
+const otpPhone     = ref('')
+const otpFetchedAt = ref(Date.now())
+const otpReloading = ref(false)
+const copiedCodeId = ref(null)
+let otpTimer = null
+
+async function fetchOtpCodes() {
+    const phone = otpPhone.value.trim()
+    const url = route('settings.otp-codes') + (phone ? `?phone=${encodeURIComponent(phone)}` : '')
+    try {
+        const res = await fetch(url, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        const data = await res.json()
+        otpCodes.value = data.codes ?? []
+        otpFetchedAt.value = Date.now()
+    } catch {
+        // сеть недоступна — оставляем последний известный список
+    }
+}
+
+// Как и у карточек мониторинга: держим спиннер минимум один оборот, иначе
+// локальный запрос отвечает быстрее, чем успевает провернуться иконка.
+async function reloadOtpCodes() {
+    otpReloading.value = true
+    await Promise.all([fetchOtpCodes(), new Promise(resolve => setTimeout(resolve, 1000))])
+    otpReloading.value = false
+}
+
+// Остаток жизни кода считаем от expires_in на момент ответа, а не от
+// expires_at: часы браузера админа могут расходиться с серверными.
+function otpRemaining(row) {
+    if (row.status !== 'active') return 0
+    return Math.max(0, row.expires_in - Math.floor((now.value - otpFetchedAt.value) / 1000))
+}
+function otpStatus(row) {
+    // Код мог протухнуть между двумя опросами — не ждём следующего ответа
+    return row.status === 'active' && otpRemaining(row) === 0 ? 'expired' : row.status
+}
+function otpCountdown(row) {
+    const s = otpRemaining(row)
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+function otpStatusClass(row) {
+    const status = otpStatus(row)
+    if (status === 'active') return 'bg-green/10 text-green'
+    if (status === 'used')   return 'bg-blue/10 text-blue'
+    return 'bg-orange/10 text-orange'
+}
+function otpTime(value) {
+    if (!value) return '—'
+    const d = new Date(value)
+    const time = d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    const isToday = d.toDateString() === new Date().toDateString()
+    return isToday ? time : `${d.toLocaleDateString('ru', { day: '2-digit', month: '2-digit' })} ${time}`
+}
+
+async function copyCode(row) {
+    try {
+        await navigator.clipboard.writeText(row.code)
+    } catch {
+        // Панель может открываться по http — там clipboard API недоступен
+        const area = document.createElement('textarea')
+        area.value = row.code
+        area.setAttribute('readonly', '')
+        area.style.position = 'fixed'
+        area.style.opacity = '0'
+        document.body.appendChild(area)
+        area.select()
+        try { document.execCommand('copy') } catch { /* копирование недоступно — код всё равно виден глазами */ }
+        document.body.removeChild(area)
+    }
+    copiedCodeId.value = row.id
+    setTimeout(() => { if (copiedCodeId.value === row.id) copiedCodeId.value = null }, 1500)
+}
+
+onMounted(() => {
+    // Код живёт 5 минут — опрашиваем чаще карточек мониторинга, чтобы свежий
+    // код появлялся в списке почти сразу после запроса с телефона
+    otpTimer = setInterval(fetchOtpCodes, 10_000)
+})
+onUnmounted(() => clearInterval(otpTimer))
 
 // ── Роли и права доступа ───────────────────────────────────
 const permissionRows = computed(() => [
@@ -343,7 +430,87 @@ function sendTestSms() {
         </div>
       </section>
 
-      <!-- 2. Роли и права доступа -->
+      <!-- 2. Мониторинг OTP-кодов -->
+      <section>
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.otpMonitor') }}</h2>
+          <div class="flex items-center gap-2">
+            <div class="w-56">
+              <SearchInput
+                v-model="otpPhone"
+                size="sm"
+                :debounce="350"
+                :placeholder="t('settings.otpSearchPlaceholder')"
+                @search="fetchOtpCodes"
+                @submit="fetchOtpCodes"
+              />
+            </div>
+            <button
+              type="button" :title="t('settings.reload')" :disabled="otpReloading"
+              @click="reloadOtpCodes"
+              class="rounded-full p-1.5 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
+            >
+              <Icon kind="refresh" :size="15" :class="{ 'animate-spin': otpReloading }" />
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-hidden rounded-card bg-white dark:bg-dcard border border-line dark:border-dline">
+          <div class="border-b border-line dark:border-dline px-5 py-3 text-[12px] text-muted">
+            {{ t('settings.otpMonitorHint') }}
+          </div>
+
+          <div v-if="!otpCodes.length" class="px-5 py-10 text-center text-[13px] text-muted">
+            {{ t('settings.otpEmpty') }}
+          </div>
+
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-[13px]">
+              <thead>
+                <tr class="border-b border-line dark:border-dline text-left text-muted">
+                  <th class="px-5 py-3 font-semibold">{{ t('common.phone') }}</th>
+                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpCode') }}</th>
+                  <th class="px-5 py-3 font-semibold">{{ t('common.status') }}</th>
+                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpAttempts') }}</th>
+                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpRequestedAt') }}</th>
+                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpExpiresIn') }}</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-line dark:divide-dline">
+                <tr v-for="row in otpCodes" :key="row.id">
+                  <td class="px-5 py-3">
+                    <div class="font-data font-semibold text-ink dark:text-slate-100">{{ row.phone }}</div>
+                    <div class="text-[11px] text-muted">{{ row.user_name || t('settings.otpNewUser') }}</div>
+                  </td>
+                  <td class="px-5 py-3">
+                    <button
+                      type="button"
+                      :title="t('settings.otpCopy')"
+                      class="rounded-btn bg-surface dark:bg-dbg px-3 py-1.5 font-data text-[16px] font-extrabold tracking-[0.18em] text-ink dark:text-slate-100 transition hover:bg-blue/10 hover:text-blue"
+                      @click="copyCode(row)"
+                    >{{ row.code }}</button>
+                    <span v-if="copiedCodeId === row.id" class="ml-2 text-[11px] font-bold text-green">{{ t('settings.otpCopied') }}</span>
+                  </td>
+                  <td class="px-5 py-3">
+                    <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="otpStatusClass(row)">
+                      {{ t(`settings.otpStatus.${otpStatus(row)}`) }}
+                    </span>
+                  </td>
+                  <td class="px-5 py-3 font-data" :class="row.attempts > 0 ? 'text-orange' : 'text-muted'">
+                    {{ row.attempts }} / {{ row.max_attempts }}
+                  </td>
+                  <td class="px-5 py-3 font-data text-muted">{{ otpTime(row.created_at) }}</td>
+                  <td class="px-5 py-3 font-data" :class="otpStatus(row) === 'active' ? 'font-bold text-green' : 'text-muted'">
+                    {{ otpStatus(row) === 'active' ? otpCountdown(row) : '—' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Роли и права доступа -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.roles') }}</h2>
         <div class="overflow-hidden rounded-card bg-white dark:bg-dcard border border-line dark:border-dline">
@@ -379,7 +546,7 @@ function sendTestSms() {
         </div>
       </section>
 
-      <!-- 3. Справочники причин -->
+      <!-- 4. Справочники причин -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.reasons') }}</h2>
         <div class="grid gap-4 sm:grid-cols-2">
@@ -410,7 +577,7 @@ function sendTestSms() {
         </div>
       </section>
 
-      <!-- 4. Объявления -->
+      <!-- 5. Объявления -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.listingsSection') }}</h2>
         <div class="grid gap-4 sm:grid-cols-2">
@@ -434,7 +601,7 @@ function sendTestSms() {
         </div>
       </section>
 
-      <!-- 5. Локализация и SMS -->
+      <!-- 6. Локализация и SMS -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.localizationAndSms') }}</h2>
         <div class="grid gap-4 sm:grid-cols-2">
