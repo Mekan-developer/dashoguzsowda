@@ -18,8 +18,8 @@ class BannerResource extends JsonResource
             'link_type' => $this->link_type,
             'link_url' => $this->link_url,
             'listing_id' => $this->listing_id,
-            'starts_at' => $this->starts_at?->toIso8601String(),
-            'ends_at' => $this->ends_at?->toIso8601String(),
+            // 'starts_at' => $this->starts_at?->toIso8601String(),
+            // 'ends_at' => $this->ends_at?->toIso8601String(),
         ];
     }
 }
