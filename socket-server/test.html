@@ -83,7 +83,7 @@
     </div>
     <button id="btn-connect">Подключиться</button>
   </div>
-  <p class="hint">Server URL подставляется автоматически под то, откуда открыта страница (напрямую со шлюза или через <code>/otp</code> на домене). Если страница открыта локальным файлом или с другого порта — впиши адрес шлюза руками, например <code>http://192.168.31.163:3000</code>. OTP_SECRET обязателен: без него сервер рвёт соединение с <code>unauthorized</code>. Это тот же секрет, что в .env сервера и в настройках телефона. Имя события должно совпадать с OTP_EVENT_NAME (сейчас: <code>otp</code>).</p>
+  <p class="hint">Server URL подставляется автоматически под то, откуда открыта страница (напрямую со шлюза или через <code>/otp</code> на домене). Если страница открыта локальным файлом или с другого порта — впиши адрес шлюза руками, например <code>http://192.168.31.157:3000</code>. OTP_SECRET обязателен: без него сервер рвёт соединение с <code>unauthorized</code>. Это тот же секрет, что в .env сервера и в настройках телефона. Имя события должно совпадать с OTP_EVENT_NAME (сейчас: <code>otp</code>).</p>
 </div>
 
 <!-- Direct bridge test -->
@@ -232,7 +232,7 @@ btnConnect.addEventListener('click', async () => {
     parsed = new URL(url);
   } catch {
     setStatus('err');
-    addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ Некорректный Server URL: "${url}" — нужен полный адрес вида http://192.168.31.163:3000</span>`);
+    addLog(`<span class="log-time">${ts()}</span><span class="log-error">✗ Некорректный Server URL: "${url}" — нужен полный адрес вида http://192.168.31.157:3000</span>`);
     return;
   }
 
