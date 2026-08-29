@@ -477,7 +477,7 @@ export default {
         address: 'salgy',
         devicesConnectedCount: 'birikdirilen enjam: {n}',
         otpMonitor: 'OTP kodlaryna gözegçilik',
-        otpMonitorHint: 'Iň soňky 20 sany soralan kod. SMS-şlýuz işlemedik ýagdaýynda kody ulanyja elden aýdyp bolar.',
+        otpMonitorHint: 'Möhleti geçmedik iň soňky 20 kod — möhleti geçenler öz-özünden pozulýar. SMS-şlýuz işlemedik ýagdaýynda kody ulanyja elden aýdyp bolar.',
         otpSearchPlaceholder: 'Belgi boýunça gözleg',
         otpEmpty: 'Häzirlikçe kod ýok',
         otpCode: 'Kod',

@@ -5,7 +5,7 @@ use App\Models\City;
 use App\Models\Favorite;
 use App\Models\Listing;
 use App\Models\Region;
-use App\Models\SmsCode;
+use App\Repositories\Interfaces\SmsCodeRepositoryInterface;
 use App\Models\Store;
 use App\Models\Tariff;
 use App\Models\User;
@@ -103,7 +103,7 @@ it('changes phone after sms confirmation', function () {
 
     $this->postJson('/api/v1/profile/phone/send-code', ['phone' => $newPhone])->assertOk();
 
-    $code = SmsCode::where('phone', $newPhone)->first()->code;
+    $code = app(SmsCodeRepositoryInterface::class)->findLatest($newPhone)->code;
 
     $this->postJson('/api/v1/profile/phone/confirm', ['phone' => $newPhone, 'code' => $code])
         ->assertOk()

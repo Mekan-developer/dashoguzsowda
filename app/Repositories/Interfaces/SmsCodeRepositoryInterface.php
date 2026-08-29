@@ -2,8 +2,7 @@
 
 namespace App\Repositories\Interfaces;
 
-use App\Models\SmsCode;
-use Illuminate\Database\Eloquent\Collection;
+use App\Services\Sms\SmsCode;
 
 interface SmsCodeRepositoryInterface
 {
@@ -11,17 +10,24 @@ interface SmsCodeRepositoryInterface
 
     /**
      * Последние выданные коды — для ручного просмотра в админке, когда шлюз лежит.
+     * Протухшие в выдачу не попадают: хранилище удаляет их по TTL.
      * $phone — необязательный фильтр по части номера.
      *
-     * @return Collection<int, SmsCode>
+     * @return array<int, SmsCode>
      */
-    public function recent(int $limit, ?string $phone = null): Collection;
+    public function recent(int $limit, ?string $phone = null): array;
 
     /** Последний неиспользованный и непросроченный код для номера. */
     public function findActive(string $phone): ?SmsCode;
 
-    /** Последний созданный код для номера (для проверки cooldown-а повторной отправки). */
+    /** Последний созданный код для номера независимо от статуса. */
     public function findLatest(string $phone): ?SmsCode;
+
+    /** Запретить повторную отправку на номер на $seconds секунд. */
+    public function startResendCooldown(string $phone, int $seconds): void;
+
+    /** Сколько секунд осталось до разрешённой повторной отправки; 0 — можно слать. */
+    public function resendCooldownRemaining(string $phone): int;
 
     public function markUsed(SmsCode $smsCode): void;
 

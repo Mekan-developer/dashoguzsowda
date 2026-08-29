@@ -4,7 +4,7 @@ use App\Events\SmsCodeRequested;
 use App\Models\City;
 use App\Models\District;
 use App\Models\Region;
-use App\Models\SmsCode;
+use App\Repositories\Interfaces\SmsCodeRepositoryInterface;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
@@ -64,7 +64,7 @@ it('creates an unverified user and sends sms code when activation is sms', funct
     expect($user->phone_verified_at)->toBeNull();
 
     // Код создан и событие отправки через локальный модем поднято
-    expect(SmsCode::where('phone', '+99361000002')->exists())->toBeTrue();
+    expect(app(SmsCodeRepositoryInterface::class)->findActive('+99361000002'))->not->toBeNull();
     Event::assertDispatched(SmsCodeRequested::class, fn ($e) => $e->phone === '+99361000002');
 });
 

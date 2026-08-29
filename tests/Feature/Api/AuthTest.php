@@ -1,17 +1,24 @@
 <?php
 
 use App\Models\FcmToken;
-use App\Models\SmsCode;
 use App\Models\User;
+use App\Repositories\Interfaces\SmsCodeRepositoryInterface;
+use App\Services\Sms\SmsCode;
 use Illuminate\Support\Facades\Log;
 
 const PHONE = '+99361123456';
+
+/** Коды живут в кэше, а не в таблице — читаем их через репозиторий. */
+function storedCode(string $phone = PHONE): ?SmsCode
+{
+    return app(SmsCodeRepositoryInterface::class)->findLatest($phone);
+}
 
 function requestCode(string $phone = PHONE): string
 {
     test()->postJson('/api/v1/auth/send-code', ['phone' => $phone])->assertOk();
 
-    return SmsCode::where('phone', $phone)->latest('id')->first()->code;
+    return storedCode($phone)->code;
 }
 
 it('sends sms code and stores it', function () {
@@ -21,9 +28,9 @@ it('sends sms code and stores it', function () {
         ->assertOk()
         ->assertJsonPath('data.expires_in', config('sms.ttl'));
 
-    $code = SmsCode::where('phone', PHONE)->first();
+    $code = storedCode();
     expect($code)->not->toBeNull()
-        ->and($code->used_at)->toBeNull()
+        ->and($code->usedAt)->toBeNull()
         ->and(strlen($code->code))->toBe(config('sms.code_length'));
 
     // OTP пишется в laravel.log (dev-реализация LogSmsService)
@@ -48,6 +55,21 @@ it('enforces resend cooldown', function () {
     $this->postJson('/api/v1/auth/send-code', ['phone' => PHONE])->assertOk();
 });
 
+// Кулдаун живёт отдельным ключом: истёкший код не должен открывать повторную отправку
+it('keeps the resend cooldown when the code ttl is shorter than it', function () {
+    config(['sms.ttl' => 10]);
+
+    requestCode();
+
+    $this->travel(11)->seconds();
+
+    expect(storedCode())->toBeNull();
+
+    $this->postJson('/api/v1/auth/send-code', ['phone' => PHONE])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('phone');
+});
+
 it('registers a new user on verify', function () {
     $code = requestCode();
 
@@ -63,7 +85,7 @@ it('registers a new user on verify', function () {
         ->and($user->role)->toBe('user')
         ->and($user->status)->toBe('active');
 
-    expect(SmsCode::where('phone', PHONE)->first()->used_at)->not->toBeNull();
+    expect(storedCode()->usedAt)->not->toBeNull();
 });
 
 it('logs in an existing user on verify', function () {
@@ -106,7 +128,7 @@ it('rejects a wrong code', function () {
         ->assertStatus(422)
         ->assertJsonValidationErrors('code');
 
-    expect(SmsCode::where('phone', PHONE)->first()->attempts)->toBe(1)
+    expect(storedCode()->attempts)->toBe(1)
         ->and(User::count())->toBe(0);
 });
 

@@ -21,23 +21,18 @@ class SendSmsCodeAction
 
         $code = $this->generateCode();
         $this->smsCodeRepository->create($phone, $code, config('sms.ttl'));
+        $this->smsCodeRepository->startResendCooldown($phone, config('sms.resend_cooldown'));
 
         SmsCodeRequested::dispatch($phone, $code);
     }
 
     private function ensureCooldownPassed(string $phone): void
     {
-        $latest = $this->smsCodeRepository->findLatest($phone);
+        $seconds = $this->smsCodeRepository->resendCooldownRemaining($phone);
 
-        if (! $latest) {
-            return;
-        }
-
-        $availableAt = $latest->created_at->addSeconds(config('sms.resend_cooldown'));
-
-        if ($availableAt->isFuture()) {
+        if ($seconds > 0) {
             throw ValidationException::withMessages([
-                'phone' => __('messages.sms_resend_wait', ['seconds' => now()->diffInSeconds($availableAt)]),
+                'phone' => __('messages.sms_resend_wait', ['seconds' => $seconds]),
             ]);
         }
     }

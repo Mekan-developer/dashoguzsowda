@@ -694,7 +694,7 @@ sequenceDiagram
     S->>A: execute(phone)
     A->>A: проверить кулдаун 60 сек
     A->>A: погасить старые коды (used_at = now)
-    A->>A: сгенерировать 6 цифр, записать в sms_codes (TTL 300 сек)
+    A->>A: сгенерировать 6 цифр, положить в кэш otp:* (TTL 300 сек)
     A->>E: dispatch(phone, code)
     E->>G: SendSmsCode → POST /emit-otp (X-Otp-Secret)
     C-->>M: 200 {expires_in, resend_after}
@@ -712,7 +712,8 @@ sequenceDiagram
 1. Клиент шлёт номер. Валидация — `SendCodeRequest` (`/^\+?\d{8,15}$/`), троттлинг 5/мин.
 2. `SendSmsCodeAction` проверяет, что с прошлой отправки прошло ≥ 60 сек, иначе 422.
 3. Все предыдущие коды на этот номер помечаются использованными — активен только последний.
-4. Код кладётся в `sms_codes` с `expires_at = now + 300 сек`.
+4. Код кладётся в кэш (Redis) с `expires_at = now + 300 сек`: по TTL запись
+   исчезает сама, таблицы под коды нет.
 5. Событие `SmsCodeRequested` → листенер `SendSmsCode` → драйвер по `SMS_DRIVER`:
    `log` (пишет в `laravel.log`) или `modem` (HTTP-запрос в socket-server).
 6. Клиент шлёт код. `VerifySmsCodeAction` проверяет срок, число попыток (≤5) и само

@@ -65,6 +65,15 @@ class UserRepository implements UserRepositoryInterface
         return User::where('phone', $phone)->first();
     }
 
+    public function namesByPhones(array $phones): array
+    {
+        if ($phones === []) {
+            return [];
+        }
+
+        return User::whereIn('phone', $phones)->pluck('name', 'phone')->all();
+    }
+
     public function update(User $user, array $data): User
     {
         $user->update($data);

@@ -1,10 +1,16 @@
 <?php
 
 use App\Models\Setting;
-use App\Models\SmsCode;
 use App\Models\User;
+use App\Repositories\Interfaces\SmsCodeRepositoryInterface;
+use App\Services\Sms\SmsCode;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+
+function issueOtpCode(string $phone, string $code, ?int $ttl = null): SmsCode
+{
+    return app(SmsCodeRepositoryInterface::class)->create($phone, $code, $ttl ?? config('sms.ttl'));
+}
 
 // User::factory() assumes an `email_verified_at` column that this project's
 // users table does not have — build the row directly with real columns instead.
@@ -84,27 +90,51 @@ it('shows admin the recent OTP codes with their status', function () {
 
     $owner = User::factory()->create(['name' => 'Кодовладелец', 'phone' => '+99361000001', 'role' => 'user']);
 
-    SmsCode::create(['phone' => $owner->phone, 'code' => '111111', 'expires_at' => now()->addMinutes(5)]);
-    SmsCode::create(['phone' => '+99361000002', 'code' => '222222', 'expires_at' => now()->addMinutes(5), 'used_at' => now()]);
-    SmsCode::create(['phone' => '+99361000003', 'code' => '333333', 'expires_at' => now()->subMinute()]);
+    issueOtpCode($owner->phone, '111111');
+    $used = issueOtpCode('+99361000002', '222222');
+    app(SmsCodeRepositoryInterface::class)->markUsed($used);
 
     $codes = collect($this->getJson(route('settings.otp-codes'))->assertOk()->json('codes'))
         ->keyBy('code');
 
-    expect($codes)->toHaveCount(3);
+    expect($codes)->toHaveCount(2);
     expect($codes['111111']['status'])->toBe('active');
     expect($codes['111111']['user_name'])->toBe('Кодовладелец');
     expect($codes['111111']['expires_in'])->toBeGreaterThan(0);
     expect($codes['222222']['status'])->toBe('used');
     // Номер без зарегистрированного пользователя — фронт покажет «Новый номер»
     expect($codes['222222']['user_name'])->toBeNull();
-    expect($codes['333333']['status'])->toBe('expired');
+});
+
+it('drops OTP codes from the monitor once their ttl runs out', function () {
+    actingAsSettingsRole('admin');
+
+    issueOtpCode('+99361000001', '111111');
+
+    $this->travel(config('sms.ttl') + 1)->seconds();
+
+    expect($this->getJson(route('settings.otp-codes'))->assertOk()->json('codes'))->toBeEmpty();
+});
+
+// Индекс ленты живёт до самой долгой своей записи, а не до последней добавленной
+it('keeps live OTP codes in the monitor after a short-lived one expires', function () {
+    actingAsSettingsRole('admin');
+
+    issueOtpCode('+99361000001', '111111');
+    issueOtpCode('+99361000002', '222222', 30);
+
+    $this->travel(31)->seconds();
+
+    $codes = $this->getJson(route('settings.otp-codes'))->assertOk()->json('codes');
+
+    expect($codes)->toHaveCount(1);
+    expect($codes[0]['code'])->toBe('111111');
 });
 
 it('renders the settings page with the OTP codes already loaded', function () {
     actingAsSettingsRole('admin');
 
-    SmsCode::create(['phone' => '+99361000001', 'code' => '111111', 'expires_at' => now()->addMinutes(5)]);
+    issueOtpCode('+99361000001', '111111');
 
     $this->get(route('settings.index'))
         ->assertInertia(fn ($page) => $page->where('otpCodes.0.code', '111111'));
@@ -113,8 +143,8 @@ it('renders the settings page with the OTP codes already loaded', function () {
 it('filters OTP codes by phone fragment', function () {
     actingAsSettingsRole('admin');
 
-    SmsCode::create(['phone' => '+99361000001', 'code' => '111111', 'expires_at' => now()->addMinutes(5)]);
-    SmsCode::create(['phone' => '+99362000002', 'code' => '222222', 'expires_at' => now()->addMinutes(5)]);
+    issueOtpCode('+99361000001', '111111');
+    issueOtpCode('+99362000002', '222222');
 
     $codes = $this->getJson(route('settings.otp-codes', ['phone' => '62000002']))->assertOk()->json('codes');
 

@@ -16,6 +16,14 @@ interface UserRepositoryInterface
     public function countByDaySince(CarbonInterface $since): \Illuminate\Support\Collection;
     public function find(int $id): User;
     public function findByPhone(string $phone): ?User;
+
+    /**
+     * Имена владельцев номеров одним запросом (мониторинг OTP).
+     *
+     * @param  array<int, string>  $phones
+     * @return array<string, string>  номер => имя; незарегистрированных номеров в ответе нет
+     */
+    public function namesByPhones(array $phones): array;
     public function update(User $user, array $data): User;
     public function delete(User $user): void;
     public function updateLocale(User $user, ?string $locale): void;
