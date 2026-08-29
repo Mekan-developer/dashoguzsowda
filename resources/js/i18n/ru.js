@@ -105,8 +105,10 @@ export default {
         pendingReview: 'Новый отзыв ждёт модерации',
     },
     layout: {
-        brandTitle: 'Доска',
-        brandSubtitle: 'объявлений',
+        brandTitle: 'Daşoguz söwda',
+        brandSubtitle: 'meýdançasy',
+        collapse: 'Свернуть меню',
+        expand: 'Развернуть меню',
         sectionMain: 'Главное',
         sectionContent: 'Контент',
         sectionModeration: 'Модерация',

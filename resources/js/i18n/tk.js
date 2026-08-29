@@ -105,8 +105,10 @@ export default {
         pendingReview: 'Täze syn moderasiýa garaşýar',
     },
     layout: {
-        brandTitle: 'Bildiriş',
-        brandSubtitle: 'tagtasy',
+        brandTitle: 'Daşoguz söwda',
+        brandSubtitle: 'meýdançasy',
+        collapse: 'Menýuny ýygnamak',
+        expand: 'Menýuny açmak',
         sectionMain: 'Esasy',
         sectionContent: 'Kontent',
         sectionModeration: 'Moderasiýa',

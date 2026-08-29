@@ -129,13 +129,17 @@ function logout() {
       :style="{ width: collapsed ? '68px' : '252px', padding: collapsed ? '18px 10px 16px' : '18px 14px 16px' }"
     >
       <!-- Brand -->
-      <div class="flex items-center gap-2.5 px-1.5 pt-1 pb-[22px]">
-        <div class="flex h-[60px] w-[60px] flex-none items-center justify-center rounded-[6px] dark:bg-white text-white">
-          <img src="/icons/logo.png" alt="Logo" class="h-auto w-[56px]" />
+      <div class="flex items-center pt-1 pb-[22px]" :class="collapsed ? 'justify-center' : 'gap-2.5 px-1.5'">
+        <!-- Лого круглое: подложка тоже круглая, иначе в тёмной теме торчат углы плашки -->
+        <div
+          class="flex flex-none items-center justify-center rounded-full p-[2px] transition-all duration-300 dark:bg-white/[.06]"
+          :style="{ width: collapsed ? '40px' : '56px', height: collapsed ? '40px' : '56px' }"
+        >
+          <img src="/icons/logo-128.png" :alt="t('layout.brandTitle')" class="h-full w-full object-contain" />
         </div>
-        <div v-if="!collapsed" class="flex flex-col leading-[1.18]">
-          <span class="text-[14.5px] font-bold text-[var(--sidebar-text-strong)]">Daşoguz söwda </span>
-          <span class="text-[11px] text-[var(--sidebar-muted)]">meýdançasy</span>
+        <div v-if="!collapsed" class="flex min-w-0 flex-col leading-[1.18]">
+          <span class="truncate text-[14.5px] font-bold text-[var(--sidebar-text-strong)]">{{ t('layout.brandTitle') }}</span>
+          <span class="truncate text-[11px] text-[var(--sidebar-muted)]">{{ t('layout.brandSubtitle') }}</span>
         </div>
       </div>
 
@@ -147,18 +151,31 @@ function logout() {
             class="text-[10.5px] font-bold uppercase tracking-[.07em] text-[var(--section-label)] px-2.5"
             :style="{ padding: (si === 0 ? '8px' : '16px') + ' 10px 6px' }"
           >{{ section.title }}</div>
+          <!-- Свёрнутый сайдбар: заголовков нет, секции разделяем чертой -->
+          <div v-else-if="si > 0" class="mx-auto my-2 h-px w-5 bg-[var(--sidebar-border)]"></div>
 
           <Link
             v-for="item in section.items"
             :key="item.routeName"
             :href="route(item.routeName)"
+            :title="collapsed ? item.label : null"
             class="group flex items-center gap-2.5 rounded-[6px] text-[13.5px] font-medium transition-colors"
-            :class="isActive(item.routeName)
-              ? 'bg-[var(--accent-tint)] text-[var(--accent)] font-bold dark:bg-[var(--accent)] dark:text-white dark:font-semibold'
-              : 'text-[var(--sidebar-text)] hover:bg-[var(--nav-hover)]'"
-            :style="{ padding: isActive(item.routeName) ? '9px 10px' : '8px 10px' }"
+            :class="[
+              isActive(item.routeName)
+                ? 'bg-[var(--accent-tint)] text-[var(--accent)] font-bold dark:bg-[var(--accent)] dark:text-white dark:font-semibold'
+                : 'text-[var(--sidebar-text)] hover:bg-[var(--nav-hover)]',
+              collapsed ? 'justify-center' : '',
+            ]"
+            :style="{ padding: collapsed ? '9px 0' : (isActive(item.routeName) ? '9px 10px' : '8px 10px') }"
           >
-            <Icon :kind="item.icon" :size="17" class="flex-none" />
+            <span class="relative flex flex-none items-center justify-center">
+              <Icon :kind="item.icon" :size="17" />
+              <!-- Счётчик не помещается — показываем точку, чтобы не терять сигнал о модерации -->
+              <span
+                v-if="collapsed && item.badge && counts[item.badge] > 0"
+                class="absolute -right-[5px] -top-[3px] h-[7px] w-[7px] rounded-full bg-[var(--badge-bg)]"
+              ></span>
+            </span>
             <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>
             <span
               v-if="item.badge && counts[item.badge] > 0 && !collapsed"
@@ -169,10 +186,11 @@ function logout() {
       </nav>
 
       <!-- Collapse toggle -->
-      <div class="mt-auto flex justify-end pt-3.5">
+      <div class="mt-auto flex pt-3.5" :class="collapsed ? 'justify-center' : 'justify-end'">
         <button
           @click="collapsed = !collapsed"
-          class="flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--sidebar-muted)] hover:bg-[var(--nav-hover)] transition-colors"
+          :title="collapsed ? t('layout.expand') : t('layout.collapse')"
+          class="flex h-7 w-7 flex-none items-center justify-center rounded-[6px] text-[var(--sidebar-muted)] hover:bg-[var(--nav-hover)] transition-colors cursor-pointer"
         >
           <Icon kind="chevronLeft" :size="15" :class="collapsed ? 'rotate-180' : ''" class="transition-transform duration-300" />
         </button>
