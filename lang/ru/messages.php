@@ -64,6 +64,8 @@ return [
     'review_approved'  => 'Отзыв одобрен',
     'review_rejected'  => 'Отзыв отклонён',
     'review_submitted' => 'Отзыв отправлен на модерацию',
+    'review_updated'   => 'Отзыв обновлён и отправлен на повторную модерацию',
+    'review_deleted'   => 'Отзыв удалён',
 
     'complaint_submitted' => 'Жалоба отправлена',
     'complaint_resolved'  => 'Жалоба решена',

@@ -25,6 +25,7 @@ interface ReviewRepositoryInterface
     public function find(int $id): Review;
     public function create(array $data): Review;
     public function update(Review $review, array $data): Review;
+    public function delete(Review $review): void;
     public function countPending(): int;
     public function countByStatus(string $status): int;
 }

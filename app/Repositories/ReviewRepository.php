@@ -106,6 +106,11 @@ class ReviewRepository implements ReviewRepositoryInterface
         return $review->fresh();
     }
 
+    public function delete(Review $review): void
+    {
+        $review->delete();
+    }
+
     public function countPending(): int
     {
         return Review::where('status', 'pending')->count();

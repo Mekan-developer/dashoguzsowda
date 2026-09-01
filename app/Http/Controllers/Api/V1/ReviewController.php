@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\IndexReviewsRequest;
 use App\Http\Requests\Api\V1\MyReviewsRequest;
 use App\Http\Requests\Api\V1\StoreReviewRequest;
+use App\Http\Requests\Api\V1\UpdateReviewRequest;
 use App\Http\Resources\Api\V1\ReviewResource;
 use App\Models\Listing;
+use App\Models\Review;
 use App\Models\User;
 use App\Services\ReviewService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -32,6 +34,38 @@ class ReviewController extends Controller
             'data'    => new ReviewResource($review),
             'message' => __('messages.review_submitted'),
         ], 201);
+    }
+
+    /**
+     * Правка своего отзыва — возвращает его на повторную модерацию.
+     * PUT|PATCH /api/v1/reviews/{id}
+     *
+     * @authenticated
+     */
+    public function update(UpdateReviewRequest $request, Review $review)
+    {
+        $review = $this->reviewService->updateFromApi($review, $request->validated());
+
+        return response()->json([
+            'data'    => new ReviewResource($review),
+            'message' => __('messages.review_updated'),
+        ]);
+    }
+
+    /**
+     * Удаление своего отзыва — без следа, из публичной ленты он тоже пропадает.
+     * DELETE /api/v1/reviews/{id}
+     *
+     * @authenticated
+     */
+    public function destroy(Review $review)
+    {
+        $this->reviewService->deleteFromApi($review);
+
+        return response()->json([
+            'data'    => null,
+            'message' => __('messages.review_deleted'),
+        ]);
     }
 
     /**

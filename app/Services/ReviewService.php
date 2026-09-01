@@ -27,6 +27,28 @@ class ReviewService
         ]);
     }
 
+    /**
+     * Правка своего отзыва возвращает его на модерацию: изменённый текст
+     * не должен оставаться в публичной ленте с прежним «одобрено».
+     * Оценку без ключа `rating` не трогаем, с `rating: null` — снимаем.
+     */
+    public function updateFromApi(Review $review, array $data): Review
+    {
+        $this->reviewRepository->update($review, [
+            'text'                => $data['text'],
+            ...array_key_exists('rating', $data) ? ['rating' => $data['rating']] : [],
+            'status'              => 'pending',
+            'rejection_reason_id' => null,
+        ]);
+
+        return $this->reviewRepository->find($review->id);
+    }
+
+    public function deleteFromApi(Review $review): void
+    {
+        $this->reviewRepository->delete($review);
+    }
+
     /** Публичная лента отзывов объявления — только прошедшие модерацию */
     public function listForListing(Listing $listing, array $filters, int $perPage = 20): LengthAwarePaginator
     {

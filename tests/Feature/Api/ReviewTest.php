@@ -102,6 +102,107 @@ it('forbids blocked user from leaving a review', function () {
     ])->assertForbidden();
 });
 
+it('lets the author edit own review and sends it back to moderation', function () {
+    $review = Review::create([
+        'user_id'             => $this->user->id,
+        'listing_id'          => $this->listing->id,
+        'text'                => 'Первый вариант',
+        'rating'              => 2,
+        'status'              => 'rejected',
+        'rejection_reason_id' => null,
+    ]);
+
+    $this->putJson("/api/v1/reviews/{$review->id}", ['text' => 'Исправил'])->assertUnauthorized();
+
+    Sanctum::actingAs($this->user);
+
+    $this->putJson("/api/v1/reviews/{$review->id}", ['text' => 'Продавец всё исправил', 'rating' => 5])
+        ->assertOk()
+        ->assertJsonPath('data.text', 'Продавец всё исправил')
+        ->assertJsonPath('data.rating', 5)
+        ->assertJsonPath('data.status', 'pending')
+        ->assertJsonPath('message', __('messages.review_updated'));
+
+    expect($review->fresh()->status)->toBe('pending');
+});
+
+it('keeps the review target and rating when editing', function () {
+    $review = Review::create([
+        'user_id'    => $this->user->id,
+        'listing_id' => $this->listing->id,
+        'text'       => 'Текст',
+        'rating'     => 4,
+        'status'     => 'approved',
+    ]);
+
+    Sanctum::actingAs($this->user);
+
+    // Объект отзыва не меняется, даже если его прислали
+    $this->putJson("/api/v1/reviews/{$review->id}", [
+        'text'           => 'Новый текст',
+        'target_user_id' => $this->owner->id,
+    ])->assertOk()->assertJsonPath('data.rating', 4);
+
+    expect($review->fresh()->listing_id)->toBe($this->listing->id)
+        ->and($review->fresh()->target_user_id)->toBeNull();
+
+    // Явный null снимает оценку
+    $this->putJson("/api/v1/reviews/{$review->id}", ['text' => 'Без оценки', 'rating' => null])
+        ->assertOk()
+        ->assertJsonPath('data.rating', null);
+});
+
+it('validates review edits', function () {
+    $review = Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Текст', 'status' => 'approved']);
+
+    Sanctum::actingAs($this->user);
+
+    $this->putJson("/api/v1/reviews/{$review->id}", ['text' => '', 'rating' => 6])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['text', 'rating']);
+});
+
+it('forbids editing and deleting someone else review', function () {
+    $review = Review::create(['user_id' => $this->owner->id, 'listing_id' => $this->listing->id, 'text' => 'Чужой отзыв', 'status' => 'approved']);
+
+    Sanctum::actingAs($this->user);
+
+    $this->putJson("/api/v1/reviews/{$review->id}", ['text' => 'Подмена'])->assertForbidden();
+    $this->deleteJson("/api/v1/reviews/{$review->id}")->assertForbidden();
+
+    expect($review->fresh()->text)->toBe('Чужой отзыв');
+});
+
+it('lets the author delete own review', function () {
+    $review = Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Передумал', 'rating' => 5, 'status' => 'approved']);
+
+    $this->deleteJson("/api/v1/reviews/{$review->id}")->assertUnauthorized();
+
+    Sanctum::actingAs($this->user);
+
+    $this->deleteJson("/api/v1/reviews/{$review->id}")
+        ->assertOk()
+        ->assertJsonPath('message', __('messages.review_deleted'));
+
+    expect(Review::find($review->id))->toBeNull();
+
+    // Из публичной ленты и рейтинга отзыв тоже исчез
+    $this->getJson("/api/v1/listings/{$this->listing->id}/reviews")
+        ->assertOk()
+        ->assertJsonCount(0, 'data')
+        ->assertJsonPath('meta.rating.average', null);
+});
+
+it('forbids blocked user from editing but allows deleting own review', function () {
+    $blocked = User::factory()->blocked()->create();
+    $review  = Review::create(['user_id' => $blocked->id, 'listing_id' => $this->listing->id, 'text' => 'Текст', 'status' => 'approved']);
+
+    Sanctum::actingAs($blocked);
+
+    $this->putJson("/api/v1/reviews/{$review->id}", ['text' => 'Правка'])->assertForbidden();
+    $this->deleteJson("/api/v1/reviews/{$review->id}")->assertOk();
+});
+
 it('returns only approved reviews of a listing with rating summary', function () {
     $second = User::factory()->create();
 

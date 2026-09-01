@@ -242,11 +242,19 @@ Route::prefix('v1')
         Route::middleware(['auth:sanctum', 'not_blocked', 'throttle:10,1'])->group(function () {
             Route::post('/reviews',    [ReviewController::class, 'store'])->name('reviews.store');
             Route::post('/complaints', [ComplaintController::class, 'store'])->name('complaints.store');
+
+            // Правка своего отзыва возвращает его на модерацию
+            Route::match(['put', 'patch'], '/reviews/{review}', [ReviewController::class, 'update'])
+                ->can('update', 'review')->name('reviews.update');
         });
 
         // Свои отзывы — со статусом модерации и причиной отказа
         Route::get('/reviews/my', [ReviewController::class, 'my'])
             ->middleware('auth:sanctum')->name('reviews.my');
+
+        // Удаление своего отзыва: доступно и заблокированному — он убирает свой текст
+        Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])
+            ->middleware('auth:sanctum')->can('delete', 'review')->name('reviews.destroy');
 
         // Отзывы о продавце — публичная лента одобренных
         Route::get('/users/{user}/reviews', [ReviewController::class, 'forUser'])->name('users.reviews');

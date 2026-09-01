@@ -64,6 +64,8 @@ return [
     'review_approved'  => 'Syn tassyklandy',
     'review_rejected'  => 'Syn ret edildi',
     'review_submitted' => 'Syn barlaga iberildi',
+    'review_updated'   => 'Syn täzelendi we gaýtadan barlaga iberildi',
+    'review_deleted'   => 'Syn pozuldy',
 
     'complaint_submitted' => 'Şikaýat iberildi',
     'complaint_resolved'  => 'Şikaýat çözüldi',

@@ -526,6 +526,8 @@ Multipart-обновление слать через `POST` — PHP не пар�
 | POST | `/favorites` | `listing_id` | Bearer |
 | DELETE | `/favorites/{listing}` | — | Bearer |
 | POST | `/reviews` | `text`, `rating?` (1–5), **ровно одно из** `listing_id` / `target_user_id` | Bearer + not_blocked, 10/мин |
+| PUT/PATCH | `/reviews/{review}` | `text`, `rating?` — только свой отзыв, правка возвращает его в `pending` | Bearer + not_blocked + `ReviewPolicy@update`, 10/мин |
+| DELETE | `/reviews/{review}` | — только свой отзыв, удаляется насовсем | Bearer + `ReviewPolicy@delete` |
 | POST | `/complaints` | `listing_id`, `complaint_reason_id`, `text?` | Bearer + not_blocked, 10/мин |
 | GET | `/chat` | — | Bearer |
 | POST | `/chat` | `text` (≤5000) | Bearer |

@@ -1,0 +1,50 @@
+meta {
+  name: Изменить свой отзыв
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{base_url}}/v1/reviews/1
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "text": "Продавец связался и всё решил, меняю оценку",
+    "rating": 5
+  }
+}
+
+docs {
+  Правка своего отзыва — текст и оценка. Объект отзыва (listing_id /
+  target_user_id) не меняется: эти поля игнорируются, отзыв остаётся
+  на той же карточке.
+
+  Отзыв в ЛЮБОМ статусе после правки возвращается в pending и уходит на
+  повторную модерацию — одобренный на время пропадает из публичной ленты
+  и перестаёт учитываться в рейтинге. Так же чинится и отклонённый: новый
+  отзыв заводить не нужно.
+
+  rating: опционален. Ключ не прислан — прежняя оценка сохраняется,
+  "rating": null — оценка снимается, останется отзыв без звёзд.
+
+  Чужой отзыв — 403, заблокированный пользователь — 403 (not_blocked).
+  Лимит частоты — 10 запросов в минуту (общий с созданием и жалобами).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("review is back on moderation", function() {
+    expect(res.getBody().data.status).to.equal('pending');
+  });
+}

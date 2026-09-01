@@ -1,0 +1,32 @@
+meta {
+  name: Удалить свой отзыв
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{base_url}}/v1/reviews/1
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Удаление своего отзыва. Удаляется насовсем: из публичной ленты, из
+  meta.rating объекта и из админки (/admin/reviews) он тоже пропадает.
+
+  Чужой отзыв — 403, без токена — 401. Заблокированному пользователю
+  удаление своего отзыва доступно: он убирает собственный текст.
+
+  Ответ: { "data": null, "message": "Отзыв удалён" }.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
