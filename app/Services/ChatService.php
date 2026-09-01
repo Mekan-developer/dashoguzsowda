@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\AdminReplied;
+use App\Events\MessagesReadEvent;
 use App\Events\NewMessageEvent;
 use App\Models\Message;
 use App\Models\User;
@@ -83,14 +84,42 @@ class ChatService
         }
     }
 
+    /**
+     * Оператор открыл диалог — сообщения пользователя прочитаны.
+     */
     public function markRead(int $userId): void
     {
-        $this->chatRepository->markAsRead($userId, 'user');
+        if ($this->chatRepository->markAsRead($userId, 'user') > 0) {
+            $this->broadcastRead($userId, 'user');
+        }
     }
 
+    /**
+     * Пользователь открыл чат в мобилке — ответы оператора прочитаны.
+     */
     public function markReadByUser(int $userId): void
     {
-        $this->chatRepository->markAsRead($userId, 'admin');
+        if ($this->chatRepository->markAsRead($userId, 'admin') > 0) {
+            $this->broadcastRead($userId, 'admin');
+        }
+    }
+
+    /**
+     * Отметка о прочтении — вещь необязательная: если брокер недоступен,
+     * галочка обновится при следующей загрузке диалога, а ронять из-за неё
+     * открытие страницы или ответ 200 мобилке нельзя.
+     */
+    private function broadcastRead(int $userId, string $sender): void
+    {
+        try {
+            broadcast(new MessagesReadEvent($userId, $sender));
+        } catch (\Throwable $e) {
+            Log::warning('Не удалось разослать отметку о прочтении через WebSocket', [
+                'user_id' => $userId,
+                'sender'  => $sender,
+                'error'   => $e->getMessage(),
+            ]);
+        }
     }
 
     public function countUnread(): int

@@ -216,6 +216,8 @@ export default {
         noMessages: 'Нет сообщений',
         profileLink: 'Профиль →',
         inputPlaceholder: 'Введите сообщение…',
+        markSent: 'Отправлено',
+        markRead: 'Прочитано',
     },
     complaints: {
         tabPending: 'Ожидают',

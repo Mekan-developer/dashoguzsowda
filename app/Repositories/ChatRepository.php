@@ -41,9 +41,13 @@ class ChatRepository implements ChatRepositoryInterface
         return Message::create($data);
     }
 
-    public function markAsRead(int $userId, string $sender): void
+    /**
+     * @return int сколько сообщений реально перешло в «прочитано» — по нулю
+     *             видно, что рассылать отметку собеседнику не нужно
+     */
+    public function markAsRead(int $userId, string $sender): int
     {
-        Message::where('user_id', $userId)
+        return Message::where('user_id', $userId)
             ->where('sender', $sender)
             ->where('is_read', false)
             ->update(['is_read' => true]);

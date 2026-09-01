@@ -15,12 +15,21 @@ const localMessages = ref([...(props.messages ?? [])])
 onMounted(() => {
     scrollToBottom()
 
-    window.Echo.private(`chat.${props.chatUser.id}`).listen('.new-message', (e) => {
-        if (e.sender !== 'user') return
-        localMessages.value.push(e)
-        scrollToBottom()
-        router.patch(route('chat.read', props.chatUser.id), {}, { preserveScroll: true, preserveState: true, only: [] })
-    })
+    window.Echo.private(`chat.${props.chatUser.id}`)
+        .listen('.new-message', (e) => {
+            if (e.sender !== 'user') return
+            localMessages.value.push(e)
+            scrollToBottom()
+            router.patch(route('chat.read', props.chatUser.id), {}, { preserveScroll: true, preserveState: true, only: [] })
+        })
+        // Пользователь открыл чат в мобилке — гасим галочки на своих ответах,
+        // не перезагружая страницу.
+        .listen('.messages-read', (e) => {
+            if (e.sender !== 'admin') return
+            localMessages.value.forEach((m) => {
+                if (m.sender === 'admin') m.is_read = true
+            })
+        })
 })
 
 onUnmounted(() => {
@@ -112,7 +121,23 @@ function formatDate2(d) {
                 : 'bg-surface text-ink dark:bg-dbg dark:text-slate-200'"
             >
               {{ msg.text }}
-              <div class="mt-1 text-[10px] opacity-60">{{ formatTime(msg.created_at) }}</div>
+              <div class="mt-1 flex items-center gap-1 text-[10px]" :class="msg.sender === 'admin' ? 'justify-end' : ''">
+                <span class="opacity-60">{{ formatTime(msg.created_at) }}</span>
+                <!-- Статус только на своих ответах: входящие оператор читает самим фактом открытия диалога -->
+                <svg
+                  v-if="msg.sender === 'admin'"
+                  class="h-3.5 w-3.5 flex-shrink-0"
+                  :class="msg.is_read ? 'opacity-100' : 'opacity-60'"
+                  viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                  role="img"
+                  :aria-label="msg.is_read ? t('chat.markRead') : t('chat.markSent')"
+                >
+                  <title>{{ msg.is_read ? t('chat.markRead') : t('chat.markSent') }}</title>
+                  <path d="M1.5 10.6 5.2 14.3 12.4 5.9" />
+                  <path v-if="msg.is_read" d="M7.6 14.3 14.8 5.9" />
+                </svg>
+              </div>
             </div>
           </div>
           <div v-if="!localMessages?.length" class="text-center text-[13px] text-muted py-8">{{ t('chat.noMessages') }}</div>

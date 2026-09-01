@@ -216,6 +216,8 @@ export default {
         noMessages: 'Habar ýok',
         profileLink: 'Profil →',
         inputPlaceholder: 'Habar ýazyň…',
+        markSent: 'Iberildi',
+        markRead: 'Okaldy',
     },
     complaints: {
         tabPending: 'Garaşylýar',

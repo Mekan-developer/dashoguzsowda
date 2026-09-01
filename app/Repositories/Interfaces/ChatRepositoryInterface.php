@@ -12,6 +12,6 @@ interface ChatRepositoryInterface
     public function getDialogs(int $perPage = 25): LengthAwarePaginator;
     public function getMessages(int $userId): Collection;
     public function createMessage(array $data): Message;
-    public function markAsRead(int $userId, string $sender): void;
+    public function markAsRead(int $userId, string $sender): int;
     public function countUnread(): int;
 }
