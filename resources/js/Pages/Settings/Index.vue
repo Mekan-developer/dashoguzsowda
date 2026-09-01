@@ -17,8 +17,6 @@ const props = defineProps({
     canManageBanners:  { type: Boolean, default: false },
     rejectionReasons:  { type: Array, default: () => [] },
     complaintReasons:  { type: Array, default: () => [] },
-    ownLocale:         { type: String, default: null },
-    defaultAppLocale:  { type: String, default: 'ru' },
     boostIntervalHours:{ type: Number, default: 24 },
 })
 
@@ -119,7 +117,6 @@ function smsTone(sms) {
     if (sms.connected) return 'ok'
     return sms.configured ? 'bad' : 'warn'
 }
-function smsBadgeClass(sms) { return TONES[smsTone(sms)].badge }
 function smsStatusLabel(sms) {
     if (sms.connected) return t('settings.connected')
     return sms.configured ? t('settings.notConnected') : t('settings.testMode')
@@ -367,17 +364,6 @@ function destroyComplaint(item) {
     router.delete(route('complaint-reasons.destroy', item.id), opts)
 }
 
-// ── Локализация ────────────────────────────────────────────
-const ownLocale        = ref(props.ownLocale || 'ru')
-const defaultAppLocale = ref(props.defaultAppLocale)
-
-function saveLocalization() {
-    router.patch(route('settings.localization'), {
-        own_locale: ownLocale.value,
-        default_app_locale: defaultAppLocale.value,
-    }, opts)
-}
-
 // ── Объявления: интервал поднятия ──────────────────────────
 const boostIntervalHours = ref(props.boostIntervalHours)
 const boostErrors        = ref({})
@@ -385,16 +371,6 @@ function saveBoostSettings() {
     boostErrors.value = {}
     router.patch(route('settings.boost'), { boost_interval_hours: boostIntervalHours.value },
         { ...opts, onError: e => (boostErrors.value = e) })
-}
-
-// ── SMS-шлюз ───────────────────────────────────────────────
-const sendingTest = ref(false)
-function sendTestSms() {
-    sendingTest.value = true
-    router.post(route('settings.sms-gateway.test'), {}, {
-        ...opts,
-        onFinish: () => { sendingTest.value = false },
-    })
 }
 </script>
 
@@ -655,64 +631,6 @@ function sendTestSms() {
         </div>
       </section>
 
-      <!-- 6. Локализация и SMS -->
-      <section>
-        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.localizationAndSms') }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
-            <div class="mb-4 font-extrabold text-ink dark:text-slate-100">{{ t('settings.localization') }}</div>
-
-            <div class="mb-4">
-              <div class="mb-1.5 text-[12px] text-muted">{{ t('settings.ownLocale') }}</div>
-              <div class="flex gap-2">
-                <button
-                  v-for="l in ['ru', 'tk']" :key="l"
-                  @click="ownLocale = l"
-                  class="flex-1 rounded-btn border-2 py-1.5 text-[12px] font-bold uppercase transition"
-                  :class="ownLocale === l ? 'border-blue bg-blue/10 text-blue' : 'border-line dark:border-dline text-muted'"
-                >{{ l }}</button>
-              </div>
-            </div>
-
-            <div class="mb-4">
-              <div class="mb-1.5 text-[12px] text-muted">{{ t('settings.defaultAppLocale') }}</div>
-              <div class="flex gap-2">
-                <button
-                  v-for="l in ['ru', 'tk']" :key="l"
-                  @click="defaultAppLocale = l"
-                  class="flex-1 rounded-btn border-2 py-1.5 text-[12px] font-bold uppercase transition"
-                  :class="defaultAppLocale === l ? 'border-blue bg-blue/10 text-blue' : 'border-line dark:border-dline text-muted'"
-                >{{ l }}</button>
-              </div>
-            </div>
-
-            <button @click="saveLocalization" class="w-full rounded-btn bg-blue py-2 text-[13px] font-bold text-white transition hover:bg-blue/90">
-              {{ t('actions.save') }}
-            </button>
-          </div>
-
-          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
-            <div class="mb-4 flex items-center justify-between">
-              <div class="font-extrabold text-ink dark:text-slate-100">{{ t('settings.smsGateway') }}</div>
-              <span
-                class="rounded-pill px-2.5 py-1 text-[11px] font-bold"
-                :class="smsBadgeClass(monitoring.sms)"
-              >{{ smsStatusLabel(monitoring.sms) }}</span>
-            </div>
-            <div class="mb-1 text-[13px] text-ink dark:text-slate-200">{{ monitoring.sms.device }}</div>
-            <div v-if="monitoring.sms.address" class="mb-1 text-[11px] text-muted">{{ t('settings.address') }}: {{ monitoring.sms.address }}</div>
-            <div v-if="monitoring.sms.connected" class="mb-1 text-[11px] text-muted">{{ t('settings.devicesConnectedCount', { n: monitoring.sms.clients ?? 0 }) }}</div>
-            <div class="mb-4 text-[11px] text-muted">
-              {{ monitoring.sms.last_sync_at ? t('settings.syncedAt', { at: shortTime(monitoring.sms.last_sync_at) }) : t('settings.noSync') }}
-            </div>
-            <button
-              @click="sendTestSms"
-              :disabled="sendingTest"
-              class="w-full rounded-btn border-2 border-line dark:border-dline py-2 text-[13px] font-bold text-ink dark:text-slate-200 transition hover:border-blue hover:text-blue disabled:cursor-not-allowed disabled:opacity-50"
-            >{{ sendingTest ? t('push.sending') : t('settings.sendTestSms') }}</button>
-          </div>
-        </div>
-      </section>
     </div>
   </AppLayout>
 </template>
