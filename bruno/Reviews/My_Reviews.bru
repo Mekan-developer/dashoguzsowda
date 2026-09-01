@@ -1,0 +1,49 @@
+meta {
+  name: Мои отзывы
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/v1/reviews/my?page=1&limit=20
+  body: none
+}
+
+params:query {
+  page: 1
+  limit: 20
+  ~status: pending
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Отзывы, написанные текущим пользователем, — во ВСЕХ статусах модерации,
+  чтобы экран «Мои отзывы» показал «на проверке» и причину отказа.
+  Без токена — 401.
+
+  Параметры: status (pending|approved|rejected — без него приходят все),
+  page, limit (1–50).
+
+  В ответе, в отличие от публичной ленты:
+  - listing = { id, title } или target_user = { id, name, avatar } —
+    чем подписать карточку отзыва;
+  - rejection_reason = { id, name_tk, name_ru } — только у status=rejected.
+
+  Отклонённый отзыв редактировать нечем: повторной отправки для отзывов нет,
+  пользователь оставляет новый.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("has pagination meta", function() {
+    expect(res.getBody()).to.have.property('meta');
+  });
+}

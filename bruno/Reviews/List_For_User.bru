@@ -1,0 +1,46 @@
+meta {
+  name: Отзывы о продавце
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/v1/users/1/reviews?page=1&limit=20
+  body: none
+}
+
+params:query {
+  page: 1
+  limit: 20
+  ~sort: rating_desc
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  То же самое, что «Отзывы об объявлении», но для отзывов о самом пользователе
+  (reviews.target_user_id) — рейтинг продавца. Публичный, формат ответа
+  идентичен: data[] с author, meta.rating со средней и разбивкой по звёздам.
+
+  Параметры: sort (latest | rating_desc | rating_asc), page, limit (1–50).
+
+  Тот же рейтинг приходит в карточке объявления этого продавца:
+  GET /v1/listings/{id} → user.rating = { average, count }. В ленте
+  GET /v1/listings ключа user.rating НЕТ — проверять наличие.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("reviews target a user, not a listing", function() {
+    res.getBody().data.forEach(function (review) {
+      expect(review.status).to.equal('approved');
+      expect(review.target_user_id).to.not.be.a('null');
+    });
+  });
+}

@@ -22,6 +22,11 @@ docs {
   Владелец видит своё объявление в любом статусе — для pending/rejected
   нужен токен; при rejected в ответе есть rejection_reason (name_tk/name_ru).
 
+  Рейтинг: rating = { average, count } по одобренным отзывам объявления
+  и user.rating — по отзывам о самом продавце (в ленте /v1/listings ключа
+  user.rating нет). average = null, если оценок ещё нет — показывать
+  «Нет отзывов», а не 0. Сами отзывы — GET /v1/listings/{id}/reviews.
+
   Фото: photos[] = { id, order, processing, original, medium, thumb }.
   Пока processing=true (обработка фоновой очередью `media` ещё не завершилась,
   обычно 1–3 сек после создания/редактирования), все три ссылки указывают

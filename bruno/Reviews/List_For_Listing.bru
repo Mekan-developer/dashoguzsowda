@@ -1,0 +1,66 @@
+meta {
+  name: Отзывы об объявлении
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/v1/listings/1/reviews?page=1&limit=20
+  body: none
+}
+
+params:query {
+  page: 1
+  limit: 20
+  ~sort: rating_desc
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Публичная лента отзывов объявления — токен не нужен. Отдаёт только
+  approved: то, что на модерации или отклонено, сюда не попадает.
+  У объявления не в статусе approved эндпоинт вернёт 404 — как и его карточка.
+
+  Параметры:
+  - sort: latest (по умолчанию, новые сверху) | rating_desc | rating_asc
+    Отзывы без оценки при сортировке по рейтингу уходят в конец.
+  - page, limit (1–50, по умолчанию 20)
+
+  Каждый отзыв несёт author = { id, name, avatar } — второй запрос за автором
+  не нужен. rating = null означает отзыв без оценки.
+
+  meta.rating — сводка по ВСЕМ одобренным отзывам объявления, а не по текущей
+  странице:
+  - count — сколько отзывов всего
+  - rated_count — из них с оценкой (отзыв без оценки в среднее не входит)
+  - average — средняя, null пока оценок нет. Приходит числом: 4.42 или 5
+    (JSON не хранит 5.0) — на мобилке читать как num, не как double.
+  - breakdown — { "1": n, ..., "5": n } для полосок под средней оценкой
+
+  Те же поля в сокращённом виде есть в самой карточке объявления
+  (GET /v1/listings/{id} → rating.average / rating.count), так что ради
+  звёзд в шапке отдельный запрос сюда делать не обязательно.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns only approved reviews", function() {
+    res.getBody().data.forEach(function (review) {
+      expect(review.status).to.equal('approved');
+    });
+  });
+
+  test("meta carries rating summary", function() {
+    const rating = res.getBody().meta.rating;
+    expect(rating).to.have.property('count');
+    expect(rating).to.have.property('rated_count');
+    expect(rating).to.have.property('breakdown');
+  });
+}
