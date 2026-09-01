@@ -132,6 +132,7 @@ function submitReject() {
           <table class="w-full text-sm">
             <thead class="bg-surface dark:bg-dbg">
               <tr>
+                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase w-16">{{ t('common.id') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('common.author') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('reviews.colText') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('reviews.colObject') }}</th>
@@ -147,6 +148,7 @@ function submitReject() {
                 @click="openDetails(r)"
                 class="cursor-pointer hover:bg-surface/50 dark:hover:bg-white/2 transition"
               >
+                <td class="px-4 py-3 font-data text-xs text-muted">{{ r.id }}</td>
                 <td class="px-4 py-3">
                   <div class="font-semibold text-ink dark:text-slate-100">{{ r.user?.name || '—' }}</div>
                   <div class="text-xs text-muted">{{ r.user?.phone }}</div>
@@ -200,7 +202,7 @@ function submitReject() {
                 </td>
               </tr>
               <tr v-if="!reviews.data?.length">
-                <td colspan="6" class="px-4 py-10 text-center text-muted text-sm">
+                <td colspan="7" class="px-4 py-10 text-center text-muted text-sm">
                   {{ hasActiveFilters ? t('reviews.emptyFiltered') : t('reviews.empty') }}
                 </td>
               </tr>

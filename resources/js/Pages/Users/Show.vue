@@ -104,6 +104,7 @@ function formatDate(d) {
         <table class="w-full">
           <thead class="bg-surface/50 dark:bg-dbg/50">
             <tr>
+              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.title') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.category') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.status') }}</th>
@@ -113,6 +114,7 @@ function formatDate(d) {
           </thead>
           <tbody>
             <tr v-for="l in userListings" :key="l.id" class="hover:bg-surface/30 dark:hover:bg-white/3">
+              <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ l.id }}</td>
               <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-bold text-ink dark:text-slate-200">{{ l.title }}</td>
               <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline text-muted">{{ l.category?.name_ru || '—' }}</td>
               <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline"><StatusBadge :status="l.status" /></td>
@@ -124,7 +126,7 @@ function formatDate(d) {
               </td>
             </tr>
             <tr v-if="!userListings?.length">
-              <td colspan="5" class="px-4 py-8 text-center text-[13px] text-muted">{{ t('users.noListings') }}</td>
+              <td colspan="6" class="px-4 py-8 text-center text-[13px] text-muted">{{ t('users.noListings') }}</td>
             </tr>
           </tbody>
         </table>

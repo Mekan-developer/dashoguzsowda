@@ -68,6 +68,7 @@ function setStatus(value) {
 }
 
 const dataTableColumns = computed(() => [
+    { key: 'id', label: t('common.id'), width: '64px', type: 'id' },
     { key: 'logo', label: '', width: '40px', type: 'image' },
     { key: 'name', label: t('common.title'), type: 'text' },
     { key: 'user', label: t('stores.ownerColumn') },

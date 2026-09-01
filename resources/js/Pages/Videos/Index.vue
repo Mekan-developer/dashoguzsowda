@@ -145,6 +145,7 @@ function doDelete() {
       <table class="w-full">
         <thead class="bg-surface/50 dark:bg-dbg/50">
           <tr>
+            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-[54px]"></th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('videos.colVideo') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('videos.colAuthor') }}</th>
@@ -157,6 +158,7 @@ function doDelete() {
         </thead>
         <tbody>
           <tr v-for="video in videos.data" :key="video.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
+            <td class="px-4 py-[10px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ video.id }}</td>
             <!-- Превью 38×56 (кадр 9:16) с бейджем длительности -->
             <td class="px-4 py-[10px] border-b border-line dark:border-dline">
               <Link
@@ -256,7 +258,7 @@ function doDelete() {
               </div>
             </td>
           </tr>
-          <tr v-if="!videos.data?.length"><td colspan="8" class="px-4 py-12 text-center text-[13px] text-muted">{{ t('videos.notFound') }}</td></tr>
+          <tr v-if="!videos.data?.length"><td colspan="9" class="px-4 py-12 text-center text-[13px] text-muted">{{ t('videos.notFound') }}</td></tr>
         </tbody>
       </table>
       </div>

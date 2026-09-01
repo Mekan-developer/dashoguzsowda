@@ -85,6 +85,7 @@ function setStatusFilter(value) {
 watch(() => form.value.image, file => { if (file) form.value.remove_image = false })
 
 const dataTableColumns = computed(() => [
+    { key: 'id', label: t('common.id'), width: '64px', type: 'id' },
     { key: 'image', label: '', width: '40px', type: 'image' },
     { key: 'title_ru', label: t('common.title'), type: 'text' },
     { key: 'type', label: t('common.type'), type: 'badge', badges: typeMeta.value },

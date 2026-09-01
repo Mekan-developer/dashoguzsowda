@@ -34,7 +34,7 @@ const props = defineProps({
     columns: {
         type: Array,
         required: true,
-        // [{ key, label, width, type: 'text'|'image'|'badge'|'status', badges: {} }]
+        // [{ key, label, width, type: 'id'|'text'|'image'|'badge'|'status', badges: {} }]
     },
     // Данные таблицы
     items: {
@@ -198,6 +198,11 @@ const getCellClass = (column, value) => {
                 <div v-else class="h-10 w-10 rounded-[9px] bg-[var(--field-bg)] flex items-center justify-center flex-shrink-0">
                   <Icon kind="image" :size="14" class="text-[var(--text-muted)]" />
                 </div>
+              </div>
+
+              <!-- ID сущности (не порядковый номер строки) -->
+              <div v-else-if="col.type === 'id'" class="font-data text-[12px] text-[var(--text-muted)]">
+                {{ item[col.key] }}
               </div>
 
               <!-- Text -->

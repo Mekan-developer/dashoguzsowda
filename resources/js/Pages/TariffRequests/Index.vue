@@ -98,6 +98,7 @@ function formatDate(value) {
         <table class="w-full">
           <thead class="bg-surface/50 dark:bg-dbg/50">
             <tr>
+              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('tariffRequests.colApplicant') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('tariffRequests.colTariff') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('tariffRequests.colAmount') }}</th>
@@ -109,6 +110,7 @@ function formatDate(value) {
           </thead>
           <tbody>
             <tr v-for="item in requests.data" :key="item.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
+              <td class="px-4 py-3 border-b border-line dark:border-dline text-[13px] font-data text-muted">{{ item.id }}</td>
               <td class="px-4 py-3 border-b border-line dark:border-dline">
                 <div class="text-[13px] font-bold text-ink dark:text-slate-100">{{ item.user?.name || '—' }}</div>
                 <div class="text-[12px] text-muted">{{ item.user?.phone }}</div>
@@ -147,7 +149,7 @@ function formatDate(value) {
               </td>
             </tr>
             <tr v-if="!requests.data.length">
-              <td colspan="7" class="px-4 py-10 text-center text-sm text-muted">{{ t('tariffRequests.empty') }}</td>
+              <td colspan="8" class="px-4 py-10 text-center text-sm text-muted">{{ t('tariffRequests.empty') }}</td>
             </tr>
           </tbody>
         </table>

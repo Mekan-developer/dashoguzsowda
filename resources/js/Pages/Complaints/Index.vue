@@ -139,6 +139,7 @@ function resolve(complaint, note) {
           <table class="w-full text-sm">
             <thead class="bg-surface dark:bg-dbg">
               <tr>
+                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase w-16">{{ t('common.id') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('users.colUser') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('listings.colListing') }}</th>
                 <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('complaints.colReason') }}</th>
@@ -154,6 +155,7 @@ function resolve(complaint, note) {
                 @click="openDetails(c)"
                 class="cursor-pointer hover:bg-surface/50 dark:hover:bg-white/2 transition"
               >
+                <td class="px-4 py-3 font-data text-xs text-muted">{{ c.id }}</td>
                 <td class="px-4 py-3">
                   <div class="font-semibold text-ink dark:text-slate-100">{{ c.user?.name || '—' }}</div>
                   <div class="text-xs text-muted">{{ c.user?.phone }}</div>
@@ -187,7 +189,7 @@ function resolve(complaint, note) {
                 </td>
               </tr>
               <tr v-if="!complaints.data?.length">
-                <td colspan="6" class="px-4 py-10 text-center text-muted text-sm">
+                <td colspan="7" class="px-4 py-10 text-center text-muted text-sm">
                   {{ hasActiveFilters ? t('complaints.emptyFiltered') : t('complaints.empty') }}
                 </td>
               </tr>

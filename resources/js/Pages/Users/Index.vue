@@ -86,6 +86,7 @@ function formatDate(d) {
       <table class="w-full">
         <thead class="bg-surface/50 dark:bg-dbg/50">
           <tr>
+            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('users.colUser') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.region') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.tariff') }}</th>
@@ -96,6 +97,7 @@ function formatDate(d) {
         </thead>
         <tbody>
           <tr v-for="user in users.data" :key="user.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
+            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ user.id }}</td>
             <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
               <div class="flex items-center gap-3">
                 <div class="h-8 w-8 rounded-full bg-blue flex items-center justify-center text-[12px] font-extrabold text-white flex-shrink-0">
@@ -131,7 +133,7 @@ function formatDate(d) {
             </td>
           </tr>
           <tr v-if="!users.data?.length">
-            <td colspan="6" class="px-4 py-10 text-center text-[13px] text-muted">{{ t('users.notFound') }}</td>
+            <td colspan="7" class="px-4 py-10 text-center text-[13px] text-muted">{{ t('users.notFound') }}</td>
           </tr>
         </tbody>
       </table>

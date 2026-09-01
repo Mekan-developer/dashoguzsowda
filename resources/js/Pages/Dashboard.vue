@@ -124,6 +124,7 @@ function formatDate(d) {
       <table class="w-full">
         <thead class="bg-surface/50 dark:bg-dbg/50">
           <tr>
+            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('dashboard.listing') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.author') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.category') }}</th>
@@ -133,6 +134,7 @@ function formatDate(d) {
         </thead>
         <tbody>
           <tr v-for="listing in recentListings" :key="listing.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
+            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ listing.id }}</td>
             <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
               <Link :href="route('listings.show', listing.id)" class="font-bold text-ink dark:text-slate-200 hover:text-blue">{{ listing.title }}</Link>
             </td>
@@ -141,7 +143,7 @@ function formatDate(d) {
             <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline"><StatusBadge :status="listing.status" /></td>
             <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ formatDate(listing.created_at) }}</td>
           </tr>
-          <tr v-if="!recentListings?.length"><td colspan="5" class="px-4 py-8 text-center text-[13px] text-muted">{{ t('dashboard.noListings') }}</td></tr>
+          <tr v-if="!recentListings?.length"><td colspan="6" class="px-4 py-8 text-center text-[13px] text-muted">{{ t('dashboard.noListings') }}</td></tr>
         </tbody>
       </table>
     </div>

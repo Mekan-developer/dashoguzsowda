@@ -37,6 +37,7 @@ const form   = ref(emptyForm())
 const errors = ref({})
 
 const dataTableColumns = computed(() => [
+    { key: 'id', label: t('common.id'), width: '64px', type: 'id' },
     { key: 'image', label: '', width: '40px', type: 'image' },
     { key: 'title_ru', label: t('common.title'), type: 'text' },
     { key: 'link_type', label: t('banners.linkColumn') },
