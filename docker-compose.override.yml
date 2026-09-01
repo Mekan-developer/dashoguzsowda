@@ -1,7 +1,8 @@
 x-dev: &dev
   volumes:
     - ./:/var/www/dzsowda
-    - /var/www/dzsowda/vendor # <-- ВОТ ЭТО СПАСЕТ VENDOR ОТ ПЕРЕЗАПИСИ С ХОСТА
+    - /var/www/dzsowda/vendor
+    - /var/www/dzsowda/bootstrap/cache
     - ./docker/php/php.ini:/usr/local/etc/php/conf.d/zz-app.ini:ro
   restart: "no"
 
