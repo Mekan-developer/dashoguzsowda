@@ -34,6 +34,10 @@ return [
     'store_trade_type_required' => 'Iň bolmanda bir söwda görnüşini saýlaň: bölek ýa-da lomaý',
     'wholesale_requires_wholesale_store' => 'Lomaý baha diňe lomaý söwda açylan dükana elýeterli',
 
+    'news_ad_link_store_missing'   => 'Şeýle ID-li dükan tapylmady ýa-da çap edilmedik',
+    'news_ad_link_listing_missing' => 'Şeýle ID-li bildiriş tapylmady ýa-da barlagdan geçmedi',
+    'news_ad_link_product_missing' => 'Şeýle ID-li haryt tapylmady: dükana degişli bildirişiň ID-si gerek',
+
     'tariff_request_created'          => 'Arza iberildi. Tarif administratora töleg edilenden soň işjeňleşdiriler',
     'tariff_request_already_pending'  => 'Sizde eýýäm garaşylýan arza bar',
     'tariff_request_already_processed' => 'Arza eýýäm gaýtadan işlendi',

@@ -34,6 +34,10 @@ return [
     'store_trade_type_required' => 'Выберите хотя бы один вид торговли: розница или опт',
     'wholesale_requires_wholesale_store' => 'Оптовая цена доступна только магазину с включённой оптовой торговлей',
 
+    'news_ad_link_store_missing'   => 'Магазин с таким ID не найден или не опубликован',
+    'news_ad_link_listing_missing' => 'Объявление с таким ID не найдено или не прошло модерацию',
+    'news_ad_link_product_missing' => 'Товар с таким ID не найден: нужен ID объявления, привязанного к магазину',
+
     'tariff_request_created'          => 'Заявка отправлена. Тариф активируется после оплаты администратору',
     'tariff_request_already_pending'  => 'У вас уже есть заявка на рассмотрении',
     'tariff_request_already_processed' => 'Заявка уже обработана',

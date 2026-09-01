@@ -27,8 +27,10 @@ const typeMeta = computed(() => ({
     ad:      { label: t('news.typeAd'),      cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 }))
 
+// Значения совпадают с ad_link_type в API: мобилка открывает магазин через
+// GET /v1/stores/{id}, объявление и товар — через GET /v1/listings/{id}
 const adLinkTypeMeta = computed(() => ({
-    profile: t('news.adLinkProfile'),
+    store:   t('news.adLinkStore'),
     listing: t('news.adLinkListing'),
     product: t('news.adLinkProduct'),
 }))
@@ -39,6 +41,20 @@ const lang     = ref('ru')
 const emptyForm = () => ({ title_ru: '', title_tk: '', content_ru: '', content_tk: '', type: 'regular', ad_link_type: null, ad_link_id: null, is_published: false, image: null, crop_x: 50, crop_y: 50, remove_image: false })
 const form          = ref(emptyForm())
 const errors        = ref({})
+
+// Из какого раздела админки брать ID — иначе ссылка ведёт в 404 у мобилки
+const adLinkHint = computed(() => ({
+    store:   t('news.adLinkHintStore'),
+    listing: t('news.adLinkHintListing'),
+    product: t('news.adLinkHintProduct'),
+}[form.value.ad_link_type] ?? ''))
+
+// ID магазина и ID объявления — из разных таблиц, при смене типа старый не годится
+function selectAdLinkType(value) {
+    if (form.value.ad_link_type === value) return
+    form.value.ad_link_type = value
+    form.value.ad_link_id = null
+}
 const searchQuery  = ref(props.filters?.search ?? '')
 const statusFilter = ref(props.filters?.published ?? '')
 
@@ -245,7 +261,7 @@ function destroy(n) {
           <div class="grid grid-cols-3 gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
             <button
               v-for="(label, value) in adLinkTypeMeta" :key="value" type="button"
-              @click="form.ad_link_type = value"
+              @click="selectAdLinkType(value)"
               class="rounded-[8px] px-2 py-[7px] text-[12px] font-bold transition-colors"
               :class="form.ad_link_type === value ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
             >{{ label }}</button>
@@ -259,6 +275,7 @@ function destroy(n) {
             :placeholder="t('news.entityIdPlaceholder')"
             class="input"
           />
+          <p v-if="adLinkHint" class="mt-1 text-[11px] text-[var(--text-muted)]">{{ adLinkHint }}</p>
         </DrawerField>
       </template>
 
