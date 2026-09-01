@@ -88,98 +88,98 @@ function doDelete() {
     </template>
 
     <div class="grid gap-5 lg:grid-cols-[1fr_360px]">
-      <!-- Плеер + информация -->
+      <!-- Плеер + информация — в одной карточке: вертикальное видео слева, данные справа -->
       <div class="space-y-5">
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5">
-          <h3 class="text-[15px] font-extrabold text-ink dark:text-slate-100 mb-4">{{ t('videos.player') }}</h3>
-
-          <!-- Вертикальный формат 9:16 — как в мобильной ленте -->
-          <div class="mx-auto w-full max-w-[320px] overflow-hidden rounded-[12px] bg-navy aspect-[9/16]">
-            <video
-              v-if="video.video_url"
-              :src="video.video_url"
-              :poster="video.preview_url || undefined"
-              controls
-              playsinline
-              class="h-full w-full object-contain"
-            ></video>
-            <div v-else class="flex h-full w-full items-center justify-center text-white/40">
-              <Icon kind="play" :size="32" />
+        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5 grid gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
+          <div>
+            <!-- Вертикальный формат 9:16 — как в мобильной ленте -->
+            <div class="mx-auto w-full max-w-[200px] overflow-hidden rounded-[12px] bg-navy aspect-[9/16]">
+              <video
+                v-if="video.video_url"
+                :src="video.video_url"
+                :poster="video.preview_url || undefined"
+                controls
+                playsinline
+                class="h-full w-full object-contain"
+              ></video>
+              <div v-else class="flex h-full w-full items-center justify-center text-white/40">
+                <Icon kind="play" :size="32" />
+              </div>
             </div>
+
+            <p
+              v-if="!video.is_processed"
+              class="mt-3 flex items-center justify-center gap-1.5 text-[12px] font-bold text-orange"
+            >
+              <Icon kind="clock" :size="12" />{{ t('videos.notProcessed') }}
+            </p>
           </div>
 
-          <p
-            v-if="!video.is_processed"
-            class="mt-3 flex items-center justify-center gap-1.5 text-[12px] font-bold text-orange"
-          >
-            <Icon kind="clock" :size="12" />{{ t('videos.notProcessed') }}
-          </p>
-        </div>
+          <div>
+            <h3 class="text-[15px] font-extrabold text-ink dark:text-slate-100 mb-4">{{ t('videos.info') }}</h3>
 
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5">
-          <h3 class="text-[15px] font-extrabold text-ink dark:text-slate-100 mb-4">{{ t('videos.info') }}</h3>
+            <!-- Заголовок — единственное, что правит модератор (UpdateVideoRequest) -->
+            <div class="mb-4">
+              <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.title') }}:</p>
+              <div v-if="editing" class="flex gap-2">
+                <input
+                  v-model="title"
+                  type="text"
+                  maxlength="255"
+                  class="flex-1 rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
+                  @keyup.enter="saveTitle"
+                  @keyup.esc="cancelEdit"
+                />
+                <button
+                  @click="saveTitle"
+                  :disabled="!title.trim()"
+                  class="rounded-btn bg-blue px-4 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40"
+                >{{ t('actions.save') }}</button>
+                <button
+                  @click="cancelEdit"
+                  class="rounded-btn border-2 border-line px-4 text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline"
+                >{{ t('actions.cancel') }}</button>
+              </div>
+              <div v-else class="flex items-start gap-2">
+                <span class="flex-1 text-[15px] font-bold text-ink dark:text-slate-200">{{ video.title }}</span>
+                <button
+                  @click="editing = true"
+                  class="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[7px] text-muted transition hover:bg-blue hover:text-white"
+                  :title="t('actions.edit')" :aria-label="t('actions.edit')"
+                >
+                  <Icon kind="pencil" :size="14" />
+                </button>
+              </div>
+            </div>
 
-          <!-- Заголовок — единственное, что правит модератор (UpdateVideoRequest) -->
-          <div class="mb-4">
-            <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.title') }}:</p>
-            <div v-if="editing" class="flex gap-2">
-              <input
-                v-model="title"
-                type="text"
-                maxlength="255"
-                class="flex-1 rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
-                @keyup.enter="saveTitle"
-                @keyup.esc="cancelEdit"
-              />
-              <button
-                @click="saveTitle"
-                :disabled="!title.trim()"
-                class="rounded-btn bg-blue px-4 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40"
-              >{{ t('actions.save') }}</button>
-              <button
-                @click="cancelEdit"
-                class="rounded-btn border-2 border-line px-4 text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline"
-              >{{ t('actions.cancel') }}</button>
+            <div class="grid grid-cols-2 gap-4 text-[13px]">
+              <div>
+                <span class="text-muted font-semibold">{{ t('videos.duration') }}:</span><br>
+                <span class="font-data font-bold text-ink dark:text-slate-200">{{ formatDuration(video.duration_seconds) }}</span>
+              </div>
+              <div>
+                <span class="text-muted font-semibold">{{ t('common.date') }}:</span><br>
+                <span class="font-data font-bold text-ink dark:text-slate-200">{{ formatDate(video.created_at) }}</span>
+              </div>
+              <div>
+                <span class="text-muted font-semibold">{{ t('videos.likes') }}:</span><br>
+                <span class="inline-flex items-center gap-1.5 font-data font-bold text-ink dark:text-slate-200">
+                  <Icon kind="heart" :size="14" class="text-pink" />{{ video.likes_count ?? 0 }}
+                </span>
+              </div>
+              <div>
+                <span class="text-muted font-semibold">{{ t('common.views') }}:</span><br>
+                <span class="inline-flex items-center gap-1.5 font-data font-bold text-ink dark:text-slate-200">
+                  <Icon kind="eye" :size="14" />{{ video.views ?? 0 }}
+                </span>
+              </div>
             </div>
-            <div v-else class="flex items-start gap-2">
-              <span class="flex-1 text-[15px] font-bold text-ink dark:text-slate-200">{{ video.title }}</span>
-              <button
-                @click="editing = true"
-                class="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[7px] text-muted transition hover:bg-blue hover:text-white"
-                :title="t('actions.edit')" :aria-label="t('actions.edit')"
-              >
-                <Icon kind="pencil" :size="14" />
-              </button>
-            </div>
-          </div>
 
-          <div class="grid grid-cols-2 gap-4 text-[13px]">
-            <div>
-              <span class="text-muted font-semibold">{{ t('videos.duration') }}:</span><br>
-              <span class="font-data font-bold text-ink dark:text-slate-200">{{ formatDuration(video.duration_seconds) }}</span>
-            </div>
-            <div>
-              <span class="text-muted font-semibold">{{ t('common.date') }}:</span><br>
-              <span class="font-data font-bold text-ink dark:text-slate-200">{{ formatDate(video.created_at) }}</span>
-            </div>
-            <div>
-              <span class="text-muted font-semibold">{{ t('videos.likes') }}:</span><br>
-              <span class="inline-flex items-center gap-1.5 font-data font-bold text-ink dark:text-slate-200">
-                <Icon kind="heart" :size="14" class="text-pink" />{{ video.likes_count ?? 0 }}
-              </span>
-            </div>
-            <div>
-              <span class="text-muted font-semibold">{{ t('common.views') }}:</span><br>
-              <span class="inline-flex items-center gap-1.5 font-data font-bold text-ink dark:text-slate-200">
-                <Icon kind="eye" :size="14" />{{ video.views ?? 0 }}
-              </span>
-            </div>
-          </div>
-
-          <div v-if="video.tags?.length" class="mt-4 pt-4 border-t border-line dark:border-dline">
-            <p class="text-[12px] font-semibold text-muted mb-2">{{ t('videos.tags') }}:</p>
-            <div class="flex flex-wrap gap-1.5">
-              <span v-for="tag in video.tags" :key="tag" class="rounded-pill bg-blue-light px-2.5 py-0.5 text-[11px] font-bold text-blue">#{{ tag }}</span>
+            <div v-if="video.tags?.length" class="mt-4 pt-4 border-t border-line dark:border-dline">
+              <p class="text-[12px] font-semibold text-muted mb-2">{{ t('videos.tags') }}:</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span v-for="tag in video.tags" :key="tag" class="rounded-pill bg-blue-light px-2.5 py-0.5 text-[11px] font-bold text-blue">#{{ tag }}</span>
+              </div>
             </div>
           </div>
         </div>
