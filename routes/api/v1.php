@@ -179,6 +179,9 @@ Route::prefix('v1')
             });
 
             Route::get('/{listing}', [ListingController::class, 'show'])->name('show');
+
+            // Отзывы об объявлении: публично и только approved (ТЗ 8.2)
+            Route::get('/{listing}/reviews', [ReviewController::class, 'forListing'])->name('reviews');
         });
 
         /*
@@ -240,6 +243,13 @@ Route::prefix('v1')
             Route::post('/reviews',    [ReviewController::class, 'store'])->name('reviews.store');
             Route::post('/complaints', [ComplaintController::class, 'store'])->name('complaints.store');
         });
+
+        // Свои отзывы — со статусом модерации и причиной отказа
+        Route::get('/reviews/my', [ReviewController::class, 'my'])
+            ->middleware('auth:sanctum')->name('reviews.my');
+
+        // Отзывы о продавце — публичная лента одобренных
+        Route::get('/users/{user}/reviews', [ReviewController::class, 'forUser'])->name('users.reviews');
 
         /*
         |----------------------------------------------------------------------

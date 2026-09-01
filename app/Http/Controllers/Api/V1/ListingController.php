@@ -71,8 +71,12 @@ class ListingController extends Controller
         $this->listingService->registerView($listing, $viewer);
         $this->listingService->loadFavoriteFlag($listing, $viewer);
 
+        $listing->load('user', 'category', 'region', 'city', 'media', 'rejectionReason');
+        // Только после load('user') — иначе агрегаты продавца затрутся
+        $this->listingService->loadRating($listing);
+
         return response()->json([
-            'data'    => new ListingResource($listing->load('user', 'category', 'region', 'city', 'media', 'rejectionReason')),
+            'data'    => new ListingResource($listing),
             'message' => 'Success',
         ]);
     }

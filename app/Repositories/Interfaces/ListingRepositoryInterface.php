@@ -29,6 +29,7 @@ interface ListingRepositoryInterface
 
     /** Проставляет атрибут is_favorite (в избранном ли у зрителя) на модель */
     public function loadFavoriteFlag(Listing $listing, ?int $viewerId): void;
+    public function loadRatingAggregates(Listing $listing): void;
 
     /** Объявления пользователя (любой статус) для экрана «Мои объявления» */
     public function paginateByUser(int $userId, array $filters, int $perPage = 20): LengthAwarePaginator;

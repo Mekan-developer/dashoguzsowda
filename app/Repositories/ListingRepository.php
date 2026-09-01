@@ -28,7 +28,9 @@ class ListingRepository implements ListingRepositoryInterface
 
     public function find(int $id): Listing
     {
-        return Listing::with('user', 'store', 'category.parent.parent', 'region', 'city', 'district', 'media', 'rejectionReason')->findOrFail($id);
+        return Listing::with('user', 'store', 'category.parent.parent', 'region', 'city', 'district', 'media', 'rejectionReason')
+            ->tap(fn ($q) => $this->withRatingAggregates($q))
+            ->findOrFail($id);
     }
 
     public function create(array $data): Listing
@@ -86,6 +88,7 @@ class ListingRepository implements ListingRepositoryInterface
     {
         $query = Listing::with('user', 'store', 'category.parent.parent', 'region', 'city', 'district', 'media')
             ->where('status', 'approved')
+            ->tap(fn ($q) => $this->withRatingAggregates($q))
             ->when($viewerId, fn ($q, $id) => $q->withExists([
                 'favorites as is_favorite' => fn ($f) => $f->where('user_id', $id),
             ]))
@@ -126,6 +129,7 @@ class ListingRepository implements ListingRepositoryInterface
     public function paginateByUser(int $userId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return Listing::with('store', 'category.parent.parent', 'region', 'city', 'district', 'media', 'rejectionReason')
+            ->tap(fn ($q) => $this->withRatingAggregates($q))
             ->where('user_id', $userId)
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->latest()
@@ -146,6 +150,24 @@ class ListingRepository implements ListingRepositoryInterface
     public function sumViewsByUser(int $userId): int
     {
         return (int) Listing::where('user_id', $userId)->sum('views');
+    }
+
+    /**
+     * Средняя оценка карточки (route model binding минует find) и заодно
+     * рейтинг её продавца — в карточке мобилка показывает оба.
+     * Вызывать ПОСЛЕ загрузки связи user: повторный load('user') сотрёт агрегаты.
+     */
+    public function loadRatingAggregates(Listing $listing): void
+    {
+        $approved = fn ($q) => $q->where('status', 'approved');
+
+        $listing
+            ->loadCount(['reviews as reviews_count' => $approved])
+            ->loadAvg(['reviews as reviews_avg_rating' => $approved], 'rating');
+
+        $listing->loadMissing('user')->user
+            ?->loadCount(['receivedReviews as reviews_count' => $approved])
+            ->loadAvg(['receivedReviews as reviews_avg_rating' => $approved], 'rating');
     }
 
     public function loadFavoriteFlag(Listing $listing, ?int $viewerId): void
@@ -177,6 +199,17 @@ class ListingRepository implements ListingRepositoryInterface
     public function maxMediaOrder(Listing $listing): int
     {
         return (int) $listing->media()->max('order');
+    }
+
+    /**
+     * Рейтинг объявления считается только по одобренным отзывам —
+     * иначе в выдаче всплывали бы оценки, не прошедшие модерацию.
+     */
+    private function withRatingAggregates(Builder $query): void
+    {
+        $query
+            ->withCount(['reviews as reviews_count' => fn ($q) => $q->where('status', 'approved')])
+            ->withAvg(['reviews as reviews_avg_rating' => fn ($q) => $q->where('status', 'approved')], 'rating');
     }
 
     /**

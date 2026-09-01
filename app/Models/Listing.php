@@ -30,4 +30,5 @@ class Listing extends Model
     public function rejectionReason() { return $this->belongsTo(RejectionReason::class); }
     public function complaints()      { return $this->hasMany(Complaint::class); }
     public function favorites()       { return $this->hasMany(Favorite::class); }
+    public function reviews()         { return $this->hasMany(Review::class); }
 }

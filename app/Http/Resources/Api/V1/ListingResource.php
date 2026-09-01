@@ -35,6 +35,17 @@ class ListingResource extends JsonResource
                     'name_ru' => $this->rejectionReason->name_ru,
                 ]
             ),
+            // Сводка по одобренным отзывам: average = null, пока никто не поставил оценку.
+            // Сами отзывы — отдельной страницей GET /v1/listings/{id}/reviews
+            'rating'     => $this->when(
+                array_key_exists('reviews_count', $this->getAttributes()),
+                fn () => [
+                    'average' => $this->getAttributes()['reviews_avg_rating'] !== null
+                        ? round((float) $this->getAttributes()['reviews_avg_rating'], 2)
+                        : null,
+                    'count'   => (int) $this->getAttributes()['reviews_count'],
+                ],
+            ),
             'views'      => $this->views,
             'is_boosted' => (bool) $this->is_boosted,
             'boosted_at' => $this->boosted_at,
@@ -80,6 +91,8 @@ class ListingResource extends JsonResource
                 'id'     => $this->user->id,
                 'name'   => $this->user->name,
                 'avatar' => $this->user->avatar ? Storage::disk('public')->url($this->user->avatar) : null,
+                // Рейтинг продавца грузится только для карточки объявления, не для ленты
+                ...$this->sellerRating(),
             ]),
             // Конвертация в WebP идёт в фоновой очереди `media` (обычно 1-3 сек):
             // пока processing=true, все три ссылки указывают на загруженный оригинал
@@ -93,6 +106,26 @@ class ListingResource extends JsonResource
             ])->values()),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Рейтинг продавца по одобренным отзывам о нём (reviews.target_user_id).
+     * Пустой массив, когда агрегаты не загружены — ключа `rating` тогда нет.
+     */
+    private function sellerRating(): array
+    {
+        $attributes = $this->user->getAttributes();
+
+        if (! array_key_exists('reviews_count', $attributes)) {
+            return [];
+        }
+
+        return ['rating' => [
+            'average' => $attributes['reviews_avg_rating'] !== null
+                ? round((float) $attributes['reviews_avg_rating'], 2)
+                : null,
+            'count'   => (int) $attributes['reviews_count'],
+        ]];
     }
 
     /** Цепочка категорий от корня до листа (макс. 3 уровня — Category::MAX_LEVEL) */

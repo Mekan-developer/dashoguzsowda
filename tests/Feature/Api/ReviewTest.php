@@ -102,6 +102,112 @@ it('forbids blocked user from leaving a review', function () {
     ])->assertForbidden();
 });
 
+it('returns only approved reviews of a listing with rating summary', function () {
+    $second = User::factory()->create();
+
+    Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Отличный товар', 'rating' => 5, 'status' => 'approved']);
+    Review::create(['user_id' => $second->id,     'listing_id' => $this->listing->id, 'text' => 'Нормально',      'rating' => 4, 'status' => 'approved']);
+    // Без оценки: попадает в список и count, но не в среднее
+    Review::create(['user_id' => $second->id,     'listing_id' => $this->listing->id, 'text' => 'Без оценки',     'status' => 'approved']);
+    // Эти в публичную выдачу попасть не должны
+    Review::create(['user_id' => $second->id,     'listing_id' => $this->listing->id, 'text' => 'На модерации',   'rating' => 1, 'status' => 'pending']);
+    Review::create(['user_id' => $second->id,     'listing_id' => $this->listing->id, 'text' => 'Отклонён',       'rating' => 1, 'status' => 'rejected']);
+
+    $response = $this->getJson("/api/v1/listings/{$this->listing->id}/reviews")
+        ->assertOk()
+        ->assertJsonCount(3, 'data')
+        ->assertJsonPath('meta.total', 3)
+        ->assertJsonPath('meta.rating.count', 3)
+        ->assertJsonPath('meta.rating.rated_count', 2)
+        ->assertJsonPath('meta.rating.average', 4.5)
+        ->assertJsonPath('meta.rating.breakdown.5', 1)
+        ->assertJsonPath('meta.rating.breakdown.1', 0);
+
+    // Автор отзыва отдаётся вместе с текстом — второй запрос мобилке не нужен
+    expect($response->json('data.0.author.id'))->not->toBeNull()
+        ->and(collect($response->json('data'))->pluck('status')->unique()->all())->toBe(['approved']);
+});
+
+it('sorts listing reviews by rating and paginates', function () {
+    foreach ([3, 5, 4] as $i => $rating) {
+        Review::create([
+            'user_id'    => $this->user->id,
+            'listing_id' => $this->listing->id,
+            'text'       => "Отзыв {$i}",
+            'rating'     => $rating,
+            'status'     => 'approved',
+        ]);
+    }
+
+    $this->getJson("/api/v1/listings/{$this->listing->id}/reviews?sort=rating_desc")
+        ->assertOk()
+        ->assertJsonPath('data.0.rating', 5)
+        ->assertJsonPath('data.2.rating', 3);
+
+    $this->getJson("/api/v1/listings/{$this->listing->id}/reviews?limit=2")
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('meta.last_page', 2)
+        ->assertJsonPath('meta.per_page', 2);
+});
+
+it('hides reviews of a listing that has not passed moderation', function () {
+    $this->listing->update(['status' => 'pending']);
+
+    $this->getJson("/api/v1/listings/{$this->listing->id}/reviews")->assertNotFound();
+});
+
+it('returns approved reviews about a seller', function () {
+    Review::create(['user_id' => $this->user->id, 'target_user_id' => $this->owner->id, 'text' => 'Надёжный', 'rating' => 5, 'status' => 'approved']);
+    Review::create(['user_id' => $this->user->id, 'target_user_id' => $this->owner->id, 'text' => 'Ждём',     'rating' => 2, 'status' => 'pending']);
+
+    $this->getJson("/api/v1/users/{$this->owner->id}/reviews")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.text', 'Надёжный')
+        ->assertJsonPath('meta.rating.average', 5);
+});
+
+it('shows own reviews with moderation status', function () {
+    Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Мой отзыв', 'status' => 'pending']);
+    Review::create(['user_id' => $this->owner->id, 'listing_id' => $this->listing->id, 'text' => 'Чужой отзыв', 'status' => 'approved']);
+
+    $this->getJson('/api/v1/reviews/my')->assertUnauthorized();
+
+    Sanctum::actingAs($this->user);
+
+    $this->getJson('/api/v1/reviews/my')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.status', 'pending')
+        ->assertJsonPath('data.0.listing.id', $this->listing->id);
+
+    $this->getJson('/api/v1/reviews/my?status=approved')
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
+it('exposes listing rating in feed and card', function () {
+    Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Пять', 'rating' => 5, 'status' => 'approved']);
+    Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Три',  'rating' => 3, 'status' => 'approved']);
+    // Оценка на модерации в среднее не попадает
+    Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Один', 'rating' => 1, 'status' => 'pending']);
+    // Отзыв о самом продавце — отдельный рейтинг в карточке
+    Review::create(['user_id' => $this->user->id, 'target_user_id' => $this->owner->id, 'text' => 'Продавец', 'rating' => 4, 'status' => 'approved']);
+
+    $this->getJson('/api/v1/listings')
+        ->assertOk()
+        ->assertJsonPath('data.0.rating.average', 4)
+        ->assertJsonPath('data.0.rating.count', 2);
+
+    $this->getJson("/api/v1/listings/{$this->listing->id}")
+        ->assertOk()
+        ->assertJsonPath('data.rating.average', 4)
+        ->assertJsonPath('data.rating.count', 2)
+        ->assertJsonPath('data.user.rating.average', 4)
+        ->assertJsonPath('data.user.rating.count', 1);
+});
+
 it('renders admin reviews page with paginator, counts and search filter', function () {
     $admin = User::factory()->admin()->create();
 

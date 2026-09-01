@@ -49,6 +49,10 @@ class User extends Authenticatable
     public function messages()  { return $this->hasMany(Message::class); }
     public function favorites() { return $this->hasMany(Favorite::class); }
     public function fcmTokens() { return $this->hasMany(FcmToken::class); }
+    /** Отзывы, написанные этим пользователем */
+    public function writtenReviews()  { return $this->hasMany(Review::class); }
+    /** Отзывы о самом пользователе (reviews.target_user_id) */
+    public function receivedReviews() { return $this->hasMany(Review::class, 'target_user_id'); }
 
     public function isAdmin()   { return $this->role === 'admin'; }
     public function isManager() { return $this->role === 'manager'; }

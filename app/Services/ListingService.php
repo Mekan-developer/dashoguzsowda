@@ -119,6 +119,12 @@ class ListingService
         $this->listingRepository->loadFavoriteFlag($listing, $viewer?->id);
     }
 
+    /** Средняя оценка и число отзывов карточки — чтобы звёзды рисовались без второго запроса */
+    public function loadRating(Listing $listing): void
+    {
+        $this->listingRepository->loadRatingAggregates($listing);
+    }
+
     public function myListings(User $user, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return $this->listingRepository->paginateByUser($user->id, $filters, $perPage);
