@@ -1,6 +1,7 @@
 x-dev: &dev
   volumes:
     - ./:/var/www/dzsowda
+    - /var/www/dzsowda/vendor # <-- ВОТ ЭТО СПАСЕТ VENDOR ОТ ПЕРЕЗАПИСИ С ХОСТА
     - ./docker/php/php.ini:/usr/local/etc/php/conf.d/zz-app.ini:ro
   restart: "no"
 
@@ -25,7 +26,7 @@ services:
     volumes:
       - ./socket-server:/var/www/socket-server
       - sms_node_modules:/var/www/socket-server/node_modules
-    command: sh -c "npm ci && node index.js"
+    command: node index.js
 
   node:
     image: node:22

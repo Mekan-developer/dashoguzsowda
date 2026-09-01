@@ -46,6 +46,8 @@ php artisan storage:link --force >/dev/null 2>&1 || true
 
 echo "[entrypoint] очистка старых кэшей..."
 php artisan optimize:clear
+php artisan route:clear
+php artisan config:clear
 
 echo "[entrypoint] прогрев кэшей..."
 php artisan config:cache
