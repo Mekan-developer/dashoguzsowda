@@ -41,27 +41,30 @@ async function fetchMonitoring() {
     }
 }
 
-// Ручной reload одной карточки — бэкенд отдаёт все проверки одним запросом,
-// поэтому кнопка на любой карточке просто дёргает общий fetch, но крутится
-// только та иконка, по которой кликнули.
+// Ручной reload — бэкенд отдаёт все проверки одним запросом, поэтому и кнопка
+// в шапке секции, и кнопка на карточке дёргают один и тот же fetch; крутится
+// только то, по чему кликнули (`reloading` хранит ключ карточки или 'all').
 // Локальные проверки (queues/ws/fcm) обычно отвечают за миллисекунды — без
 // минимальной задержки анимация просто не успевает провернуться, иконка
 // мигает без видимого вращения. Держим спиннер минимум один полный оборот
 // (animate-spin крутит 360° за 1s), даже если сам fetch уже пришёл.
-const reloadingCard = ref(null)
+const reloading = ref(null)
 // После обновления статус-бейдж («Подключено»/«Недоступно») один раз мигает —
 // сигнал, что значение реально перечитано, а не просто отрисовалось то же самое.
-const flashingCard = ref(null)
-async function reloadCard(key) {
-    reloadingCard.value = key
+const flashing = ref([])
+async function reload(key = 'all') {
+    reloading.value = key
+    if (key === 'ws' || key === 'all') reconnectWs()
     await Promise.all([
         fetchMonitoring(),
         new Promise(resolve => setTimeout(resolve, 1000)),
     ])
-    reloadingCard.value = null
-    flashingCard.value = key
-    setTimeout(() => { if (flashingCard.value === key) flashingCard.value = null }, 500)
+    reloading.value = null
+    const keys = key === 'all' ? monitorCards.value.map(c => c.key) : [key]
+    flashing.value = keys
+    setTimeout(() => { flashing.value = flashing.value.filter(k => !keys.includes(k)) }, 500)
 }
+function isReloading(key) { return reloading.value === key || reloading.value === 'all' }
 
 onMounted(() => {
     pollTimer = setInterval(fetchMonitoring, 15_000)
@@ -71,36 +74,138 @@ onUnmounted(() => { clearInterval(pollTimer); clearInterval(tickTimer) })
 
 const secondsAgo = computed(() => Math.max(0, Math.floor((now.value - lastFetchedAt.value.getTime()) / 1000)))
 
-function dotClass(ok) { return ok ? 'bg-green' : 'bg-red' }
-function badgeClass(ok) { return ok ? 'bg-green/10 text-green' : 'bg-red/10 text-red' }
+// ── Живое соединение самой админки с Reverb ────────────────
+// Бэкенд проверяет TCP-порт из PHP-контейнера — это не тот адрес, по которому
+// стучится браузер (VITE_REVERB_HOST:VITE_REVERB_PORT, в проде — через nginx
+// на /app). Порт может быть открыт внутри docker-сети, а панель при этом
+// никуда не подключится: не проброшен порт, не тот ключ, не тот scheme.
+// Единственный честный ответ на «заработает ли чат здесь» — состояние сокета,
+// который Echo держит на каждой странице панели.
+const wsState    = ref('unavailable')
+const wsSocketId = ref(null)
+const wsClientAddress = [import.meta.env.VITE_REVERB_HOST, import.meta.env.VITE_REVERB_PORT]
+    .filter(Boolean).join(':') || '—'
 
-// FCM — третье, «не настроено» состояние (нет service account) в дополнение к ok/недоступно
-function fcmDotClass(fcm) {
-    if (fcm.ok) return 'bg-green'
-    return fcm.configured ? 'bg-red' : 'bg-orange'
+// Состояния pusher-js; всё незнакомое считаем «нет связи», иначе vue-i18n
+// отрисует сырой ключ перевода
+const WS_STATES = ['initialized', 'connecting', 'connected', 'unavailable', 'failed', 'disconnected']
+
+function wsConnection() { return window.Echo?.connector?.pusher?.connection ?? null }
+function syncWsState() {
+    const connection = wsConnection()
+    wsState.value    = WS_STATES.includes(connection?.state) ? connection.state : 'unavailable'
+    wsSocketId.value = connection?.socket_id ?? null
 }
-function fcmBadgeClass(fcm) {
-    if (fcm.ok) return 'bg-green/10 text-green'
-    return fcm.configured ? 'bg-red/10 text-red' : 'bg-orange/10 text-orange'
-}
-function fcmStatusLabel(fcm) {
-    if (fcm.ok) return t('settings.working')
-    return fcm.configured ? t('settings.unavailable') : t('settings.notConfigured')
+function reconnectWs() {
+    const pusher = window.Echo?.connector?.pusher
+    if (pusher && pusher.connection.state !== 'connected') pusher.connect()
 }
 
-// SMS/OTP-шлюз — то же трёхстатусное состояние: подключено / настроено, но недоступно / тестовый режим
-function smsDotClass(sms) {
-    if (sms.connected) return 'bg-green'
-    return sms.configured ? 'bg-red' : 'bg-orange'
+onMounted(() => {
+    syncWsState()
+    wsConnection()?.bind('state_change', syncWsState)
+})
+onUnmounted(() => wsConnection()?.unbind('state_change', syncWsState))
+
+// Три состояния вместо двух: у FCM и SMS-шлюза «не настроено» — это не поломка,
+// а рабочий режим локальной сборки, поэтому оранжевый, а не красный.
+const TONES = {
+    ok:   { dot: 'bg-green',  badge: 'border-green/25 bg-green/10 text-green' },
+    warn: { dot: 'bg-orange', badge: 'border-orange/25 bg-orange/10 text-orange' },
+    bad:  { dot: 'bg-red',    badge: 'border-red/25 bg-red/10 text-red' },
 }
-function smsBadgeClass(sms) {
-    if (sms.connected) return 'bg-green/10 text-green'
-    return sms.configured ? 'bg-red/10 text-red' : 'bg-orange/10 text-orange'
+
+function smsTone(sms) {
+    if (sms.connected) return 'ok'
+    return sms.configured ? 'bad' : 'warn'
 }
+function smsBadgeClass(sms) { return TONES[smsTone(sms)].badge }
 function smsStatusLabel(sms) {
     if (sms.connected) return t('settings.connected')
     return sms.configured ? t('settings.notConnected') : t('settings.testMode')
 }
+
+// Карточки описываем данными: разметка у всех четырёх одинаковая, отличаются
+// только иконка, два показателя, подпись внизу и правило расчёта статуса.
+// accent/accentText — фирменный цвет сервиса (плашка иконки и второе значение),
+// он не про состояние: состояние показывают точка и бейдж из TONES.
+const monitorCards = computed(() => {
+    const { queues, ws, fcm, sms } = monitoring.value
+
+    return [
+        {
+            key:        'queues',
+            icon:       'layers',
+            accent:     'bg-blue/10 text-blue',
+            accentText: 'text-blue',
+            title:      t('settings.queues'),
+            subtitle:   t('settings.queuesSubtitle'),
+            tone:       queues.ok ? 'ok' : 'bad',
+            status:     queues.ok ? t('settings.working') : t('settings.unavailable'),
+            stats: [
+                { label: t('settings.inQueue'), value: queues.pending },
+                { label: t('settings.failed'),  value: queues.failed, danger: queues.failed > 0 },
+            ],
+            note: queues.worker || t('settings.workerMissing'),
+        },
+        {
+            key:        'ws',
+            icon:       'wifi',
+            accent:     'bg-teal/10 text-teal',
+            accentText: 'text-teal',
+            title:      'Reverb',
+            subtitle:   t('settings.wsSubtitle'),
+            // Статус карточки — про браузер, а не про порт: пользователя
+            // интересует «заработает ли чат в этой панели».
+            tone:   wsState.value === 'connected' ? 'ok'
+                : (['connecting', 'initialized'].includes(wsState.value) ? 'warn' : 'bad'),
+            status: t(`settings.wsState.${wsState.value}`),
+            stats: [
+                { label: t('settings.wsBrowser'), value: wsClientAddress, small: true },
+                {
+                    label:  t('settings.wsServer'),
+                    value:  ws.ok ? t('settings.reachable') : t('settings.unreachable'),
+                    small:  true,
+                    danger: !ws.ok,
+                },
+            ],
+            note: ws.driver && ws.driver !== 'reverb'
+                ? t('settings.wsDriverWarning', { driver: ws.driver })
+                : (wsSocketId.value ? t('settings.wsSocket', { id: wsSocketId.value }) : `${ws.host}:${ws.port}`),
+            noteWarn: !!ws.driver && ws.driver !== 'reverb',
+        },
+        {
+            key:        'fcm',
+            icon:       'bell',
+            accent:     'bg-purple/10 text-purple',
+            accentText: 'text-purple',
+            title:      'FCM',
+            subtitle:   t('settings.fcmSubtitle'),
+            tone:       fcm.ok ? 'ok' : (fcm.configured ? 'bad' : 'warn'),
+            status:     fcm.ok ? t('settings.working') : (fcm.configured ? t('settings.unavailable') : t('settings.notConfigured')),
+            stats: [
+                { label: t('settings.projectId'), value: fcm.project_id || '—', small: true },
+                { label: t('settings.devices'),   value: fcm.tokens },
+            ],
+            note: fcm.configured ? t('settings.credentialsFound') : t('settings.credentialsMissing'),
+        },
+        {
+            key:        'sms',
+            icon:       'phone',
+            accent:     'bg-green/10 text-green',
+            accentText: 'text-green',
+            title:      t('settings.smsGateway'),
+            subtitle:   t('settings.smsSubtitle'),
+            tone:       smsTone(sms),
+            status:     smsStatusLabel(sms),
+            stats: [
+                { label: t('settings.address'), value: sms.address || '—', small: true },
+                { label: t('settings.devices'), value: sms.clients ?? '—' },
+            ],
+            note: sms.last_sync_at ? t('settings.syncedAt', { at: shortTime(sms.last_sync_at) }) : t('settings.noSync'),
+        },
+    ]
+})
 
 // ── Мониторинг OTP-кодов ───────────────────────────────────
 // Страховка на случай, когда телефон-отправитель молчит: код уже лежит в базе,
@@ -153,7 +258,9 @@ function otpStatusClass(row) {
     if (status === 'used')   return 'bg-blue/10 text-blue'
     return 'bg-orange/10 text-orange'
 }
-function otpTime(value) {
+// Общее для OTP-таблицы и подписи «синхронизировано» на карточке шлюза:
+// сегодняшнее время без даты, всё остальное — с датой.
+function shortTime(value) {
     if (!value) return '—'
     const d = new Date(value)
     const time = d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -298,134 +405,81 @@ function sendTestSms() {
     <div class="space-y-8">
       <!-- 1. Мониторинг -->
       <section>
-        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.monitoring') }}</h2>
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.monitoring') }}</h2>
+          <div class="flex items-center gap-3">
+            <!-- Время общее для всех карточек: бэкенд отдаёт все проверки одним
+                 запросом, поэтому в подвале карточек его не дублируем -->
+            <span class="text-[11.5px] text-[var(--text-muted)]">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</span>
+            <button
+              type="button" :disabled="!!reloading" @click="reload('all')"
+              class="flex items-center gap-1.5 rounded-[9px] border border-green/30 bg-green/5 px-3 py-1.5 text-[12px] font-bold text-green transition-colors hover:bg-green/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Icon kind="refresh" :size="13" :class="{ 'animate-spin': reloading === 'all' }" />
+              {{ t('settings.refreshAll') }}
+            </button>
+          </div>
+        </div>
+
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full" :class="dotClass(monitoring.queues.ok)"></span>
-                <span class="font-extrabold text-ink dark:text-slate-100">{{ t('settings.queues') }}</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[badgeClass(monitoring.queues.ok), { 'status-flash': flashingCard === 'queues' }]">
-                  {{ monitoring.queues.ok ? t('settings.working') : t('settings.unavailable') }}
+          <div
+            v-for="card in monitorCards" :key="card.key"
+            class="flex flex-col rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-[18px] shadow-[var(--card-shadow)]"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                <span class="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-xl" :class="card.accent">
+                  <Icon :kind="card.icon" :size="19" />
                 </span>
-                <button
-                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'queues'"
-                  @click="reloadCard('queues')"
-                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
-                >
-                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'queues' }" />
-                </button>
+                <div class="min-w-0">
+                  <div class="truncate text-[15px] font-bold leading-tight text-[var(--text)]">{{ card.title }}</div>
+                  <div class="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{{ card.subtitle }}</div>
+                </div>
               </div>
+              <span
+                class="flex flex-none items-center gap-1.5 rounded-pill border px-2.5 py-[3px] text-[11.5px] font-bold"
+                :class="[TONES[card.tone].badge, { 'status-flash': flashing.includes(card.key) }]"
+              >
+                <span class="h-1.5 w-1.5 rounded-full" :class="TONES[card.tone].dot"></span>
+                {{ card.status }}
+              </span>
             </div>
-            <div class="mt-4 grid grid-cols-2 gap-3 text-center">
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.queues.pending }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.inQueue') }}</div>
-              </div>
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="text-xl font-extrabold" :class="monitoring.queues.failed > 0 ? 'text-red' : 'text-ink dark:text-slate-100'">{{ monitoring.queues.failed }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.failed') }}</div>
-              </div>
-            </div>
-            <div class="mt-3 text-[11px] text-muted">{{ monitoring.queues.worker || t('settings.workerMissing') }} · {{ t('settings.updatedAgo', { s: secondsAgo }) }}</div>
-          </div>
 
-          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full" :class="dotClass(monitoring.ws.ok)"></span>
-                <span class="font-extrabold text-ink dark:text-slate-100">WS (Reverb)</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[badgeClass(monitoring.ws.ok), { 'status-flash': flashingCard === 'ws' }]">
-                  {{ monitoring.ws.ok ? t('settings.connected') : t('settings.notConnected') }}
-                </span>
-                <button
-                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'ws'"
-                  @click="reloadCard('ws')"
-                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
-                >
-                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'ws' }" />
-                </button>
-              </div>
-            </div>
-            <div class="mt-4 grid grid-cols-2 gap-3 text-center">
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="truncate text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.ws.host }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.host') }}</div>
-              </div>
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.ws.port }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.port') }}</div>
+            <!-- mb-4 у показателей, а не mt-* у подвала: подвал прижат к низу
+                 через mt-auto, иначе в высокой карточке отступы сложатся -->
+            <div class="mb-4 mt-4 grid grid-cols-2 gap-2.5">
+              <div
+                v-for="(stat, i) in card.stats" :key="stat.label"
+                class="min-w-0 rounded-xl border border-[var(--field-border)] bg-[var(--field-bg)] px-3 py-2.5"
+              >
+                <div class="truncate text-[12px] text-[var(--text-muted)]">{{ stat.label }}</div>
+                <div
+                  class="truncate font-data font-extrabold"
+                  :class="[
+                    stat.small ? 'mt-1 text-[13px]' : 'text-[22px] leading-tight',
+                    stat.danger ? 'text-red' : (i === 1 ? card.accentText : 'text-[var(--text)]'),
+                  ]"
+                  :title="String(stat.value)"
+                >{{ stat.value }}</div>
               </div>
             </div>
-            <div class="mt-3 text-[11px] text-muted">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</div>
-          </div>
 
-          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full" :class="fcmDotClass(monitoring.fcm)"></span>
-                <span class="font-extrabold text-ink dark:text-slate-100">FCM</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[fcmBadgeClass(monitoring.fcm), { 'status-flash': flashingCard === 'fcm' }]">
-                  {{ fcmStatusLabel(monitoring.fcm) }}
-                </span>
-                <button
-                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'fcm'"
-                  @click="reloadCard('fcm')"
-                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
-                >
-                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'fcm' }" />
-                </button>
-              </div>
+            <div class="mt-auto flex items-center justify-between gap-2">
+              <span
+                class="min-w-0 truncate text-[11.5px]"
+                :class="card.noteWarn ? 'font-semibold text-orange' : 'text-[var(--text-muted)]'"
+                :title="card.note"
+              >{{ card.note }}</span>
+              <button
+                type="button" :disabled="!!reloading" @click="reload(card.key)"
+                class="flex flex-none items-center gap-1.5 rounded-[8px] border border-[var(--field-border)] px-3 py-[5px] text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--nav-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <!-- иконку держим всегда: если показывать её только на время
+                     спиннера, подпись кнопки прыгает при каждом обновлении -->
+                <Icon kind="refresh" :size="12" :class="{ 'animate-spin': isReloading(card.key) }" />
+                {{ t('settings.reload') }}
+              </button>
             </div>
-            <div class="mt-4 grid grid-cols-2 gap-3 text-center">
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="truncate text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.fcm.project_id || '—' }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.projectId') }}</div>
-              </div>
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.fcm.tokens }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.devices') }}</div>
-              </div>
-            </div>
-            <div class="mt-3 text-[11px] text-muted">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</div>
-          </div>
-
-          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full" :class="smsDotClass(monitoring.sms)"></span>
-                <span class="font-extrabold text-ink dark:text-slate-100">{{ t('settings.smsGateway') }}</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="[smsBadgeClass(monitoring.sms), { 'status-flash': flashingCard === 'sms' }]">
-                  {{ smsStatusLabel(monitoring.sms) }}
-                </span>
-                <button
-                  type="button" :title="t('settings.reload')" :disabled="reloadingCard === 'sms'"
-                  @click="reloadCard('sms')"
-                  class="rounded-full p-1 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
-                >
-                  <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloadingCard === 'sms' }" />
-                </button>
-              </div>
-            </div>
-            <div class="mt-4 grid grid-cols-2 gap-3 text-center">
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="truncate text-[13px] font-extrabold text-ink dark:text-slate-100">{{ monitoring.sms.address || '—' }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.address') }}</div>
-              </div>
-              <div class="rounded-[8px] bg-surface dark:bg-dbg p-3">
-                <div class="text-xl font-extrabold text-ink dark:text-slate-100">{{ monitoring.sms.clients ?? '—' }}</div>
-                <div class="text-[11px] text-muted">{{ t('settings.devices') }}</div>
-              </div>
-            </div>
-            <div class="mt-3 text-[11px] text-muted">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</div>
           </div>
         </div>
       </section>
@@ -499,7 +553,7 @@ function sendTestSms() {
                   <td class="px-5 py-3 font-data" :class="row.attempts > 0 ? 'text-orange' : 'text-muted'">
                     {{ row.attempts }} / {{ row.max_attempts }}
                   </td>
-                  <td class="px-5 py-3 font-data text-muted">{{ otpTime(row.created_at) }}</td>
+                  <td class="px-5 py-3 font-data text-muted">{{ shortTime(row.created_at) }}</td>
                   <td class="px-5 py-3 font-data" :class="otpStatus(row) === 'active' ? 'font-bold text-green' : 'text-muted'">
                     {{ otpStatus(row) === 'active' ? otpCountdown(row) : '—' }}
                   </td>
@@ -649,7 +703,7 @@ function sendTestSms() {
             <div v-if="monitoring.sms.address" class="mb-1 text-[11px] text-muted">{{ t('settings.address') }}: {{ monitoring.sms.address }}</div>
             <div v-if="monitoring.sms.connected" class="mb-1 text-[11px] text-muted">{{ t('settings.devicesConnectedCount', { n: monitoring.sms.clients ?? 0 }) }}</div>
             <div class="mb-4 text-[11px] text-muted">
-              {{ monitoring.sms.last_sync_at ? t('settings.syncedAt', { at: monitoring.sms.last_sync_at }) : t('settings.noSync') }}
+              {{ monitoring.sms.last_sync_at ? t('settings.syncedAt', { at: shortTime(monitoring.sms.last_sync_at) }) : t('settings.noSync') }}
             </div>
             <button
               @click="sendTestSms"

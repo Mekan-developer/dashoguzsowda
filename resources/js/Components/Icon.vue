@@ -158,6 +158,16 @@ const ICONS = {
         { isPath: true, d: 'M1 20v-6h6' },
         { isPath: true, d: 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15' },
     ],
+    wifi: [
+        { isPath: true, d: 'M2.5 8.6a15 15 0 0 1 19 0' },
+        { isPath: true, d: 'M5.7 12.2a10 10 0 0 1 12.6 0' },
+        { isPath: true, d: 'M8.8 15.8a5.2 5.2 0 0 1 6.4 0' },
+        { isFilledCircle: true, cx: 12, cy: 19.3, r: 1.3 },
+    ],
+    phone: [
+        { isRect: true, x: 6.5, y: 2, w: 11, h: 20, rx: 2.5 },
+        { isPath: true, d: 'M10.5 18.5h3' },
+    ],
 }
 
 const shapes = computed(() => ICONS[props.kind] || ICONS.grid)

@@ -59,7 +59,7 @@ it('returns monitoring JSON only to admin', function () {
         ->assertOk()
         ->assertJsonStructure([
             'queues' => ['ok', 'pending', 'failed', 'worker', 'checked_at'],
-            'ws'     => ['ok', 'host', 'port', 'checked_at'],
+            'ws'     => ['ok', 'host', 'port', 'driver', 'checked_at'],
             'fcm'    => ['ok', 'configured', 'project_id', 'tokens', 'checked_at'],
             'sms'    => ['connected', 'configured', 'device', 'address', 'clients', 'last_sync_at'],
         ]);

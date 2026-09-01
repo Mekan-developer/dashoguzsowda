@@ -59,6 +59,9 @@ class MonitoringService
             'ok'         => $ok,
             'host'       => $host,
             'port'       => $port,
+            // Порт может быть открыт, а события всё равно не уходить в Reverb —
+            // если BROADCAST_CONNECTION переключён на log/null.
+            'driver'     => (string) config('broadcasting.default'),
             'checked_at' => now()->toIso8601String(),
         ];
     }
