@@ -4,7 +4,7 @@
 
 ## 1. REST API (отправка, история, прочитано)
 
-Базовый URL: `http://192.168.31.157:8000/api/v1` (dev/LAN). Авторизация — Sanctum, `Authorization: Bearer {token}` (токен получается через `POST /auth/verify` после SMS-логина).
+Базовый URL: `http://192.168.31.158:8000/api/v1` (dev/LAN). Авторизация — Sanctum, `Authorization: Bearer {token}` (токен получается через `POST /auth/verify` после SMS-логина).
 
 > Адрес дев-стенда — это LAN-IP машины бэкенда, он выдаётся по DHCP и при переезде меняется. Если по нему ничего не отвечает — актуальный смотрите в `APP_URL` (`.env` бэкенда) или спросите бэкенд. Ниже этот же адрес встречается в параметрах WebSocket и в примере кода.
 
@@ -34,7 +34,7 @@ Reverb говорит по протоколу **Pusher** — со стороны
 ### Параметры подключения (dev/LAN)
 
 ```
-host   : 192.168.31.157
+host   : 192.168.31.158
 port   : 8080
 scheme : ws   (не TLS — это dev-окружение, см. примечание про прод ниже)
 appKey : iw3zr7bdeoggulqsntg3
@@ -61,7 +61,7 @@ appKey : iw3zr7bdeoggulqsntg3
 Приватные Pusher/Reverb-каналы требуют, чтобы клиент подтвердил право на подписку через HTTP-запрос до открытия канала. Для мобильных клиентов на Sanctum-токенах в проекте есть отдельный эндпоинт:
 
 ```
-POST http://192.168.31.157:8000/api/broadcasting/auth
+POST http://192.168.31.158:8000/api/broadcasting/auth
 Headers:
   Authorization: Bearer {sanctum_token}
   Accept: application/json
@@ -83,12 +83,12 @@ await pusher.init(
   apiKey: "iw3zr7bdeoggulqsntg3",
   cluster: null, // Reverb — не облачный Pusher, cluster не нужен
   useTLS: false, // true + wss в проде
-  host: "192.168.31.157",
+  host: "192.168.31.158",
   wsPort: 8080,
   onAuthorizer: (channelName, socketId, options) async {
     final token = await getSavedSanctumToken();
     final response = await http.post(
-      Uri.parse("http://192.168.31.157:8000/api/broadcasting/auth"),
+      Uri.parse("http://192.168.31.158:8000/api/broadcasting/auth"),
       headers: {
         "Authorization": "Bearer $token",
         "Accept": "application/json",
@@ -118,4 +118,4 @@ pusher.onEvent = (event) {
 
 ### Прод-примечание
 
-Сейчас всё поднято на dev-окружении (`ws://192.168.31.157:8080`, без TLS). На проде Reverb обычно ставят за Nginx/Caddy с реальным доменом и TLS-терминацией, и тогда это будет `wss://chat.example.com` (порт 443, `useTLS: true`). Когда появится прод-домен — эти три параметра (`host`, `port`, `useTLS`) единственное, что поменяется, остальное (канал, событие, авторизация) — без изменений.
+Сейчас всё поднято на dev-окружении (`ws://192.168.31.158:8080`, без TLS). На проде Reverb обычно ставят за Nginx/Caddy с реальным доменом и TLS-терминацией, и тогда это будет `wss://chat.example.com` (порт 443, `useTLS: true`). Когда появится прод-домен — эти три параметра (`host`, `port`, `useTLS`) единственное, что поменяется, остальное (канал, событие, авторизация) — без изменений.
