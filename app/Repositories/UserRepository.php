@@ -128,7 +128,8 @@ class UserRepository implements UserRepositoryInterface
         return $user->refresh();
     }
 
-    public function assignTariff(User $user, int $tariffId, CarbonInterface $endsAt): User
+    /** @param CarbonInterface|null $endsAt null — бессрочно (бесплатный тариф) */
+    public function assignTariff(User $user, int $tariffId, ?CarbonInterface $endsAt): User
     {
         $user->forceFill([
             'tariff_id'      => $tariffId,

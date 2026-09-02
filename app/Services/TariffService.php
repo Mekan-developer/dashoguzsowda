@@ -118,7 +118,8 @@ class TariffService
             'videos_limit' => $tariff->videos_limit,
             'videos_used'  => 0,
             'boosts_limit' => $tariff->boost_limit,
-            'days_left'    => $tariff->duration_days,
+            // Бессрочный (бесплатный) тариф отдаёт 0 — так же, как usageSummary()
+            'days_left'    => (int) $tariff->duration_days,
         ]);
     }
 
@@ -134,12 +135,15 @@ class TariffService
         $this->userRepository->assignTariff(
             $user,
             $tariff->id,
-            now()->addDays($tariff->duration_days),
+            // Бесплатный тариф бессрочен: срок не проставляется вовсе
+            $tariff->is_free ? null : now()->addDays($tariff->duration_days),
         );
     }
 
     public function store(array $data): Tariff
     {
+        $data = $this->withoutDurationIfFree($data);
+
         if (! empty($data['is_free'])) {
             $this->tariffRepository->clearFree();
         }
@@ -148,6 +152,8 @@ class TariffService
 
     public function update(Tariff $tariff, array $data): Tariff
     {
+        $data = $this->withoutDurationIfFree($data);
+
         if (! empty($data['is_free'])) {
             $this->tariffRepository->clearFree();
         }
@@ -157,6 +163,20 @@ class TariffService
     public function delete(Tariff $tariff): void
     {
         $this->tariffRepository->delete($tariff);
+    }
+
+    /**
+     * Бесплатный тариф бессрочен — срок действия у него не хранится.
+     * Форма админки его и не присылает, но тариф могут сделать бесплатным
+     * из платного, и тогда старый срок нужно снять.
+     */
+    private function withoutDurationIfFree(array $data): array
+    {
+        if (! empty($data['is_free'])) {
+            $data['duration_days'] = null;
+        }
+
+        return $data;
     }
 
     /**

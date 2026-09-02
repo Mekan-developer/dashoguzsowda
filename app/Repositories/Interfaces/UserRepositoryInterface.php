@@ -36,7 +36,8 @@ interface UserRepositoryInterface
     public function markPhoneVerified(User $user): User;
     public function block(User $user, ?string $reason): User;
     public function unblock(User $user): User;
-    public function assignTariff(User $user, int $tariffId, CarbonInterface $endsAt): User;
+    /** @param CarbonInterface|null $endsAt null — бессрочно (бесплатный тариф) */
+    public function assignTariff(User $user, int $tariffId, ?CarbonInterface $endsAt): User;
     public function setOnboardingCompleted(User $user, bool $completed): User;
 
     /**

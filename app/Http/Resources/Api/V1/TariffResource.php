@@ -19,7 +19,8 @@ class TariffResource extends JsonResource
             'listings_limit' => (int) $this->listings_limit,
             'videos_limit'   => (int) $this->videos_limit,
             'boost_limit'    => (int) $this->boost_limit,
-            'duration_days'  => (int) $this->duration_days,
+            // null — бессрочный (бесплатный) тариф
+            'duration_days'  => $this->duration_days !== null ? (int) $this->duration_days : null,
             'is_free'        => (bool) $this->is_free,
         ];
     }

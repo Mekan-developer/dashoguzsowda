@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\AssignTariffAction;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
@@ -63,6 +64,59 @@ it('only lets one tariff be free at a time', function () {
 
     expect((bool) $free->fresh()->is_free)->toBeFalse()
         ->and((bool) $paid->fresh()->is_free)->toBeTrue();
+});
+
+/**
+ * Бесплатный тариф бессрочен: срок в днях к нему не применяется, форма его не
+ * показывает, а пришедшее из старой формы значение сервер отбрасывает.
+ */
+it('drops the duration of a free tariff', function () {
+    actingAsTariffRole('admin');
+
+    $this->post(route('tariffs.store'), tariffPayload([
+        'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'price' => 0, 'is_free' => true,
+    ]))->assertRedirect();
+
+    expect(Tariff::where('name_ru', 'Бесплатный')->firstOrFail()->duration_days)->toBeNull();
+});
+
+it('clears the duration when a paid tariff becomes free', function () {
+    actingAsTariffRole('admin');
+    $tariff = Tariff::create(tariffPayload(['name_ru' => 'Старт', 'name_tk' => 'Start']));
+
+    $this->put(route('tariffs.update', $tariff), tariffPayload([
+        'name_ru' => 'Старт', 'name_tk' => 'Start', 'is_free' => true,
+    ]))->assertRedirect();
+
+    expect($tariff->fresh()->duration_days)->toBeNull();
+});
+
+it('still requires a duration for a paid tariff', function () {
+    actingAsTariffRole('admin');
+
+    $payload = tariffPayload(['name_ru' => 'Без срока', 'name_tk' => 'Möhletsiz']);
+    unset($payload['duration_days']);
+
+    $this->post(route('tariffs.store'), $payload)->assertSessionHasErrors('duration_days');
+});
+
+/**
+ * Раз тариф бессрочен, срок пользователю не проставляется вовсе — иначе он
+ * «истёк» бы через 30 дней и лимиты пришлось бы каждый раз добирать запросом
+ * бесплатного тарифа.
+ */
+it('grants a free tariff without an expiry date', function () {
+    $free = Tariff::create(tariffPayload([
+        'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'price' => 0,
+        'is_free' => true, 'duration_days' => null,
+    ]));
+    $user = User::factory()->create();
+
+    app(AssignTariffAction::class)->execute($user, $free);
+    $user->refresh();
+
+    expect($user->tariff_ends_at)->toBeNull()
+        ->and($user->activeTariff()->id)->toBe($free->id);
 });
 
 /**

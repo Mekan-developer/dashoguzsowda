@@ -9,6 +9,17 @@ class StoreTariffRequest extends FormRequest
 {
     public function authorize(): bool { return true; }
 
+    /**
+     * Бесплатный тариф бессрочен — срок к нему не применяется, поэтому форма
+     * его и не показывает, а пришедшее значение отбрасывается.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->boolean('is_free')) {
+            $this->merge(['duration_days' => null]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -23,7 +34,8 @@ class StoreTariffRequest extends FormRequest
             'listings_limit' => 'required|integer|min:0',
             'videos_limit'   => 'required|integer|min:0',
             'boost_limit'    => 'required|integer|min:0',
-            'duration_days'  => 'required|integer|min:1',
+            // null = бессрочно; допустимо только для бесплатного тарифа
+            'duration_days'  => [Rule::requiredIf(fn () => ! $this->boolean('is_free')), 'nullable', 'integer', 'min:1'],
             'is_active'      => 'boolean',
             'is_free'        => 'boolean',
         ];

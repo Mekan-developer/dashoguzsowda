@@ -263,6 +263,8 @@ H.264), `preview_path` (кадр), `is_processed`. `likes_count` и `views` —
 
 **`Tariff`** — `listings_limit`, `videos_limit`, `boost_limit`, `duration_days`,
 `is_free`. Ровно один тариф помечается `is_free` — он выдаётся всем по умолчанию.
+Бесплатный тариф бессрочен: `duration_days = null`, срок в днях к нему не
+применяется, и в форме админки поле для него не показывается.
 
 **`Message`** — один диалог на пользователя (`user_id`), `sender` = `user` | `admin`.
 Чата между пользователями нет.
@@ -373,7 +375,7 @@ POST /api/v1/auth/verify
     "tariff": {
       "id": 1, "name_tk": "Mugt", "name_ru": "Бесплатный",
       "listings_limit": 5, "videos_limit": 2, "boost_limit": 1,
-      "duration_days": 30, "is_free": true
+      "duration_days": null, "is_free": true
     },
     "expires_at": null,
     "remaining": { "listings": 3, "videos": 2, "boosts": 1 }
@@ -798,7 +800,8 @@ flowchart TB
   Повторное поднятие уже поднятого объявления слот не занимает.
 - Остаток лимитов: `TariffService::getRemainingLimits()`, отдаётся в `/profile/tariff`.
 - Тариф выдаёт админ: `POST /admin users/{user}/tariff` → `AssignTariffAction` →
-  `tariff_ends_at = now + duration_days`.
+  `tariff_ends_at = now + duration_days`. Бесплатный тариф бессрочен:
+  `tariff_ends_at = null`, и `User::activeTariff()` считает его действующим.
 
 ### 6.4 Поднятие объявления (boost)
 

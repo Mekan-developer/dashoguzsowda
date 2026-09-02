@@ -192,6 +192,7 @@ class VideoRepository implements VideoRepositoryInterface
                 continue;
             }
 
+            // Бесплатный тариф бессрочен (tariff_ends_at = null) — его отдаёт та же ветка $freeTariff
             $tariff = ($video->user->tariff_id && $video->user->tariff_ends_at?->isFuture())
                 ? $video->user->tariff
                 : $freeTariff;

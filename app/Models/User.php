@@ -72,9 +72,16 @@ class User extends Authenticatable
             && $this->city_id !== null;
     }
 
+    /**
+     * Бесплатный тариф выдаётся без `tariff_ends_at` — он бессрочен;
+     * срок действия есть только у платного.
+     */
     public function activeTariff()
     {
         if ($this->tariff_id && $this->tariff_ends_at && $this->tariff_ends_at->isFuture()) {
+            return $this->tariff;
+        }
+        if ($this->tariff_id && ! $this->tariff_ends_at && $this->tariff?->is_free) {
             return $this->tariff;
         }
         return Tariff::where('is_free', true)->first();
