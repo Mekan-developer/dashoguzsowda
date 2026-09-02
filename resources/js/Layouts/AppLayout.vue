@@ -73,8 +73,8 @@ const sections = computed(() => [
     { title: t('layout.sectionMain').toUpperCase(), eyebrow: t('layout.sectionMain'), items: [
         { label: t('nav.dashboard'),   routeName: 'dashboard',         icon: 'grid' },
         { label: t('nav.users'),       routeName: 'users.index',       icon: 'users',   badge: 'newUsers' },
-        { label: t('nav.listings'),    routeName: 'listings.index',    icon: 'listing', badge: 'pendingListings' },
-        { label: t('nav.videos'),      routeName: 'videos.index',      icon: 'video',   badge: 'pendingVideos' },
+        { label: t('nav.listings'),    routeName: 'listings.index',    icon: 'listing', badge: 'pendingListings', newFlag: 'hasNewListings' },
+        { label: t('nav.videos'),      routeName: 'videos.index',      icon: 'video',   badge: 'pendingVideos',   newFlag: 'hasNewVideos' },
         { label: t('nav.chat'),        routeName: 'chat.index',        icon: 'chat',    badge: 'unreadChats' },
     ]},
     { title: t('layout.sectionContent').toUpperCase(), eyebrow: t('layout.sectionContent'), items: [
@@ -85,18 +85,18 @@ const sections = computed(() => [
         ] : []),
         { label: t('nav.news'),        routeName: 'news.index',        icon: 'news' },
         { label: t('nav.banners'),     routeName: 'banners.index',     icon: 'layers' },
-        { label: t('nav.stores'),      routeName: 'stores.index',      icon: 'shop', badge: 'pendingStores' },
+        { label: t('nav.stores'),      routeName: 'stores.index',      icon: 'shop', badge: 'pendingStores', newFlag: 'hasNewStores' },
     ]},
     { title: t('layout.sectionModeration').toUpperCase(), eyebrow: t('layout.sectionModeration'), items: [
-        { label: t('nav.complaints'),  routeName: 'complaints.index',  icon: 'flag',  badge: 'newComplaints' },
-        { label: t('nav.reviews'),     routeName: 'reviews.index',     icon: 'star',  badge: 'pendingReviews' },
+        { label: t('nav.complaints'),  routeName: 'complaints.index',  icon: 'flag',  badge: 'newComplaints',  newFlag: 'hasNewComplaints' },
+        { label: t('nav.reviews'),     routeName: 'reviews.index',     icon: 'star',  badge: 'pendingReviews', newFlag: 'hasNewReviews' },
     ]},
     { title: t('layout.sectionSystem').toUpperCase(), eyebrow: t('layout.sectionSystem'), items: [
         // Тарифы — лимиты и деньги, только admin
         ...(isAdmin.value ? [
             { label: t('nav.tariffs'), routeName: 'tariffs.index', icon: 'coin' },
             // Заявки на тариф — деньги принимает лично админ
-            { label: t('nav.tariffRequests'), routeName: 'tariff-requests.index', icon: 'coin', badge: 'pendingTariffRequests' },
+            { label: t('nav.tariffRequests'), routeName: 'tariff-requests.index', icon: 'coin', badge: 'pendingTariffRequests', newFlag: 'hasNewTariffRequests' },
         ] : []),
         { label: t('nav.statistics'), routeName: 'statistics.index',  icon: 'chart' },
         ...(isAdmin.value ? [
@@ -174,6 +174,11 @@ function logout() {
               <span
                 v-if="collapsed && item.badge && counts[item.badge] > 0"
                 class="absolute -right-[5px] -top-[3px] h-[7px] w-[7px] rounded-full bg-[var(--badge-bg)]"
+              ></span>
+              <!-- «Новое с последнего открытия» — не счётчик очереди, гаснет от одного захода в раздел -->
+              <span
+                v-if="item.newFlag && counts[item.newFlag]"
+                class="absolute -left-[5px] -top-[3px] h-[7px] w-[7px] rounded-full bg-[#4ADE80] ring-2 ring-[var(--sidebar-bg)]"
               ></span>
             </span>
             <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>

@@ -35,7 +35,7 @@ class HandleInertiaRequests extends Middleware
             'auth'  => ['user' => $user ? (new AuthUserResource($user))->resolve($request) : null],
             'flash' => fn () => ['toast' => $request->session()->get('toast')],
             // Шесть COUNT-ов заменены одним запросом в репозитории.
-            'counts' => fn () => $user ? $this->notifications->counters() : [],
+            'counts' => fn () => $user ? $this->notifications->counters($user->id) : [],
             'notifications' => fn () => $user
                 ? $this->notificationService->forUser($user)
                 : [],

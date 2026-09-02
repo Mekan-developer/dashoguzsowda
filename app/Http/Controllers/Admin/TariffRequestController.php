@@ -7,6 +7,7 @@ use App\Actions\RejectTariffRequestAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectTariffRequestRequest;
 use App\Models\TariffRequest;
+use App\Services\NotificationService;
 use App\Services\TariffRequestService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,10 +23,13 @@ class TariffRequestController extends Controller
         private readonly TariffRequestService $tariffRequestService,
         private readonly ApproveTariffRequestAction $approveTariffRequest,
         private readonly RejectTariffRequestAction $rejectTariffRequest,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(Request $request)
     {
+        $this->notificationService->markSectionSeen($request->user(), 'tariff_requests');
+
         return Inertia::render('TariffRequests/Index', [
             'requests' => $this->tariffRequestService->list($request->only('status', 'search')),
             'counts'   => ['pending' => $this->tariffRequestService->countPending()],

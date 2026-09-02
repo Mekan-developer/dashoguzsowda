@@ -26,9 +26,9 @@ class DashboardService
         private readonly NotificationRepositoryInterface $notifications,
     ) {}
 
-    public function overview(): array
+    public function overview(int $userId): array
     {
-        $counters = $this->notifications->counters();
+        $counters = $this->notifications->counters($userId);
 
         return [
             'stats' => [

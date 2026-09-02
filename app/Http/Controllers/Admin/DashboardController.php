@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\DashboardService;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -12,8 +13,8 @@ class DashboardController extends Controller
         private readonly DashboardService $dashboardService,
     ) {}
 
-    public function __invoke()
+    public function __invoke(Request $request)
     {
-        return Inertia::render('Dashboard', $this->dashboardService->overview());
+        return Inertia::render('Dashboard', $this->dashboardService->overview($request->user()->id));
     }
 }

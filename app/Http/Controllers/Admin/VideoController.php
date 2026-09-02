@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\RejectVideoRequest;
 use App\Http\Requests\Admin\UpdateVideoRequest;
 use App\Models\Video;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
+use App\Services\NotificationService;
 use App\Services\VideoService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,10 +21,13 @@ class VideoController extends Controller
         private readonly ApproveVideoAction $approveAction,
         private readonly RejectVideoAction $rejectAction,
         private readonly ReasonRepositoryInterface $reasons,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(Request $request)
     {
+        $this->notificationService->markSectionSeen($request->user(), 'videos');
+
         return Inertia::render('Videos/Index', [
             'videos'           => $this->videoService->list($request->only('status', 'search')),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('video'),

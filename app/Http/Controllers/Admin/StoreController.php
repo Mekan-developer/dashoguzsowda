@@ -12,6 +12,7 @@ use App\Models\StorePhoto;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Repositories\Interfaces\RegionRepositoryInterface;
+use App\Services\NotificationService;
 use App\Services\StoreService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -25,10 +26,13 @@ class StoreController extends Controller
         private readonly ReasonRepositoryInterface $reasons,
         private readonly ApproveStoreAction $approveStore,
         private readonly RejectStoreAction $rejectStore,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(Request $request)
     {
+        $this->notificationService->markSectionSeen($request->user(), 'stores');
+
         return Inertia::render('Stores/Index', [
             'stores'     => $this->storeService->list($request->only('search', 'is_popular', 'status')),
             'categories' => $this->categories->activeTree(),

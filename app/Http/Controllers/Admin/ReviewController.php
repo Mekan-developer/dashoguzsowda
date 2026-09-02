@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\RejectListingRequest;
 use App\Models\Review;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Repositories\Interfaces\ReviewRepositoryInterface;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -15,10 +16,13 @@ class ReviewController extends Controller
     public function __construct(
         private readonly ReviewRepositoryInterface $reviewRepository,
         private readonly ReasonRepositoryInterface $reasons,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(Request $request)
     {
+        $this->notificationService->markSectionSeen($request->user(), 'reviews');
+
         return Inertia::render('Reviews/Index', [
             'reviews'          => $this->reviewRepository->paginate($request->only('status', 'search')),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('review'),

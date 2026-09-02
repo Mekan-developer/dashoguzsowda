@@ -12,6 +12,7 @@ use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\User;
 use App\Repositories\Interfaces\TariffRepositoryInterface;
+use App\Services\NotificationService;
 use App\Services\RegionService;
 use App\Services\UserService;
 use Inertia\Inertia;
@@ -24,10 +25,15 @@ class UserController extends Controller
         private readonly BlockUserAction $blockAction,
         private readonly AssignTariffAction $assignTariffAction,
         private readonly TariffRepositoryInterface $tariffs,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(\Illuminate\Http\Request $request)
     {
+        // Открыл раздел — бейдж «новые пользователи» в сайдбаре гаснет
+        // для этого админа до следующей регистрации.
+        $this->notificationService->markSectionSeen($request->user(), 'users');
+
         return Inertia::render('Users/Index', [
             'users'   => $this->userService->list($request->only('search', 'status', 'region_id')),
             'regions' => $this->regionService->activeListWithDistricts(),

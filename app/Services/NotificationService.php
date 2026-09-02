@@ -49,6 +49,11 @@ class NotificationService
         $this->notificationRepository->dismiss($user->id, $key);
     }
 
+    public function markSectionSeen(User $user, string $section): void
+    {
+        $this->notificationRepository->markSectionSeen($user->id, $section);
+    }
+
     private function entry(string $key, string $type, ?string $label, string $icon, string $routeName, ?int $routeParam, $createdAt): array
     {
         return [

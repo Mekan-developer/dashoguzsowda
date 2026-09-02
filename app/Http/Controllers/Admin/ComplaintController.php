@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ResolveComplaintRequest;
 use App\Models\Complaint;
 use App\Repositories\Interfaces\ComplaintRepositoryInterface;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -13,10 +14,13 @@ class ComplaintController extends Controller
 {
     public function __construct(
         private readonly ComplaintRepositoryInterface $complaintRepository,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(Request $request)
     {
+        $this->notificationService->markSectionSeen($request->user(), 'complaints');
+
         return Inertia::render('Complaints/Index', [
             'complaints' => $this->complaintRepository->paginate($request->only('status', 'search', 'reason_id')),
             'reasons'    => $this->complaintRepository->activeReasons(),

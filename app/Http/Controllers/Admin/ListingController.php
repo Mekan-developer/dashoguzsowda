@@ -12,6 +12,7 @@ use App\Models\Listing;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Services\ListingService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -24,10 +25,13 @@ class ListingController extends Controller
         private readonly BoostListingAction $boostAction,
         private readonly ReasonRepositoryInterface $reasons,
         private readonly CategoryRepositoryInterface $categories,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function index(Request $request)
     {
+        $this->notificationService->markSectionSeen($request->user(), 'listings');
+
         return Inertia::render('Listings/Index', [
             'listings'         => $this->listingService->list($request->only('status', 'category_id', 'search')),
             'categories'       => $this->categories->roots(),
