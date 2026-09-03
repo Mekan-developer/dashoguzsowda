@@ -86,6 +86,10 @@ const sections = computed(() => [
         { label: t('nav.news'),        routeName: 'news.index',        icon: 'news' },
         { label: t('nav.banners'),     routeName: 'banners.index',     icon: 'layers' },
         { label: t('nav.stores'),      routeName: 'stores.index',      icon: 'shop', badge: 'pendingStores', newFlag: 'hasNewStores' },
+        // Заказы — деньги и логистика, поэтому только admin (см. routes/web.php)
+        ...(isAdmin.value ? [
+            { label: t('nav.orders'), routeName: 'orders.index', icon: 'cart', badge: 'pendingOrders', newFlag: 'hasNewOrders' },
+        ] : []),
     ]},
     { title: t('layout.sectionModeration').toUpperCase(), eyebrow: t('layout.sectionModeration'), items: [
         { label: t('nav.complaints'),  routeName: 'complaints.index',  icon: 'flag',  badge: 'newComplaints',  newFlag: 'hasNewComplaints' },

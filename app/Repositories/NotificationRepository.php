@@ -28,6 +28,7 @@ class NotificationRepository implements NotificationRepositoryInterface
         'complaints' => 'complaints',
         'stores' => 'stores',
         'tariff_requests' => 'tariff_requests',
+        'orders' => 'orders',
     ];
 
     public function pendingItems(int $limitPerCategory = 20): array
@@ -119,8 +120,9 @@ class NotificationRepository implements NotificationRepositoryInterface
                 (select count(*) from complaints where status = ?) as new_complaints,
                 (select count(*) from reviews where status = ?) as pending_reviews,
                 (select count(*) from stores where status = ?) as pending_stores,
-                (select count(*) from tariff_requests where status = ?) as pending_tariff_requests',
-            ['user', $seen('users'), 'pending', 'pending', 'user', 0, 'new', 'pending', 'pending', 'pending'],
+                (select count(*) from tariff_requests where status = ?) as pending_tariff_requests,
+                (select count(*) from orders where status = ?) as pending_orders',
+            ['user', $seen('users'), 'pending', 'pending', 'user', 0, 'new', 'pending', 'pending', 'pending', 'pending'],
         );
 
         $hasNew = DB::selectOne(
@@ -130,7 +132,8 @@ class NotificationRepository implements NotificationRepositoryInterface
                 (select exists(select 1 from complaints where status = ? and id > ?)) as has_new_complaints,
                 (select exists(select 1 from reviews where status = ? and id > ?)) as has_new_reviews,
                 (select exists(select 1 from stores where status = ? and id > ?)) as has_new_stores,
-                (select exists(select 1 from tariff_requests where status = ? and id > ?)) as has_new_tariff_requests',
+                (select exists(select 1 from tariff_requests where status = ? and id > ?)) as has_new_tariff_requests,
+                (select exists(select 1 from orders where status = ? and id > ?)) as has_new_orders',
             [
                 'pending', $seen('listings'),
                 'pending', $seen('videos'),
@@ -138,6 +141,7 @@ class NotificationRepository implements NotificationRepositoryInterface
                 'pending', $seen('reviews'),
                 'pending', $seen('stores'),
                 'pending', $seen('tariff_requests'),
+                'pending', $seen('orders'),
             ],
         );
 
@@ -156,6 +160,8 @@ class NotificationRepository implements NotificationRepositoryInterface
             'hasNewStores' => (bool) $hasNew->has_new_stores,
             'pendingTariffRequests' => (int) $row->pending_tariff_requests,
             'hasNewTariffRequests' => (bool) $hasNew->has_new_tariff_requests,
+            'pendingOrders' => (int) $row->pending_orders,
+            'hasNewOrders' => (bool) $hasNew->has_new_orders,
         ];
     }
 

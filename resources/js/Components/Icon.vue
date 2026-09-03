@@ -74,6 +74,12 @@ const ICONS = {
         { isRect: true, x: 5, y: 9, w: 14, h: 11, rx: 1 },
         { isPath: true, d: 'M9 20v-5h6v5' },
     ],
+    // Заказы: корзина с ручкой — раздел «Заказы» в меню
+    cart: [
+        { isPath: true, d: 'M3 4h2.2l2.2 10.5a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.55L20.5 8H6' },
+        { isCircle: true, cx: 10, cy: 19.5, r: 1.4 },
+        { isCircle: true, cx: 17, cy: 19.5, r: 1.4 },
+    ],
     menu: [
         { isPath: true, d: 'M4 6h16M4 12h16M4 18h16' },
     ],

@@ -14,6 +14,11 @@ const config = {
     new:      { cls: 'bg-blue/10 text-blue',     dot: 'bg-blue' },
     reviewed: { cls: 'bg-orange/10 text-orange', dot: 'bg-orange' },
     resolved: { cls: 'bg-green/10 text-green',   dot: 'bg-green' },
+    // Заказы: свой путь статусов, см. CLAUDE.md → «Заказы и корзина»
+    completed: { cls: 'bg-green/10 text-green',   dot: 'bg-green' },
+    canceled: { cls: 'bg-surface text-muted',     dot: 'bg-muted' },
+    accepted: { cls: 'bg-green/10 text-green',    dot: 'bg-green' },
+    declined: { cls: 'bg-red/10 text-red',        dot: 'bg-red' },
     regular:  { cls: 'bg-blue/10 text-blue',     dot: 'bg-blue' },
     advertising: { cls: 'bg-purple/10 text-purple', dot: 'bg-purple' },
 }

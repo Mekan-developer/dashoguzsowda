@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\ListingController;
 use App\Http\Controllers\Admin\LocaleController;
 use App\Http\Controllers\Admin\NewsController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\OtpMonitorController;
 use App\Http\Controllers\Admin\PushController;
 use App\Http\Controllers\Admin\RegionController;
@@ -151,6 +152,17 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         Route::get('tariff-requests', [TariffRequestController::class, 'index'])->name('tariff-requests.index');
         Route::patch('tariff-requests/{tariffRequest}/approve', [TariffRequestController::class, 'approve'])->name('tariff-requests.approve');
         Route::patch('tariff-requests/{tariffRequest}/reject',  [TariffRequestController::class, 'reject'])->name('tariff-requests.reject');
+
+        // Заказы: онлайн-оплаты нет, заказ ведёт админ руками — обзвонил
+        // магазины, подтвердил наличие, отвёз, получил деньги. «Подтвердить» =
+        // «товар есть», только после него списываются остатки и части заказа
+        // появляются у владельцев магазинов. Менеджеру закрыто: заказы — это
+        // деньги и логистика, в списке модерируемых им сущностей их нет.
+        Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::patch('orders/{order}/approve', [OrderController::class, 'approve'])->name('orders.approve');
+        Route::patch('orders/{order}/reject',  [OrderController::class, 'reject'])->name('orders.reject');
+        Route::patch('orders/{order}/cancel',   [OrderController::class, 'cancel'])->name('orders.cancel');
+        Route::patch('orders/{order}/complete', [OrderController::class, 'complete'])->name('orders.complete');
 
         // Магазины — правка, модерация, кураторство «популярных», удаление.
         // Модерация тоже только у admin: по CLAUDE.md → «Роли» магазин не входит
