@@ -1,0 +1,45 @@
+meta {
+  name: Магазин — принять заказ
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/v1/my/store/orders/1/accept
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "comment": "Соберу к обеду"
+  }
+}
+
+docs {
+  «Товар есть, отдаю» — ответ владельца магазина по своей части заказа.
+  В URL — id ЧАСТИ заказа, не самого заказа.
+
+  Отвечать можно один раз и только пока can_respond=true (заказ ещё в pending,
+  ответа не было). Повторный ответ — 422 «Ответ по этому заказу уже дан»;
+  после того как админ подтвердил или закрыл заказ, отвечать поздно.
+
+  comment необязателен и виден админу.
+  404 — часть чужого магазина.
+  403 — заблокированному пользователю. Лимит частоты — 30 запросов в минуту.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("suborder is accepted", function() {
+    expect(res.getBody().data.status).to.equal('accepted');
+  });
+}

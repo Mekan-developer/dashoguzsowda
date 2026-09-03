@@ -1,0 +1,46 @@
+meta {
+  name: Магазин — отказаться от заказа
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/v1/my/store/orders/1/decline
+  body: json
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "comment": "Товар закончился"
+  }
+}
+
+docs {
+  Отказ владельца по своей части заказа. В URL — id ЧАСТИ заказа.
+
+  Отказ приходит до подтверждения админом, поэтому списывать ещё нечего:
+  позиции этого магазина админский approve потом просто не тронет — товар
+  никуда не едет. Сам заказ не отменяется: его ведёт админ и решает, везти
+  ли остальное.
+
+  comment необязателен, но именно его читает админ — стоит писать причину.
+
+  Отвечать можно один раз: повтор — 422. 404 — часть чужого магазина.
+  Лимит частоты — 30 запросов в минуту.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("suborder is declined", function() {
+    expect(res.getBody().data.status).to.equal('declined');
+  });
+}

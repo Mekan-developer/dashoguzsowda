@@ -1,0 +1,47 @@
+meta {
+  name: Мои заказы
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/v1/orders?page=1&limit=20
+  body: none
+}
+
+params:query {
+  page: 1
+  limit: 20
+  ~status: pending
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Заказы текущего пользователя, свежие сверху.
+
+  Фильтр status (опционально): pending | approved | completed | rejected |
+  canceled.
+
+  Жизненный путь заказа: pending (оформлен, админ обзванивает магазины) →
+  approved (подтверждён, магазины собирают) → completed (доставлен).
+  Промежуточного «в пути» нет: админ отмечает только результат доставки.
+  Плюс rejected (отказ админа, причина в admin_comment) и canceled (отмена
+  покупателем, пока pending, или админом).
+
+  Тексты статусов рисует мобилка из своих словарей — бэкенд отдаёт только коды.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("paginated", function() {
+    expect(res.getBody()).to.have.property('meta');
+  });
+}

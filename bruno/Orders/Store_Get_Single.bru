@@ -1,0 +1,37 @@
+meta {
+  name: Магазин — карточка заказа
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base_url}}/v1/my/store/orders/1
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Одна часть заказа глазами владельца магазина: его позиции, его сумма.
+
+  В URL — id ЧАСТИ заказа (stores[].id из карточки покупателя, он же id из
+  списка «Магазин — заказы владельцу»), а не id самого заказа.
+
+  404 — часть чужого магазина или несуществующая.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("carries the order number and items", function() {
+    const data = res.getBody().data;
+    expect(data).to.have.property('order_number');
+    expect(data).to.have.property('items');
+  });
+}

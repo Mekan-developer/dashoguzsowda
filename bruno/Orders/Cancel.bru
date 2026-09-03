@@ -1,0 +1,38 @@
+meta {
+  name: Отменить заказ
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/orders/{{order_id}}/cancel
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Отмена покупателем — только пока заказ никто не взял в работу (status =
+  pending, флаг can_cancel в карточке). После подтверждения админом отмена
+  через API закрыта: 422 «Заказ уже в работе — отменить его может только
+  администратор». Иначе отменённый заказ уже ехал бы к покупателю.
+
+  Остатки, списанные при подтверждении, возвращает отмена на стороне админа —
+  здесь возвращать нечего, при pending списания ещё не было.
+
+  Чужой заказ — 404. Лимит частоты — 30 запросов в минуту.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("order is canceled", function() {
+    expect(res.getBody().data.status).to.equal('canceled');
+  });
+}

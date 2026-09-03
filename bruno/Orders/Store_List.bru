@@ -1,0 +1,53 @@
+meta {
+  name: Магазин — заказы владельцу
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/v1/my/store/orders?page=1&limit=20
+  body: none
+}
+
+params:query {
+  page: 1
+  limit: 20
+  ~status: pending
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Заказы, пришедшие в магазин текущего пользователя. Токен здесь — токен
+  ВЛАДЕЛЬЦА магазина, а не покупателя.
+
+  Заказ приходит владельцу сразу после оформления: наличие подтверждает он,
+  а админ подтверждает заказ уже по его ответу. Владелец видит только свою
+  часть заказа.
+
+  Контакты и адрес покупателя владельцу не отдаются: доставкой занимается
+  платформа, владелец собирает товар и передаёт его админу.
+
+  Фильтр status (опционально): pending (ждёт ответа владельца) | accepted |
+  declined | canceled (заказ закрыт админом раньше, чем магазин ответил).
+  У каждой записи:
+  - id — id ЧАСТИ заказа (тот же, что stores[].id в карточке покупателя),
+    именно он идёт в accept/decline;
+  - order_number / order_status — номер и статус всего заказа;
+  - can_respond — показывать ли кнопки «Принять» / «Отказать»;
+  - meta.pending в списке — сколько заказов ждёт ответа (бейдж на вкладке).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("meta carries the pending badge", function() {
+    expect(res.getBody().meta).to.have.property('pending');
+  });
+}
