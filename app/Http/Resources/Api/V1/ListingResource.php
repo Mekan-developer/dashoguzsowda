@@ -87,6 +87,10 @@ class ListingResource extends JsonResource
                 'sells_wholesale' => (bool) $this->store->sells_wholesale,
                 'has_delivery'    => (bool) $this->store->has_delivery,
             ] : null),
+            // Показывать ли кнопку «В корзину»: товар опубликованного магазина
+            // с доставкой, в наличии и с ценой. Правило считает бэкенд, чтобы
+            // мобилка не повторяла его у себя (CLAUDE.md → «Заказы»)
+            'is_orderable' => $this->isOrderable(),
             'user'       => $this->whenLoaded('user', fn () => [
                 'id'     => $this->user->id,
                 'name'   => $this->user->name,

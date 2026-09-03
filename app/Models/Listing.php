@@ -31,4 +31,21 @@ class Listing extends Model
     public function complaints()      { return $this->hasMany(Complaint::class); }
     public function favorites()       { return $this->hasMany(Favorite::class); }
     public function reviews()         { return $this->hasMany(Review::class); }
+
+    /**
+     * Можно ли заказать товар через корзину.
+     *
+     * Заказ есть только у товаров магазина с доставкой: без неё покупатель и
+     * продавец, как и раньше, созваниваются сами. Товар без цены (договорная)
+     * заказать тоже нельзя — нечего фиксировать в позиции заказа.
+     */
+    public function isOrderable(): bool
+    {
+        return $this->status === 'approved'
+            && $this->store !== null
+            && $this->store->isPublic()
+            && (bool) $this->store->has_delivery
+            && ($this->stock_qty === null || $this->stock_qty > 0)
+            && ($this->price !== null || $this->wholesale_price !== null);
+    }
 }

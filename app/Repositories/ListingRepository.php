@@ -186,6 +186,25 @@ class ListingRepository implements ListingRepositoryInterface
         $listing->increment('views');
     }
 
+    public function findManyWithStore(array $ids): \Illuminate\Database\Eloquent\Collection
+    {
+        return Listing::with('store')->whereIn('id', $ids)->get();
+    }
+
+    public function adjustStock(int $listingId, int $delta): void
+    {
+        $listing = Listing::find($listingId);
+
+        // stock_qty = null — учёт остатков не ведётся, менять нечего
+        if (! $listing || $listing->stock_qty === null) {
+            return;
+        }
+
+        // Считаем в PHP, а не выражением в SQL: заказов единицы, зато одинаково
+        // работает на MySQL и на sqlite в тестах, и остаток не уходит в минус
+        $listing->update(['stock_qty' => max(0, $listing->stock_qty + $delta)]);
+    }
+
     public function createMedia(Listing $listing, array $attributes): ListingMedia
     {
         return $listing->media()->create($attributes);

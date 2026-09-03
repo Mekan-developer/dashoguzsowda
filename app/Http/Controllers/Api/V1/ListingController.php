@@ -71,7 +71,9 @@ class ListingController extends Controller
         $this->listingService->registerView($listing, $viewer);
         $this->listingService->loadFavoriteFlag($listing, $viewer);
 
-        $listing->load('user', 'category', 'region', 'city', 'media', 'rejectionReason');
+        // store — товар магазина: по нему мобилка решает, показывать ли
+        // условия покупки и кнопку «В корзину» (is_orderable)
+        $listing->load('user', 'store', 'category', 'region', 'city', 'media', 'rejectionReason');
         // Только после load('user') — иначе агрегаты продавца затрутся
         $this->listingService->loadRating($listing);
 

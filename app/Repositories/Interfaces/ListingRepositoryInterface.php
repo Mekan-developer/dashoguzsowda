@@ -45,6 +45,21 @@ interface ListingRepositoryInterface
 
     public function incrementViews(Listing $listing): void;
 
+    /**
+     * Товары для оформления заказа — вместе с магазином: заказать можно только
+     * то, что принадлежит опубликованному магазину с доставкой.
+     *
+     * @param  array<int, int>  $ids
+     * @return Collection<int, Listing>
+     */
+    public function findManyWithStore(array $ids): Collection;
+
+    /**
+     * Меняет остаток на $delta (списание — отрицательное). Товары с stock_qty
+     * = null пропускаются: у них учёт не ведётся, там всегда «в наличии».
+     */
+    public function adjustStock(int $listingId, int $delta): void;
+
     public function createMedia(Listing $listing, array $attributes): ListingMedia;
 
     public function deleteMedia(ListingMedia $media): void;

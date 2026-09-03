@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\ComplaintReasonController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\ListingController;
 use App\Http\Controllers\Api\V1\NewsController;
+use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RegionController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\V1\SearchPopularController;
 use App\Http\Controllers\Api\V1\SearchRecentController;
 use App\Http\Controllers\Api\V1\MyStoreController;
 use App\Http\Controllers\Api\V1\StoreController;
+use App\Http\Controllers\Api\V1\StoreOrderController;
 use App\Http\Controllers\Api\V1\TariffController;
 use App\Http\Controllers\Api\V1\VideoController;
 use App\Http\Controllers\Api\V1\VideoUploadController;
@@ -92,6 +94,17 @@ Route::prefix('v1')
                 Route::put('/',    [MyStoreController::class, 'update'])
                     ->middleware(['not_blocked', 'throttle:20,1'])->name('update');
                 Route::delete('/photos/{photo}', [MyStoreController::class, 'destroyPhoto'])->name('photos.destroy');
+
+                // Заказы, пришедшие в магазин. Владелец видит только свою часть
+                // заказа и только после подтверждения админом.
+                Route::prefix('orders')->name('orders.')->group(function () {
+                    Route::get('/',                   [StoreOrderController::class, 'index'])->name('index');
+                    Route::get('/{suborder}',         [StoreOrderController::class, 'show'])->name('show');
+                    Route::post('/{suborder}/accept', [StoreOrderController::class, 'accept'])
+                        ->middleware(['not_blocked', 'throttle:30,1'])->name('accept');
+                    Route::post('/{suborder}/decline', [StoreOrderController::class, 'decline'])
+                        ->middleware(['not_blocked', 'throttle:30,1'])->name('decline');
+                });
             });
 
             // Настройки, синхронизируемые между устройствами (язык и тема — device-local)
@@ -221,6 +234,25 @@ Route::prefix('v1')
 
             // Просмотр из ленты доступен и гостю (лента публичная)
             Route::post('/{video}/view', [VideoController::class, 'view'])->middleware('throttle:60,1')->name('view');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Заказы
+        |----------------------------------------------------------------------
+        | Корзина живёт на устройстве — сюда приходит уже собранный заказ.
+        | Заказать можно только товар магазина с доставкой; дальше заказ ведёт
+        | админ (обзванивает магазины, подтверждает и везёт).
+        */
+        Route::middleware('auth:sanctum')->prefix('orders')->name('orders.')->group(function () {
+            Route::get('/', [OrderController::class, 'index'])->name('index');
+
+            Route::post('/', [OrderController::class, 'store'])
+                ->middleware(['not_blocked', 'throttle:20,1'])->name('store');
+
+            Route::get('/{order}',         [OrderController::class, 'show'])->name('show');
+            Route::post('/{order}/cancel', [OrderController::class, 'cancel'])
+                ->middleware('throttle:30,1')->name('cancel');
         });
 
         /*
