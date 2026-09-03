@@ -21,6 +21,17 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+script:post-response {
+  // Первая часть из списка — в {{suborder_id}}, чтобы карточка и accept/decline
+  // работали и без запроса «Оформить заказ» (он идёт под токеном покупателя)
+  if (res.getStatus() === 200) {
+    const rows = res.getBody().data;
+    if (rows && rows.length) {
+      bru.setEnvVar("suborder_id", rows[0].id);
+    }
+  }
+}
+
 docs {
   Заказы, пришедшие в магазин текущего пользователя. Токен здесь — токен
   ВЛАДЕЛЬЦА магазина, а не покупателя.
@@ -34,12 +45,19 @@ docs {
 
   Фильтр status (опционально): pending (ждёт ответа владельца) | accepted |
   declined | canceled (заказ закрыт админом раньше, чем магазин ответил).
+  limit — 1..50, по умолчанию 20.
   У каждой записи:
   - id — id ЧАСТИ заказа (тот же, что stores[].id в карточке покупателя),
     именно он идёт в accept/decline;
   - order_number / order_status — номер и статус всего заказа;
   - can_respond — показывать ли кнопки «Принять» / «Отказать»;
   - meta.pending в списке — сколько заказов ждёт ответа (бейдж на вкладке).
+
+  Комиссия платформы: commission_percent — ставка этого магазина на момент
+  заказа (её ставит админ, у каждого магазина своя, 0 — комиссии нет),
+  commission — её сумма, payout = subtotal − commission. Удерживается
+  с магазина: покупатель платит subtotal целиком и комиссии не видит.
+  По каждой позиции — items[].commission и items[].payout.
 }
 
 tests {
