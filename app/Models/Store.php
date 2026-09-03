@@ -9,7 +9,7 @@ class Store extends Model
     protected $fillable = [
         'user_id', 'category_id', 'region_id', 'city_id', 'district_id',
         'name', 'description', 'phone', 'address',
-        'sells_retail', 'sells_wholesale', 'has_delivery',
+        'sells_retail', 'sells_wholesale', 'has_delivery', 'commission_percent',
         'logo', 'status', 'rejection_reason_id', 'is_active',
         'is_popular', 'sort_order',
     ];
@@ -22,6 +22,9 @@ class Store extends Model
             'sells_wholesale' => 'boolean',
             'has_delivery'    => 'boolean',
             'is_active'       => 'boolean',
+            // Комиссия платформы с каждого проданного товара этого магазина.
+            // Ставит админ, у каждого магазина своя, по умолчанию — 0.
+            'commission_percent' => 'decimal:2',
         ];
     }
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Order extends Model
 {
     protected $fillable = [
-        'user_id', 'status', 'total',
+        'user_id', 'status', 'total', 'commission_total',
         'contact_name', 'phone', 'region_id', 'city_id', 'district_id', 'address', 'comment',
         'admin_comment', 'processed_by', 'processed_at',
     ];
@@ -15,8 +15,9 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'total'        => 'decimal:2',
-            'processed_at' => 'datetime',
+            'total'            => 'decimal:2',
+            'commission_total' => 'decimal:2',
+            'processed_at'     => 'datetime',
         ];
     }
 
@@ -36,6 +37,15 @@ class Order extends Model
     public function getNumberAttribute(): string
     {
         return str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Сколько из суммы заказа уходит магазинам: комиссия платформы удерживается
+     * с них, покупатель платит total целиком.
+     */
+    public function getPayoutAttribute(): float
+    {
+        return round((float) $this->total - (float) $this->commission_total, 2);
     }
 
     /** Может ли покупатель ещё отменить заказ — только пока его не взяли в работу. */

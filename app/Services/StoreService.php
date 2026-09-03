@@ -130,6 +130,8 @@ class StoreService
             'sells_retail'     => $store->sells_retail,
             'sells_wholesale'  => $store->sells_wholesale,
             'has_delivery'     => $store->has_delivery,
+            // Ставка комиссии платформы — владелец её видит, но не меняет
+            'commission_percent' => (float) $store->commission_percent,
             'status'           => $store->status,
             'is_active'        => $store->is_active,
             'rejection_reason' => $store->status === 'rejected' && $store->rejectionReason ? [

@@ -51,6 +51,7 @@ class PlaceOrderAction
 
         $suborders = [];
         $total = 0.0;
+        $commissionTotal = 0.0;
 
         foreach ($quantities as $listingId => $qty) {
             /** @var Listing|null $listing */
@@ -64,28 +65,40 @@ class PlaceOrderAction
 
             $store = $listing->store;
 
+            // Комиссия платформы: своя ставка у каждого магазина, считается с
+            // каждой позиции и удерживается с магазина — сумма покупателя от
+            // неё не меняется. Ставка фиксируется снимком, как и цена
+            $commissionPercent = (float) $store->commission_percent;
+            $lineCommission = round($lineTotal * $commissionPercent / 100, 2);
+            $commissionTotal += $lineCommission;
+
             $suborders[$store->id] ??= [
-                'store_id' => $store->id,
-                'user_id'  => $store->user_id,
-                'subtotal' => 0.0,
-                'items'    => [],
+                'store_id'           => $store->id,
+                'user_id'            => $store->user_id,
+                'subtotal'           => 0.0,
+                'commission_percent' => $commissionPercent,
+                'commission_total'   => 0.0,
+                'items'              => [],
             ];
 
             $suborders[$store->id]['items'][] = [
-                'listing_id'   => $listing->id,
-                'title'        => $listing->title,
-                'unit_price'   => $unitPrice,
-                'is_wholesale' => $isWholesale,
-                'qty'          => $qty,
-                'total'        => $lineTotal,
+                'listing_id'        => $listing->id,
+                'title'             => $listing->title,
+                'unit_price'        => $unitPrice,
+                'is_wholesale'      => $isWholesale,
+                'qty'               => $qty,
+                'total'             => $lineTotal,
+                'commission_amount' => $lineCommission,
             ];
             $suborders[$store->id]['subtotal'] += $lineTotal;
+            $suborders[$store->id]['commission_total'] += $lineCommission;
         }
 
         $order = $this->orderService->create([
             'user_id'      => $buyer->id,
             'status'       => 'pending',
             'total'        => round($total, 2),
+            'commission_total' => round($commissionTotal, 2),
             'contact_name' => $data['contact_name'] ?? $buyer->name,
             'phone'        => $data['phone'] ?? $buyer->phone,
             'region_id'    => $data['region_id']   ?? $buyer->region_id,

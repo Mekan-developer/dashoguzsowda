@@ -24,10 +24,13 @@ class OrderRepository implements OrderRepositoryInterface
 
             foreach ($suborders as $suborder) {
                 $created = $model->suborders()->create([
-                    'store_id' => $suborder['store_id'],
-                    'user_id'  => $suborder['user_id'],
-                    'status'   => 'pending',
-                    'subtotal' => $suborder['subtotal'],
+                    'store_id'           => $suborder['store_id'],
+                    'user_id'            => $suborder['user_id'],
+                    'status'             => 'pending',
+                    'subtotal'           => $suborder['subtotal'],
+                    // Ставка комиссии магазина на момент заказа и её сумма
+                    'commission_percent' => $suborder['commission_percent'] ?? 0,
+                    'commission_total'   => $suborder['commission_total'] ?? 0,
                 ]);
 
                 foreach ($suborder['items'] as $item) {

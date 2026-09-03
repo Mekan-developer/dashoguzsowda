@@ -14,15 +14,26 @@ use Illuminate\Database\Eloquent\Model;
 class Suborder extends Model
 {
     protected $fillable = [
-        'order_id', 'store_id', 'user_id', 'status', 'subtotal', 'comment', 'responded_at',
+        'order_id', 'store_id', 'user_id', 'status', 'subtotal',
+        'commission_percent', 'commission_total', 'comment', 'responded_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'subtotal'     => 'decimal:2',
-            'responded_at' => 'datetime',
+            'subtotal'           => 'decimal:2',
+            // Снимок ставки магазина на момент заказа — её могут поменять,
+            // пока админ ведёт заказ
+            'commission_percent' => 'decimal:2',
+            'commission_total'   => 'decimal:2',
+            'responded_at'       => 'datetime',
         ];
+    }
+
+    /** Сумма, которая остаётся магазину после комиссии платформы. */
+    public function getPayoutAttribute(): float
+    {
+        return round((float) $this->subtotal - (float) $this->commission_total, 2);
     }
 
     public function order() { return $this->belongsTo(Order::class); }

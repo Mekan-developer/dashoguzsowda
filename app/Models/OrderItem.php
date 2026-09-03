@@ -12,7 +12,7 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id', 'suborder_id', 'listing_id',
-        'title', 'unit_price', 'is_wholesale', 'qty', 'total', 'stock_taken',
+        'title', 'unit_price', 'is_wholesale', 'qty', 'total', 'commission_amount', 'stock_taken',
     ];
 
     protected function casts(): array
@@ -20,6 +20,9 @@ class OrderItem extends Model
         return [
             'unit_price'   => 'decimal:2',
             'total'        => 'decimal:2',
+            // Комиссия платформы с этой позиции: total × ставка магазина.
+            // Процент один на весь подзаказ, здесь только его сумма
+            'commission_amount' => 'decimal:2',
             'is_wholesale' => 'boolean',
             'stock_taken'  => 'boolean',
             'qty'          => 'integer',

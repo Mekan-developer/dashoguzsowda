@@ -17,6 +17,9 @@ class MyStoreResource extends StoreResource
             ...parent::toArray($request),
 
             'status'    => $this->status,
+            // Комиссия платформы с проданного товара: ставит админ, владелец
+            // только видит её — здесь и в каждой части заказа
+            'commission_percent' => (float) $this->commission_percent,
             // false — тариф с can_have_store кончился: магазин сохранён,
             // но покупателям не показывается
             'is_active' => (bool) $this->is_active,

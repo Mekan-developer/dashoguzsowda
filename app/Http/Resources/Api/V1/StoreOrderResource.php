@@ -26,9 +26,15 @@ class StoreOrderResource extends JsonResource
             // Ответ владельца: pending — ждём его, accepted | declined — уже ответил
             'status'       => $this->status,
             'subtotal'     => (float) $this->subtotal,
+            // Комиссия платформы: ставка магазина на момент заказа, её сумма
+            // и то, что остаётся магазину. Покупатель платит subtotal целиком —
+            // комиссия удерживается с магазина, а не добавляется к цене
+            'commission_percent' => (float) $this->commission_percent,
+            'commission'         => (float) $this->commission_total,
+            'payout'             => $this->payout,
             'comment'      => $this->comment,
             'can_respond'  => $this->isAwaitingOwner(),
-            'items'        => OrderItemResource::collection($this->whenLoaded('items')),
+            'items'        => StoreOrderItemResource::collection($this->whenLoaded('items')),
             'created_at'   => $this->created_at?->toIso8601String(),
             'responded_at' => $this->responded_at?->toIso8601String(),
         ];
