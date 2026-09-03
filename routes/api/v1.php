@@ -96,7 +96,8 @@ Route::prefix('v1')
                 Route::delete('/photos/{photo}', [MyStoreController::class, 'destroyPhoto'])->name('photos.destroy');
 
                 // Заказы, пришедшие в магазин. Владелец видит только свою часть
-                // заказа и только после подтверждения админом.
+                // заказа — и сразу после оформления: наличие подтверждает он,
+                // а админ подтверждает заказ уже по его ответу.
                 Route::prefix('orders')->name('orders.')->group(function () {
                     Route::get('/',                   [StoreOrderController::class, 'index'])->name('index');
                     Route::get('/{suborder}',         [StoreOrderController::class, 'show'])->name('show');
