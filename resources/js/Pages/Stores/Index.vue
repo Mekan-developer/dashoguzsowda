@@ -38,6 +38,7 @@ const emptyForm = () => ({
     name: '', description: '', phone: '', address: '', category_id: null,
     region_id: null, city_id: null, district_id: null,
     sells_retail: true, sells_wholesale: false, has_delivery: false,
+    commission_percent: 0,
     logo: null, crop_x: 50, crop_y: 50, photos: [],
 })
 const form   = ref(emptyForm())
@@ -73,6 +74,7 @@ const dataTableColumns = computed(() => [
     { key: 'name', label: t('common.title'), type: 'text' },
     { key: 'user', label: t('stores.ownerColumn') },
     { key: 'trade', label: t('stores.tradeColumn') },
+    { key: 'commission_percent', label: t('stores.commissionColumn'), width: '110px' },
     { key: 'status', label: t('common.status') },
     { key: 'is_popular', label: t('stores.popularColumn') },
     { key: 'sort_order', label: '', width: '56px' },
@@ -100,6 +102,7 @@ function openEdit(s) {
         region_id: s.region_id ?? null, city_id: s.city_id ?? null, district_id: s.district_id ?? null,
         sells_retail: !!s.sells_retail, sells_wholesale: !!s.sells_wholesale,
         has_delivery: !!s.has_delivery,
+        commission_percent: Number(s.commission_percent ?? 0),
         logo: null, crop_x: 50, crop_y: 50, photos: [],
     }
     newPhotoPreviews.value = []
@@ -212,6 +215,15 @@ function reasonName(reason) {
             {{ t('stores.delivery') }}
           </span>
         </div>
+      </template>
+
+      <!-- Комиссия платформы: у каждого магазина своя, 0 — комиссии нет -->
+      <template #cell-commission_percent="{ item }">
+        <span
+          v-if="Number(item.commission_percent) > 0"
+          class="rounded-pill bg-purple/15 px-2 py-px text-[11px] font-bold text-purple"
+        >{{ Number(item.commission_percent) }} %</span>
+        <span v-else class="text-[12px] text-muted">—</span>
       </template>
 
       <template #cell-status="{ item }">
@@ -331,6 +343,20 @@ function reasonName(reason) {
           </label>
         </div>
         <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.deliveryHint') }}</p>
+      </DrawerField>
+
+      <!-- Комиссия платформы: своя ставка у каждого магазина, удерживается
+           с него при заказе — сумма покупателя от неё не меняется -->
+      <DrawerField :label="t('stores.commissionLabel')" :error="errors.commission_percent">
+        <div class="relative">
+          <input
+            v-model.number="form.commission_percent"
+            type="number" min="0" max="100" step="0.01"
+            class="input pr-9"
+          />
+          <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] font-bold text-[var(--text-muted)]">%</span>
+        </div>
+        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.commissionHint') }}</p>
       </DrawerField>
 
       <DrawerField :label="t('stores.logoLabel')" :error="errors.logo">

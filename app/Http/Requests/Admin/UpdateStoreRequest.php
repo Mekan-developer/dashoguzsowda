@@ -13,6 +13,17 @@ class UpdateStoreRequest extends FormRequest
 
     public function authorize(): bool { return true; }
 
+    /**
+     * Пустое поле комиссии — это «без комиссии», а не отсутствие значения:
+     * форма уходит как multipart, поэтому очищенный input приходит строкой ''.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('commission_percent')) {
+            $this->merge(['commission_percent' => 0]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -27,6 +38,9 @@ class UpdateStoreRequest extends FormRequest
             'sells_retail'    => 'boolean',
             'sells_wholesale' => 'boolean',
             'has_delivery'    => 'boolean',
+            // Комиссия платформы с товаров этого магазина: своя у каждого,
+            // ставит только админ (маршрут закрыт role:admin)
+            'commission_percent' => 'required|numeric|between:0,100',
             'logo'        => 'nullable|image|mimes:jpg,jpeg,png,webp|max:15360',
             'crop_x'      => 'nullable|numeric|between:0,100',
             'crop_y'      => 'nullable|numeric|between:0,100',

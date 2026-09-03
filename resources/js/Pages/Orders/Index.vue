@@ -98,6 +98,15 @@ function money(value) {
     return Number(value ?? 0).toLocaleString()
 }
 
+// Комиссия платформы удерживается с магазина: покупатель платит total целиком,
+// магазину остаётся сумма за вычетом комиссии
+function num(value) {
+    return Number(value ?? 0)
+}
+function payout(sum, commission) {
+    return Math.round((num(sum) - num(commission)) * 100) / 100
+}
+
 // Сколько магазинов ещё не ответило — по ним админ и звонит
 function awaitingCount(order) {
     return (order.suborders || []).filter(s => s.status === 'pending').length
@@ -220,8 +229,20 @@ function deliveryLine(order) {
                   </div>
                 </td>
 
-                <td class="px-4 py-3 border-b border-line dark:border-dline align-top text-[13px] font-bold text-ink dark:text-slate-200 whitespace-nowrap">
-                  {{ money(order.total) }} {{ t('orders.amountUnit') }}
+                <!-- Сумма покупателя не зависит от комиссии: она удерживается
+                     с магазинов, поэтому рядом — сколько из неё наше -->
+                <td class="px-4 py-3 border-b border-line dark:border-dline align-top whitespace-nowrap">
+                  <div class="text-[13px] font-bold text-ink dark:text-slate-200">
+                    {{ money(order.total) }} {{ t('orders.amountUnit') }}
+                  </div>
+                  <template v-if="num(order.commission_total) > 0">
+                    <div class="mt-0.5 text-[11px] font-bold text-purple">
+                      {{ t('orders.commission') }}: {{ money(order.commission_total) }} {{ t('orders.amountUnit') }}
+                    </div>
+                    <div class="text-[11px] text-muted">
+                      {{ t('orders.payout') }}: {{ money(payout(order.total, order.commission_total)) }} {{ t('orders.amountUnit') }}
+                    </div>
+                  </template>
                 </td>
 
                 <td class="px-4 py-3 border-b border-line dark:border-dline align-top">
@@ -278,6 +299,21 @@ function deliveryLine(order) {
                         </span>
                       </div>
 
+                      <!-- Ставка магазина зафиксирована при оформлении: если её
+                           потом поменяли, заказ всё равно считается по старой -->
+                      <div
+                        v-if="num(part.commission_percent) > 0"
+                        class="mb-1 flex flex-wrap items-baseline justify-end gap-x-3 text-[11px]"
+                      >
+                        <span class="font-bold text-purple">
+                          {{ t('orders.commissionAt', { percent: num(part.commission_percent) }) }}:
+                          {{ money(part.commission_total) }} {{ t('orders.amountUnit') }}
+                        </span>
+                        <span class="text-muted">
+                          {{ t('orders.payout') }}: {{ money(payout(part.subtotal, part.commission_total)) }} {{ t('orders.amountUnit') }}
+                        </span>
+                      </div>
+
                       <div
                         v-for="item in part.items"
                         :key="item.id"
@@ -290,8 +326,12 @@ function deliveryLine(order) {
                             {{ t('orders.wholesale') }}
                           </span>
                         </span>
-                        <span class="whitespace-nowrap font-data text-muted">
+                        <span class="whitespace-nowrap text-right font-data text-muted">
                           {{ money(item.unit_price) }} × {{ item.qty }} = <b class="text-ink dark:text-slate-200">{{ money(item.total) }}</b>
+                          <!-- Комиссия считается с каждого товара отдельно -->
+                          <span v-if="num(item.commission_amount) > 0" class="block text-[11px] font-bold text-purple">
+                            − {{ money(item.commission_amount) }} {{ t('orders.amountUnit') }}
+                          </span>
                         </span>
                       </div>
 

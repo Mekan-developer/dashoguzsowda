@@ -50,7 +50,7 @@ class StoreController extends Controller
             $request->safe()->only(
                 'name', 'description', 'phone', 'address', 'category_id',
                 'region_id', 'city_id', 'district_id',
-                'sells_retail', 'sells_wholesale', 'has_delivery',
+                'sells_retail', 'sells_wholesale', 'has_delivery', 'commission_percent',
             ),
             $request->file('logo'),
             $request->safe()->only('crop_x', 'crop_y'),
