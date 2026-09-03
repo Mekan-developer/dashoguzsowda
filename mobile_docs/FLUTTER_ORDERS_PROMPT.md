@@ -187,11 +187,22 @@ class StoreOrder {               // то же, но глазами владел�
   final String? orderStatus;
   final String status;
   final double subtotal;
+  // Комиссия платформы: ставку задаёт админ, у каждого магазина своя и
+  // фиксируется на момент заказа. Удерживается с магазина — покупатель
+  // платит subtotal целиком, магазину остаётся payout = subtotal − commission
+  final double commissionPercent;
+  final double commission;
+  final double payout;
   final String? comment;
   final bool canRespond;         // показывать ли кнопки «Принять» / «Отказать»
-  final List<OrderItem> items;
+  final List<StoreOrderItem> items;
   final DateTime createdAt;
   final DateTime? respondedAt;
+}
+
+class StoreOrderItem extends OrderItem {  // позиция в заказе владельца магазина
+  final double commission;       // комиссия платформы с этой позиции
+  final double payout;           // total − commission
 }
 ```
 
@@ -316,6 +327,11 @@ class StoreOrder {               // то же, но глазами владел�
 6. **Вкладка «Заказы»** в аккаунте магазина — список с бейджем `meta.pending`,
    карточка части заказа, кнопки «Принять» и «Отказать» при `can_respond`,
    поле комментария при отказе.
+7. **Комиссия платформы** в карточке части заказа: при `commission_percent > 0`
+   показать строкой «сумма — комиссия N% = к получению» (`subtotal`,
+   `commission`, `payout`), при `0` блок не рисовать. Покупателю комиссию не
+   показывать нигде: он платит `subtotal` целиком, ставка удерживается с
+   магазина.
 
 ---
 

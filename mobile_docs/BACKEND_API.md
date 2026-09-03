@@ -243,6 +243,7 @@
 |------|-----|----------|
 | `status` | string | `pending` \| `approved` \| `rejected` |
 | `is_active` | bool | `false` — тариф с правом на магазин истёк, витрина погашена |
+| `commission_percent` | number | Комиссия платформы с проданного товара, `0` — комиссии нет. Только для чтения: ставит её админ, у каждого магазина своя |
 | `rejection_reason` | object\|null | `{ id, name_tk, name_ru }` при `status = rejected` |
 
 **Модерация.** Новый магазин и правка витринных полей (`name`, `description`,
@@ -1058,13 +1059,24 @@ POST /v1/my/store/orders/{id}/decline   { "comment": "..." }   // отказ, о
     "order_status": "approved",
     "status": "pending",
     "subtotal": 200,
+    "commission_percent": 5,
+    "commission": 10,
+    "payout": 190,
     "can_respond": true,
-    "items": [ { "id": 44, "title": "Рис длиннозёрный", "qty": 2, "unit_price": 100, "total": 200 } ],
+    "items": [ { "id": 44, "title": "Рис длиннозёрный", "qty": 2, "unit_price": 100, "total": 200, "commission": 10, "payout": 190 } ],
     "created_at": "2026-09-02T12:00:00+00:00"
   }
 }
 ```
 
+- `commission_percent` — комиссия платформы с этого магазина: её ставит админ,
+  своя у каждого магазина, `0` — комиссии нет. Ставка фиксируется в момент
+  оформления, поэтому у старых заказов она может отличаться от текущей
+  (`commission_percent` в `/v1/my/store`).
+- Комиссия **удерживается с магазина, а не добавляется покупателю**: он платит
+  `subtotal` целиком, магазину остаётся `payout = subtotal − commission`.
+  То же самое по каждой позиции — `items[].commission` и `items[].payout`.
+  Покупателю комиссия не отдаётся вовсе.
 - `can_respond: true` → показываем кнопки «Принять» / «Отказать». Ответ даётся
   один раз, повтор — 422. Отвечать можно, только пока заказ в `pending`:
   после решения админа кнопки пропадают, вопрос решается по телефону.
