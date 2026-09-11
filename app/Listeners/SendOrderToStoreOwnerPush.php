@@ -6,14 +6,16 @@ use App\Events\OrderPlaced;
 use App\Services\PushNotificationService;
 
 /**
- * Оформленный заказ сразу разъезжается по владельцам магазинов: каждому — своя
- * часть, поэтому push отправляется по одному, с id этой части. Владелец
- * подтверждает наличие первым, админ подтверждает заказ уже после него.
+ * Оформленный заказ сразу уходит владельцу магазина: решение по заказу
+ * принимает он — подтверждает наличие, везёт сам и получает деньги.
+ *
+ * Магазин в заказе один, но идём по частям заказа: id части и есть адрес
+ * заказа в магазинном API (/v1/my/store/orders/{id}).
  *
  * Deep-link type `store_order` мобилка пока не знает и открывает /home —
  * штатный fallback, описанный в CLAUDE.md → «Push-уведомления».
  */
-class SendOrderToStoreOwnersPush
+class SendOrderToStoreOwnerPush
 {
     public function __construct(
         private readonly PushNotificationService $pushNotificationService,

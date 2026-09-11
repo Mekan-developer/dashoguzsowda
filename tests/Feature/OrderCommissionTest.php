@@ -102,24 +102,22 @@ it('не увеличивает сумму покупателя — комисс
         ->and($order->suborders->first()->payout)->toBe(190.0);
 });
 
-it('берёт свою ставку у каждого магазина в одном заказе', function () {
+it('берёт свою ставку у каждого магазина', function () {
+    // Заказ всегда на один магазин, поэтому ставки сравниваем по двум заказам
     $otherOwner = User::factory()->create([
         'tariff_id' => $this->premium->id, 'tariff_ends_at' => now()->addDays(30),
     ]);
     $otherStore   = commissionStore($otherOwner, ['name' => 'Bereket', 'commission_percent' => 10]);
     $otherListing = commissionListing($otherStore, ['price' => 300, 'stock_qty' => 5]);
 
-    $order = placeCommissionOrder([
-        ['listing_id' => $this->listing->id, 'qty' => 1],   // 100 × 5%  = 5
-        ['listing_id' => $otherListing->id, 'qty' => 1],    // 300 × 10% = 30
-    ]);
+    $ours   = placeCommissionOrder([['listing_id' => $this->listing->id, 'qty' => 1]]);  // 100 × 5%  = 5
+    $theirs = placeCommissionOrder([['listing_id' => $otherListing->id, 'qty' => 1]]);   // 300 × 10% = 30
 
-    $byStore = $order->suborders->keyBy('store_id');
-
-    expect((float) $byStore[$this->store->id]->commission_total)->toBe(5.0)
-        ->and((float) $byStore[$otherStore->id]->commission_total)->toBe(30.0)
-        ->and((float) $order->commission_total)->toBe(35.0)
-        ->and((float) $order->total)->toBe(400.0);
+    expect((float) $ours->suborders->first()->commission_total)->toBe(5.0)
+        ->and((float) $ours->commission_total)->toBe(5.0)
+        ->and((float) $theirs->suborders->first()->commission_total)->toBe(30.0)
+        ->and((float) $theirs->commission_total)->toBe(30.0)
+        ->and((float) $theirs->total)->toBe(300.0);
 });
 
 it('считает комиссию и от оптовой цены', function () {

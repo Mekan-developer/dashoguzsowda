@@ -8,6 +8,10 @@ import Pagination from '@/Components/Pagination.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 
+// Раздел только для наблюдения: заказ ведёт владелец магазина — принимает,
+// везёт сам и получает деньги. Админу здесь важно одно: какой товар, у кого,
+// кому и на какую сумму продан. Действий по заказу тут нет ни одного.
+
 const { t } = useI18n()
 
 const props = defineProps({
@@ -38,7 +42,7 @@ function applyFilters() {
     }, { preserveState: true, preserveScroll: true, replace: true })
 }
 function setStatus(value) { statusFilter.value = value; applyFilters() }
-// Клик по магазину в строке — самый частый вопрос админа: «что заказано у них»
+// Клик по магазину в строке — самый частый вопрос админа: «что продали они»
 function setStore(value) { storeFilter.value = value ? String(value) : ''; applyFilters() }
 
 // ── Раскрытие состава ──────────────────────────────────────────────────────
@@ -47,45 +51,6 @@ function toggle(id) {
     const next = new Set(expanded.value)
     next.has(id) ? next.delete(id) : next.add(id)
     expanded.value = next
-}
-
-// ── Действия ───────────────────────────────────────────────────────────────
-
-// Подтверждать положено после ответа магазинов — если кто-то ещё молчит или
-// отказался, предупреждаем об этом отдельно, но решение оставляем админу
-function approve(order) {
-    const waiting = awaitingCount(order)
-    const declined = (order.suborders || []).filter(s => s.status === 'declined').length
-
-    const question = waiting
-        ? t('orders.confirmApproveWaiting', { number: order.number, count: waiting })
-        : declined
-            ? t('orders.confirmApproveDeclined', { number: order.number, count: declined })
-            : t('orders.confirmApprove', { number: order.number })
-
-    if (!confirm(question)) return
-    router.patch(route('orders.approve', order.id), {}, { preserveScroll: true })
-}
-
-function cancel(order) {
-    if (!confirm(t('orders.confirmCancel', { number: order.number }))) return
-    router.patch(route('orders.cancel', order.id), {}, { preserveScroll: true })
-}
-
-function complete(order) {
-    if (!confirm(t('orders.confirmCompleted', { number: order.number }))) return
-    router.patch(route('orders.complete', order.id), {}, { preserveScroll: true })
-}
-
-const rejectTarget = ref(null)
-const rejectComment = ref('')
-function openReject(order) { rejectTarget.value = order; rejectComment.value = '' }
-function doReject() {
-    if (!rejectComment.value.trim()) return
-    router.patch(route('orders.reject', rejectTarget.value.id), { comment: rejectComment.value }, {
-        preserveScroll: true,
-        onSuccess: () => { rejectTarget.value = null },
-    })
 }
 
 // ── Вспомогательное ────────────────────────────────────────────────────────
@@ -107,9 +72,9 @@ function payout(sum, commission) {
     return Math.round((num(sum) - num(commission)) * 100) / 100
 }
 
-// Сколько магазинов ещё не ответило — по ним админ и звонит
-function awaitingCount(order) {
-    return (order.suborders || []).filter(s => s.status === 'pending').length
+// В заказе всегда один магазин, но данные лежат в его части заказа
+function part(order) {
+    return order.suborders?.[0] || null
 }
 
 function deliveryLine(order) {
@@ -170,12 +135,11 @@ function deliveryLine(order) {
           <thead class="bg-surface/50 dark:bg-dbg/50">
             <tr>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('orders.colOrder') }}</th>
+              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('orders.colSeller') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('orders.colBuyer') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('orders.colStores') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('orders.colDelivery') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('orders.colTotal') }}</th>
               <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.status') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -194,32 +158,22 @@ function deliveryLine(order) {
                   <div class="text-[11px] text-muted">{{ t('orders.itemsCount', { count: order.items_count }) }}</div>
                 </td>
 
+                <!-- Кто продал: магазин, его владелец и телефон для связи -->
+                <td class="px-4 py-3 border-b border-line dark:border-dline align-top">
+                  <button
+                    v-if="part(order)"
+                    @click="setStore(part(order).store?.id)"
+                    class="text-left text-[13px] font-bold text-ink transition hover:text-blue dark:text-slate-100"
+                    :title="t('orders.colSeller')"
+                  >{{ part(order).store?.name || '—' }}</button>
+                  <div v-else class="text-[12px] text-muted">—</div>
+                  <div v-if="part(order)?.user" class="text-[12px] text-muted">{{ part(order).user.name }}</div>
+                  <div v-if="part(order)?.store?.phone" class="text-[12px] text-muted">{{ part(order).store.phone }}</div>
+                </td>
+
                 <td class="px-4 py-3 border-b border-line dark:border-dline align-top">
                   <div class="text-[13px] font-bold text-ink dark:text-slate-100">{{ order.contact_name || order.user?.name || '—' }}</div>
                   <div class="text-[12px] text-muted">{{ order.phone }}</div>
-                </td>
-
-                <!-- Главное для админа: чей товар в заказе и что магазин ответил -->
-                <td class="px-4 py-3 border-b border-line dark:border-dline align-top">
-                  <div class="flex flex-col gap-1">
-                    <button
-                      v-for="part in order.suborders"
-                      :key="part.id"
-                      @click="setStore(part.store?.id)"
-                      class="flex items-center gap-2 text-left transition hover:opacity-80"
-                      :title="t('orders.colStores')"
-                    >
-                      <span class="text-[13px] font-semibold text-ink dark:text-slate-200">{{ part.store?.name || '—' }}</span>
-                      <StatusBadge :status="part.status" />
-                    </button>
-                    <div v-if="!order.suborders?.length" class="text-[12px] text-muted">—</div>
-                    <!-- Магазины отвечают до подтверждения: пока кто-то молчит,
-                         админу есть кому звонить -->
-                    <div
-                      v-else-if="order.status === 'pending' && awaitingCount(order)"
-                      class="text-[11px] font-semibold text-orange"
-                    >{{ t('orders.awaitingStores', { count: awaitingCount(order) }) }}</div>
-                  </div>
                 </td>
 
                 <td class="px-4 py-3 border-b border-line dark:border-dline align-top">
@@ -230,7 +184,7 @@ function deliveryLine(order) {
                 </td>
 
                 <!-- Сумма покупателя не зависит от комиссии: она удерживается
-                     с магазинов, поэтому рядом — сколько из неё наше -->
+                     с магазина, поэтому рядом — сколько из неё наше -->
                 <td class="px-4 py-3 border-b border-line dark:border-dline align-top whitespace-nowrap">
                   <div class="text-[13px] font-bold text-ink dark:text-slate-200">
                     {{ money(order.total) }} {{ t('orders.amountUnit') }}
@@ -246,98 +200,65 @@ function deliveryLine(order) {
                 </td>
 
                 <td class="px-4 py-3 border-b border-line dark:border-dline align-top">
-                  <span :title="order.admin_comment || undefined">
-                    <StatusBadge :status="order.status" />
-                  </span>
-                  <div v-if="order.admin_comment" class="mt-1 max-w-[180px] text-[11px] text-muted">{{ order.admin_comment }}</div>
-                  <div v-if="order.processor" class="mt-1 text-[11px] text-muted">{{ order.processor.name }}</div>
-                </td>
-
-                <td class="px-4 py-3 border-b border-line dark:border-dline align-top">
-                  <div class="flex gap-1">
-                    <template v-if="order.status === 'pending'">
-                      <button
-                        @click="approve(order)"
-                        class="flex h-8 w-8 items-center justify-center rounded-[8px] bg-green/15 text-green transition hover:bg-green/25"
-                        :title="t('actions.approve')" :aria-label="t('actions.approve')"
-                      ><Icon kind="check" :size="14" /></button>
-                      <button
-                        @click="openReject(order)"
-                        class="flex h-8 w-8 items-center justify-center rounded-[8px] bg-red/15 text-red transition hover:bg-red/25"
-                        :title="t('actions.reject')" :aria-label="t('actions.reject')"
-                      ><Icon kind="close" :size="14" /></button>
-                    </template>
-
-                    <template v-else-if="order.status === 'approved'">
-                      <button
-                        @click="complete(order)"
-                        class="rounded-[8px] bg-green/15 px-2.5 h-8 text-[12px] font-bold text-green transition hover:bg-green/25"
-                      >{{ t('orders.actionCompleted') }}</button>
-                      <button
-                        @click="cancel(order)"
-                        class="flex h-8 w-8 items-center justify-center rounded-[8px] bg-red/15 text-red transition hover:bg-red/25"
-                        :title="t('actions.cancel')" :aria-label="t('actions.cancel')"
-                      ><Icon kind="close" :size="14" /></button>
-                    </template>
-
-                    <span v-else class="text-[12px] text-muted">—</span>
+                  <StatusBadge :status="order.status" />
+                  <!-- Причина отказа — от продавца: решение по заказу его -->
+                  <div v-if="order.decision_comment" class="mt-1 max-w-[180px] text-[11px] text-muted">
+                    {{ t('orders.sellerComment') }}: {{ order.decision_comment }}
                   </div>
+                  <div v-if="order.decided_at" class="mt-1 text-[11px] text-muted">{{ formatDate(order.decided_at) }}</div>
                 </td>
               </tr>
 
-              <!-- Состав заказа: что именно собирать каждому магазину -->
+              <!-- Состав заказа: что именно продано, сколько и по какой цене -->
               <tr v-if="expanded.has(order.id)" class="bg-surface/40 dark:bg-dbg/40">
-                <td colspan="7" class="px-4 py-4 border-b border-line dark:border-dline">
-                  <div class="flex flex-col gap-4">
-                    <div v-for="part in order.suborders" :key="part.id" class="rounded-card bg-white p-3 shadow-soft dark:bg-dcard">
-                      <div class="mb-2 flex flex-wrap items-center gap-2">
-                        <span class="text-[13px] font-extrabold text-ink dark:text-slate-100">{{ part.store?.name || '—' }}</span>
-                        <StatusBadge :status="part.status" />
-                        <span v-if="part.store?.phone" class="text-[12px] text-muted">{{ part.store.phone }}</span>
-                        <span class="ml-auto text-[13px] font-bold text-ink dark:text-slate-200">
-                          {{ money(part.subtotal) }} {{ t('orders.amountUnit') }}
-                        </span>
-                      </div>
+                <td colspan="6" class="px-4 py-4 border-b border-line dark:border-dline">
+                  <div v-if="part(order)" class="rounded-card bg-white p-3 shadow-soft dark:bg-dcard">
+                    <div class="mb-2 flex flex-wrap items-center gap-2">
+                      <span class="text-[13px] font-extrabold text-ink dark:text-slate-100">{{ part(order).store?.name || '—' }}</span>
+                      <StatusBadge :status="part(order).status" />
+                      <span class="ml-auto text-[13px] font-bold text-ink dark:text-slate-200">
+                        {{ money(part(order).subtotal) }} {{ t('orders.amountUnit') }}
+                      </span>
+                    </div>
 
-                      <!-- Ставка магазина зафиксирована при оформлении: если её
-                           потом поменяли, заказ всё равно считается по старой -->
-                      <div
-                        v-if="num(part.commission_percent) > 0"
-                        class="mb-1 flex flex-wrap items-baseline justify-end gap-x-3 text-[11px]"
-                      >
-                        <span class="font-bold text-purple">
-                          {{ t('orders.commissionAt', { percent: num(part.commission_percent) }) }}:
-                          {{ money(part.commission_total) }} {{ t('orders.amountUnit') }}
-                        </span>
-                        <span class="text-muted">
-                          {{ t('orders.payout') }}: {{ money(payout(part.subtotal, part.commission_total)) }} {{ t('orders.amountUnit') }}
-                        </span>
-                      </div>
+                    <!-- Ставка магазина зафиксирована при оформлении: если её
+                         потом поменяли, заказ всё равно считается по старой -->
+                    <div
+                      v-if="num(part(order).commission_percent) > 0"
+                      class="mb-1 flex flex-wrap items-baseline justify-end gap-x-3 text-[11px]"
+                    >
+                      <span class="font-bold text-purple">
+                        {{ t('orders.commissionAt', { percent: num(part(order).commission_percent) }) }}:
+                        {{ money(part(order).commission_total) }} {{ t('orders.amountUnit') }}
+                      </span>
+                      <span class="text-muted">
+                        {{ t('orders.payout') }}: {{ money(payout(part(order).subtotal, part(order).commission_total)) }} {{ t('orders.amountUnit') }}
+                      </span>
+                    </div>
 
-                      <div
-                        v-for="item in part.items"
-                        :key="item.id"
-                        class="flex items-baseline justify-between gap-3 border-t border-line py-1.5 text-[12px] dark:border-dline"
-                      >
-                        <span class="text-ink dark:text-slate-200">
-                          {{ item.title }}
-                          <span class="text-muted">{{ t('orders.qtyShort', { qty: item.qty }) }}</span>
-                          <span v-if="item.is_wholesale" class="ml-1 rounded-pill bg-purple/10 px-1.5 py-px text-[10px] font-bold text-purple">
-                            {{ t('orders.wholesale') }}
-                          </span>
+                    <div
+                      v-for="item in part(order).items"
+                      :key="item.id"
+                      class="flex items-baseline justify-between gap-3 border-t border-line py-1.5 text-[12px] dark:border-dline"
+                    >
+                      <span class="text-ink dark:text-slate-200">
+                        {{ item.title }}
+                        <span class="text-muted">{{ t('orders.qtyShort', { qty: item.qty }) }}</span>
+                        <span v-if="item.is_wholesale" class="ml-1 rounded-pill bg-purple/10 px-1.5 py-px text-[10px] font-bold text-purple">
+                          {{ t('orders.wholesale') }}
                         </span>
-                        <span class="whitespace-nowrap text-right font-data text-muted">
-                          {{ money(item.unit_price) }} × {{ item.qty }} = <b class="text-ink dark:text-slate-200">{{ money(item.total) }}</b>
-                          <!-- Комиссия считается с каждого товара отдельно -->
-                          <span v-if="num(item.commission_amount) > 0" class="block text-[11px] font-bold text-purple">
-                            − {{ money(item.commission_amount) }} {{ t('orders.amountUnit') }}
-                          </span>
+                      </span>
+                      <span class="whitespace-nowrap text-right font-data text-muted">
+                        {{ money(item.unit_price) }} × {{ item.qty }} = <b class="text-ink dark:text-slate-200">{{ money(item.total) }}</b>
+                        <!-- Комиссия считается с каждого товара отдельно -->
+                        <span v-if="num(item.commission_amount) > 0" class="block text-[11px] font-bold text-purple">
+                          − {{ money(item.commission_amount) }} {{ t('orders.amountUnit') }}
                         </span>
-                      </div>
+                      </span>
+                    </div>
 
-                      <div v-if="part.comment" class="mt-2 text-[11px] text-muted">
-                        {{ t('orders.storeComment') }}: {{ part.comment }}
-                      </div>
+                    <div v-if="part(order).comment" class="mt-2 text-[11px] text-muted">
+                      {{ t('orders.sellerComment') }}: {{ part(order).comment }}
                     </div>
                   </div>
                 </td>
@@ -345,29 +266,12 @@ function deliveryLine(order) {
             </template>
 
             <tr v-if="!orders.data.length">
-              <td colspan="7" class="px-4 py-10 text-center text-sm text-muted">{{ t('orders.empty') }}</td>
+              <td colspan="6" class="px-4 py-10 text-center text-sm text-muted">{{ t('orders.empty') }}</td>
             </tr>
           </tbody>
         </table>
       </div>
       <Pagination :links="orders.links" />
-    </div>
-
-    <div v-if="rejectTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="rejectTarget = null">
-      <div class="w-full max-w-md rounded-card bg-white p-6 shadow-soft dark:bg-dcard">
-        <h3 class="mb-4 text-[17px] font-extrabold text-ink dark:text-slate-100">{{ t('orders.rejectTitle') }}</h3>
-        <label class="mb-1.5 block text-[12px] font-bold text-muted">{{ t('orders.rejectCommentLabel') }}</label>
-        <textarea
-          v-model="rejectComment"
-          rows="3"
-          class="input mb-5"
-          :placeholder="t('orders.rejectCommentPlaceholder')"
-        ></textarea>
-        <div class="flex gap-2">
-          <button @click="rejectTarget = null" class="flex-1 rounded-btn border-2 border-line py-[11px] text-[13px] font-bold text-muted hover:border-blue hover:text-blue transition dark:border-dline">{{ t('actions.cancel') }}</button>
-          <button @click="doReject" :disabled="!rejectComment.trim()" class="flex-1 rounded-btn bg-red py-[11px] text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40 transition">{{ t('actions.reject') }}</button>
-        </div>
-      </div>
     </div>
   </AppLayout>
 </template>

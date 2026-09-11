@@ -17,7 +17,7 @@ class OrderResource extends JsonResource
     {
         return [
             'id'     => $this->id,
-            // Номер для разговора с админом: «заказ 000123»
+            // Номер для разговора с продавцом: «заказ 000123»
             'number' => $this->number,
             // pending | approved | completed | rejected | canceled
             'status' => $this->status,
@@ -43,15 +43,16 @@ class OrderResource extends JsonResource
             ] : null),
 
             'comment' => $this->comment,
-            // Причина отказа или пометка админа после обзвона магазинов
-            'admin_comment' => $this->admin_comment,
+            // Причина отказа от продавца: решение по заказу принимает он
+            'decision_comment' => $this->decision_comment,
 
-            // Состав, разложенный по магазинам: у каждого своя сумма и свой статус
+            // Магазин заказа: его контакты, сумма и ответ. Всегда один элемент —
+            // заказ на нескольких продавцов сразу не оформляется
             'stores' => SuborderResource::collection($this->whenLoaded('suborders')),
 
-            'can_cancel'   => $this->isCancelableByBuyer(),
-            'created_at'   => $this->created_at?->toIso8601String(),
-            'processed_at' => $this->processed_at?->toIso8601String(),
+            'can_cancel' => $this->isCancelableByBuyer(),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'decided_at' => $this->decided_at?->toIso8601String(),
         ];
     }
 }

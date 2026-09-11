@@ -17,6 +17,15 @@ class OrderRepository implements OrderRepositoryInterface
         'suborders.store', 'suborders.user', 'suborders.items.listing.media',
     ];
 
+    /**
+     * Заказ глазами продавца. Адрес и город грузятся вместе с ним: доставку
+     * делает он сам, значит и адрес доставки — его рабочие данные.
+     */
+    private const OWNER_RELATIONS = [
+        'order.region', 'order.city', 'order.district', 'order.user',
+        'store', 'items.listing.media',
+    ];
+
     public function create(array $order, array $suborders): Order
     {
         return DB::transaction(function () use ($order, $suborders) {
@@ -61,14 +70,15 @@ class OrderRepository implements OrderRepositoryInterface
 
     public function find(int $orderId): Order
     {
-        return Order::with([...self::FULL_RELATIONS, 'user', 'processor'])->findOrFail($orderId);
+        return Order::with([...self::FULL_RELATIONS, 'user', 'decider'])->findOrFail($orderId);
     }
 
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
         // Состав грузим сразу: админка раскрывает заказ прямо в списке,
-        // отдельного запроса на карточку нет
-        return Order::with(['user', 'city', 'district', 'suborders.store', 'suborders.items', 'processor'])
+        // отдельного запроса на карточку нет. Владелец магазина — рядом с
+        // магазином: админ смотрит, кто именно продал и кому
+        return Order::with(['user', 'city', 'district', 'suborders.store', 'suborders.user', 'suborders.items', 'decider'])
             ->withCount('items')
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when($filters['store_id'] ?? null, fn ($q, $id) => $q
@@ -116,9 +126,9 @@ class OrderRepository implements OrderRepositoryInterface
 
     public function paginateForOwner(int $ownerId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        // Владелец отвечает первым, поэтому видит свою часть сразу после
-        // оформления заказа — включая ещё не подтверждённые админом
-        return Suborder::with(['order.city', 'order.district', 'store', 'items.listing.media'])
+        // Заказ приходит владельцу сразу после оформления: решение по нему
+        // принимает он, поэтому видит его с первой минуты
+        return Suborder::with(self::OWNER_RELATIONS)
             ->where('user_id', $ownerId)
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->latest('id')
@@ -128,30 +138,36 @@ class OrderRepository implements OrderRepositoryInterface
 
     public function findSuborderForOwner(int $suborderId, int $ownerId): ?Suborder
     {
-        return Suborder::with(['order.city', 'order.district', 'store', 'items.listing.media'])
+        return Suborder::with(self::OWNER_RELATIONS)
             ->where('user_id', $ownerId)
             ->find($suborderId);
+    }
+
+    public function refreshSuborder(Suborder $suborder): Suborder
+    {
+        return $suborder->fresh(self::OWNER_RELATIONS);
     }
 
     public function countPendingForOwner(int $ownerId): int
     {
         return Suborder::where('user_id', $ownerId)
             ->where('status', 'pending')
-            // Ждут ответа только те, чей заказ ещё не закрыт админом
+            // Ждут ответа только те, чей заказ ещё не закрыт: покупатель мог
+            // отменить его раньше, чем продавец успел ответить
             ->whereHas('order', fn ($q) => $q->where('status', 'pending'))
             ->count();
     }
 
-    public function updateStatus(Order $order, string $status, ?int $adminId = null, ?string $comment = null): Order
+    public function updateStatus(Order $order, string $status, ?int $deciderId = null, ?string $comment = null): Order
     {
         $order->update([
-            'status'        => $status,
-            'admin_comment' => $comment ?? $order->admin_comment,
-            'processed_by'  => $adminId ?? $order->processed_by,
-            'processed_at'  => now(),
+            'status'           => $status,
+            'decision_comment' => $comment ?? $order->decision_comment,
+            'decided_by'       => $deciderId ?? $order->decided_by,
+            'decided_at'       => now(),
         ]);
 
-        return $order->fresh([...self::FULL_RELATIONS, 'user', 'processor']);
+        return $order->fresh([...self::FULL_RELATIONS, 'user', 'decider']);
     }
 
     public function updateSuborderStatus(Suborder $suborder, string $status, ?string $comment = null): Suborder
@@ -162,13 +178,13 @@ class OrderRepository implements OrderRepositoryInterface
             'responded_at' => now(),
         ]);
 
-        return $suborder->fresh(['order.city', 'order.district', 'store', 'items.listing.media']);
+        return $suborder->fresh(self::OWNER_RELATIONS);
     }
 
     public function closeSuborders(Order $order, string $status, array $from): void
     {
         // responded_at не трогаем: это отметка об ответе владельца, а закрывает
-        // часть админ — по ней потом видно, кто на самом деле отвечал
+        // часть отмена покупателя — по ней потом видно, отвечал ли продавец
         Suborder::where('order_id', $order->id)
             ->whereIn('status', $from)
             ->update(['status' => $status]);

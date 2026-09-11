@@ -12,10 +12,11 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 /**
  * Заказы товаров магазинов.
  *
- * Онлайн-оплаты нет и здесь: покупатель оформляет заказ, админ обзванивает
- * магазины и подтверждает наличие, деньги передаются при доставке. Поэтому
- * заказ до подтверждения ничего не резервирует — остатки списываются только
- * в момент approve (takeStock) и возвращаются при отказе или отмене.
+ * Онлайн-оплаты нет и здесь: заказ уходит прямо владельцу магазина, он
+ * подтверждает наличие, везёт сам и получает деньги на месте. Поэтому заказ до
+ * ответа продавца ничего не резервирует — остатки списываются в момент, когда
+ * он принял заказ (takeStock). Возврат (releaseStock) идёт строго по позициям
+ * с stock_taken, поэтому отказ и отмена до ответа продавца ничего не трогают.
  */
 class OrderService
 {
@@ -26,7 +27,7 @@ class OrderService
 
     /**
      * @param  array<string, mixed>  $order
-     * @param  array<int, array<string, mixed>>  $suborders  сгруппированные по магазину позиции
+     * @param  array<int, array<string, mixed>>  $suborders  позиции магазина; в заказе он один
      */
     public function create(array $order, array $suborders): Order
     {
@@ -74,14 +75,21 @@ class OrderService
         return $this->orderRepository->findSuborderForOwner($suborderId, $owner->id);
     }
 
+    /** Перечитывает часть заказа — после того, как сменился статус заказа. */
+    public function refreshSuborder(Suborder $suborder): Suborder
+    {
+        return $this->orderRepository->refreshSuborder($suborder);
+    }
+
     public function countPendingForOwner(User $owner): int
     {
         return $this->orderRepository->countPendingForOwner($owner->id);
     }
 
-    public function changeStatus(Order $order, string $status, ?User $admin = null, ?string $comment = null): Order
+    /** $decider — владелец магазина; при отмене покупателем решает никто. */
+    public function changeStatus(Order $order, string $status, ?User $decider = null, ?string $comment = null): Order
     {
-        return $this->orderRepository->updateStatus($order, $status, $admin?->id, $comment);
+        return $this->orderRepository->updateStatus($order, $status, $decider?->id, $comment);
     }
 
     public function respondToSuborder(Suborder $suborder, string $status, ?string $comment = null): Suborder
@@ -90,8 +98,8 @@ class OrderService
     }
 
     /**
-     * Закрывает части, оставшиеся без ответа, когда решение по заказу принято.
-     * Иначе они висят в «ждём ответа» даже у доставленного заказа.
+     * Закрывает часть магазина, оставшуюся без ответа: покупатель отменил
+     * заказ раньше, чем продавец ответил. Иначе она висела бы в «ждём ответа».
      *
      * @param  array<int, string>  $from
      */
@@ -101,11 +109,11 @@ class OrderService
     }
 
     /**
-     * Списывает остатки по позициям заказа. Вызывается при подтверждении
-     * админом: до него заказ — только заявка, и держать под неё товар незачем.
+     * Списывает остатки по позициям заказа. Вызывается, когда продавец принял
+     * заказ: до этого заказ — только заявка, держать под неё товар незачем.
      *
-     * Части магазинов, которые к этому моменту отказались, пропускаются: их
-     * товар никуда не едет, и списывать его нельзя.
+     * Часть магазина со статусом declined пропускается: её товар никуда не
+     * едет, и списывать его нельзя.
      */
     public function takeStock(Order $order): void
     {
@@ -128,9 +136,9 @@ class OrderService
     }
 
     /**
-     * Возвращает остатки — при отказе владельца, отмене или отклонении заказа.
-     * Возвращаются только позиции с stock_taken: у товара без учёта остатков
-     * списания не было, и «возврат» задрал бы ему количество.
+     * Возвращает остатки — при отмене заказа. Возвращаются только позиции с
+     * stock_taken: у товара без учёта остатков списания не было, и «возврат»
+     * задрал бы ему количество.
      */
     public function releaseStock(Order|Suborder $scope): void
     {

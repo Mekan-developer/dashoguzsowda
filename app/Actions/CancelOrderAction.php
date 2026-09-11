@@ -4,53 +4,42 @@ namespace App\Actions;
 
 use App\Events\OrderStatusChanged;
 use App\Models\Order;
-use App\Models\User;
 use App\Services\OrderService;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Отмена заказа.
+ * Отмена заказа покупателем.
  *
- * Покупатель отменяет только пока заказ никто не взял в работу (pending) —
- * дальше вопрос решается с админом по телефону, иначе отменённый заказ уже
- * будет ехать к покупателю. Админ может отменить и подтверждённый; остатки,
- * списанные при подтверждении, возвращаются.
+ * Отменить можно, только пока продавец не ответил (pending): дальше он уже
+ * собирает товар и едет, и вопрос решается с ним по телефону — его номер
+ * покупатель видит в карточке заказа.
+ *
+ * Продавцу об отмене уходит push: заказ ведёт он, и узнать об этом должен
+ * первым.
  */
 class CancelOrderAction
 {
-    /** Статусы, из которых заказ ещё можно отменить админу. */
-    private const ADMIN_CANCELABLE = ['pending', 'approved'];
-
     public function __construct(
         private readonly OrderService $orderService,
     ) {}
 
-    public function execute(Order $order, ?User $admin = null): Order
+    public function execute(Order $order): Order
     {
-        $allowed = $admin
-            ? in_array($order->status, self::ADMIN_CANCELABLE, true)
-            : $order->isCancelableByBuyer();
-
-        if (! $allowed) {
+        if (! $order->isCancelableByBuyer()) {
             throw ValidationException::withMessages([
-                'status' => $admin
-                    ? __('messages.order_already_processed')
-                    : __('messages.order_cannot_cancel'),
+                'status' => __('messages.order_cannot_cancel'),
             ]);
         }
 
+        // Остатки списываются только при подтверждении продавца, то есть у
+        // отменяемого заказа списаний нет. Вызов оставлен намеренно: возврат
+        // идёт строго по позициям с stock_taken и лишнего не тронет
         $this->orderService->releaseStock($order);
+        $this->orderService->closeSuborders($order, 'canceled', ['pending']);
 
-        // Заказ снят — части магазинов закрываются вместе с ним, чтобы не
-        // висеть в «ждём ответа» (declined оставляем: магазин уже ответил)
-        $this->orderService->closeSuborders($order, 'canceled', ['pending', 'accepted']);
+        $canceled = $this->orderService->changeStatus($order, 'canceled');
 
-        $canceled = $this->orderService->changeStatus($order, 'canceled', $admin);
-
-        // Покупателю сообщаем, только если отменил не он сам
-        if ($admin) {
-            event(new OrderStatusChanged($canceled));
-        }
+        event(new OrderStatusChanged($canceled));
 
         return $canceled;
     }

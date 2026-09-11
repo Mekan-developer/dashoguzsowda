@@ -46,11 +46,12 @@ return [
 
     // Заказы: корзина собирается на устройстве, поэтому её содержимое
     // проверяется на сервере заново и каждая причина отказа своя
-    'order_created'            => 'Заказ оформлен. Администратор свяжется с вами для подтверждения',
+    'order_created'            => 'Заказ отправлен продавцу. Он свяжется с вами для подтверждения',
     'order_not_found'          => 'Заказ не найден',
     'order_items_required'     => 'Корзина пуста',
     'order_items_limit'        => 'В одном заказе не больше :limit товаров',
     'order_item_missing'       => 'Товар из корзины больше не доступен',
+    'order_single_store'       => 'В одном заказе может быть товар только одного магазина — оформите заказ каждому продавцу отдельно',
     'order_item_unavailable'   => 'Товар «:title» сейчас недоступен для заказа',
     'order_item_own'           => 'Нельзя заказать собственный товар',
     'order_store_no_delivery'  => 'Магазин «:name» не делает доставку — свяжитесь с продавцом',
@@ -59,7 +60,7 @@ return [
     'order_item_min_qty'       => 'Минимальный заказ товара «:title» — :count шт.',
     'order_item_no_price'      => 'У товара «:title» не указана цена — свяжитесь с продавцом',
     'order_already_processed'  => 'Заказ уже обработан',
-    'order_cannot_cancel'      => 'Заказ уже в работе — отменить его может только администратор',
+    'order_cannot_cancel'      => 'Продавец уже принял заказ — свяжитесь с ним по телефону',
     'order_status_transition_invalid' => 'Недопустимая смена статуса заказа',
     'order_canceled'           => 'Заказ отменён',
     'order_approved'           => 'Заказ подтверждён',
@@ -134,15 +135,15 @@ return [
     // :number — номер заказа (id с ведущими нулями), по нему покупатель и
     // админ находят заказ в разговоре
     'push_order_approved_title'   => 'Заказ подтверждён',
-    'push_order_approved_body'    => 'Заказ №:number подтверждён, скоро доставим',
+    'push_order_approved_body'    => 'Продавец принял заказ №:number и скоро доставит',
     'push_order_rejected_title'   => 'Заказ отклонён',
-    'push_order_rejected_body'    => 'Заказ №:number отклонён',
+    'push_order_rejected_body'    => 'Продавец отказал по заказу №:number',
     'push_order_completed_title'  => 'Заказ доставлен',
     'push_order_completed_body'   => 'Заказ №:number доставлен. Спасибо за покупку!',
-    'push_order_canceled_title'   => 'Заказ отменён',
-    'push_order_canceled_body'    => 'Заказ №:number отменён',
     'push_store_order_title'      => 'Новый заказ в вашем магазине',
     'push_store_order_body'       => 'Заказ №:number — подтвердите наличие товара',
+    'push_store_order_canceled_title' => 'Заказ отменён покупателем',
+    'push_store_order_canceled_body'  => 'Покупатель отменил заказ №:number',
     'push_chat_reply_title'       => 'Новое сообщение от поддержки',
     'push_chat_reply_body'        => 'Вам ответили в чате поддержки',
     'push_queued'                 => 'Уведомление поставлено в очередь (:count получателей)',

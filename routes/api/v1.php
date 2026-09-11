@@ -95,9 +95,9 @@ Route::prefix('v1')
                     ->middleware(['not_blocked', 'throttle:20,1'])->name('update');
                 Route::delete('/photos/{photo}', [MyStoreController::class, 'destroyPhoto'])->name('photos.destroy');
 
-                // Заказы, пришедшие в магазин. Владелец видит только свою часть
-                // заказа — и сразу после оформления: наличие подтверждает он,
-                // а админ подтверждает заказ уже по его ответу.
+                // Заказы, пришедшие в магазин. Заказ идёт прямо владельцу и
+                // ведёт его он: принимает (или отказывается), собирает, везёт
+                // сам и закрывает доставленным. Админ в решении не участвует.
                 Route::prefix('orders')->name('orders.')->group(function () {
                     Route::get('/',                   [StoreOrderController::class, 'index'])->name('index');
                     Route::get('/{suborder}',         [StoreOrderController::class, 'show'])->name('show');
@@ -105,6 +105,8 @@ Route::prefix('v1')
                         ->middleware(['not_blocked', 'throttle:30,1'])->name('accept');
                     Route::post('/{suborder}/decline', [StoreOrderController::class, 'decline'])
                         ->middleware(['not_blocked', 'throttle:30,1'])->name('decline');
+                    Route::post('/{suborder}/complete', [StoreOrderController::class, 'complete'])
+                        ->middleware(['not_blocked', 'throttle:30,1'])->name('complete');
                 });
             });
 
@@ -241,9 +243,9 @@ Route::prefix('v1')
         |----------------------------------------------------------------------
         | Заказы
         |----------------------------------------------------------------------
-        | Корзина живёт на устройстве — сюда приходит уже собранный заказ.
-        | Заказать можно только товар магазина с доставкой; дальше заказ ведёт
-        | админ (обзванивает магазины, подтверждает и везёт).
+        | Корзина живёт на устройстве — сюда приходит уже собранный заказ, и
+        | всегда на один магазин. Заказать можно только товар магазина с
+        | доставкой; дальше заказ ведёт сам продавец.
         */
         Route::middleware('auth:sanctum')->prefix('orders')->name('orders.')->group(function () {
             Route::get('/', [OrderController::class, 'index'])->name('index');

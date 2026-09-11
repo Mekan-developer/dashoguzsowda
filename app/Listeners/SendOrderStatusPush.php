@@ -6,15 +6,17 @@ use App\Events\OrderStatusChanged;
 use App\Services\PushNotificationService;
 
 /**
- * Заказ доставлен или отменён админом — покупателю уходит push.
- * Статусы pending/approved/rejected сюда не попадают: у них свои события.
+ * Продавец отметил заказ доставленным — покупателю уходит push.
+ *
+ * Отмена сюда не попадает: отменяет заказ сам покупатель, уведомлять его о
+ * собственном действии незачем — о ней узнаёт продавец
+ * (SendOrderCanceledToStorePush). У подтверждения и отказа свои события.
  */
 class SendOrderStatusPush
 {
     /** Статус → ключ пары заголовок/текст в messages. */
     private const TEXTS = [
         'completed' => 'push_order_completed',
-        'canceled'  => 'push_order_canceled',
     ];
 
     public function __construct(

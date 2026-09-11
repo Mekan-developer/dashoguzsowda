@@ -6,7 +6,8 @@ use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * POST /v1/my/store/orders/{suborder}/accept|decline — ответ владельца магазина.
- * Комментарий необязателен, но при отказе админ по нему понимает, что случилось.
+ * Комментарий необязателен, но при отказе его увидит покупатель: он уходит
+ * в decision_comment заказа и в push.
  */
 class RespondToSuborderRequest extends FormRequest
 {

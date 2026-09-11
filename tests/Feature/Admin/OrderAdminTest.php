@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\RespondToSuborderAction;
 use App\Models\Category;
 use App\Models\City;
 use App\Models\Listing;
@@ -8,13 +9,15 @@ use App\Models\Region;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * Раздел «Заказы» в админке. Онлайн-оплаты нет: заказ ведёт админ руками —
- * обзванивает магазины, подтверждает наличие и везёт. Поэтому «Подтвердить»
- * здесь имеет побочные эффекты (списание остатков, рассылка магазинам),
- * а менеджеру раздел закрыт целиком.
+ * Раздел «Заказы» в админке — только просмотр.
+ *
+ * Заказ ведёт владелец магазина: он подтверждает наличие, доставляет сам и
+ * получает деньги. Админу раздел нужен, чтобы видеть, что, у кого и кому
+ * продано, поэтому действий здесь нет ни одного. Менеджеру закрыт целиком.
  */
 beforeEach(function () {
     Queue::fake();
@@ -77,7 +80,7 @@ function placeAdminOrder(array $items = null, User $buyer = null): Order
     return $order;
 }
 
-it('shows which store each order belongs to and what the store answered', function () {
+it('shows what was sold, by whom and to whom', function () {
     placeAdminOrder();
 
     $this->actingAs($this->admin)
@@ -88,12 +91,19 @@ it('shows which store each order belongs to and what the store answered', functi
             ->has('orders.data', 1)
             ->where('orders.data.0.status', 'pending')
             ->where('orders.data.0.items_count', 1)
-            // Магазин и его ответ — то, ради чего раздел и нужен
+            ->where('orders.data.0.total', '200.00')
+            // Кому продано
+            ->where('orders.data.0.contact_name', 'Merdan')
+            // Кто продал: магазин и его владелец
             ->has('orders.data.0.suborders', 1)
             ->where('orders.data.0.suborders.0.store.name', 'Altyn Bazar')
+            ->where('orders.data.0.suborders.0.user.id', $this->owner->id)
             ->where('orders.data.0.suborders.0.status', 'pending')
-            // Состав приходит сразу: строка раскрывается без второго запроса
+            // Что именно продано — состав приходит сразу, без второго запроса
             ->has('orders.data.0.suborders.0.items', 1)
+            ->where('orders.data.0.suborders.0.items.0.title', 'Рис длиннозёрный')
+            ->where('orders.data.0.suborders.0.items.0.qty', 2)
+            ->where('orders.data.0.suborders.0.items.0.total', '200.00')
             ->where('counts.pending', 1)
             ->has('stores', 1),
         );
@@ -130,114 +140,37 @@ it('finds an order by its number', function () {
         ->assertInertia(fn (Assert $page) => $page->has('orders.data', 1));
 });
 
-it('takes the stock when the admin approves an order', function () {
-    $order = placeAdminOrder();
-
-    $this->actingAs($this->admin)
-        ->patch(route('orders.approve', $order->id))
-        ->assertRedirect();
-
-    expect($order->fresh()->status)->toBe('approved')
-        ->and($this->listing->fresh()->stock_qty)->toBe(8);
-
-    $this->assertDatabaseHas('orders', ['id' => $order->id, 'processed_by' => $this->admin->id]);
-});
-
-it('closes the store parts along with the order status', function () {
-    // Подтверждение: магазин не отвечал в приложении — админ подтвердил заказ
-    // после разговора с ним, значит наличие подтверждено
-    $approved = placeAdminOrder();
-    $this->actingAs($this->admin)->patch(route('orders.approve', $approved->id));
-
-    expect($approved->suborders()->first()->fresh()->status)->toBe('accepted');
-
-    // Заказ доставлен — части остаются подтверждёнными
-    $this->actingAs($this->admin)->patch(route('orders.complete', $approved->id));
-    expect($approved->suborders()->first()->fresh()->status)->toBe('accepted');
-
-    // Отмена: части закрываются вместе с заказом, а не висят в «ждём ответа»
-    $canceled = placeAdminOrder();
-    $this->actingAs($this->admin)->patch(route('orders.cancel', $canceled->id));
-    expect($canceled->suborders()->first()->fresh()->status)->toBe('canceled');
-
-    // Отказ — то же самое
-    $rejected = placeAdminOrder();
-    $this->actingAs($this->admin)->patch(route('orders.reject', $rejected->id), ['comment' => 'Товара нет']);
-    expect($rejected->suborders()->first()->fresh()->status)->toBe('canceled');
-});
-
-it('keeps the answer of a store that already declined', function () {
+it('shows the decision of the seller and who made it', function () {
     $order    = placeAdminOrder();
     $suborder = $order->suborders()->first();
 
-    app(\App\Actions\RespondToSuborderAction::class)
+    app(RespondToSuborderAction::class)
         ->execute($suborder, $this->owner, 'declined', 'Товар закончился');
 
-    $this->actingAs($this->admin)->patch(route('orders.approve', $order->id));
-
-    // Отказ магазина не переписывается подтверждением заказа
-    expect($suborder->fresh()->status)->toBe('declined')
-        ->and($suborder->fresh()->comment)->toBe('Товар закончился')
-        // И товар отказавшегося магазина не списан
-        ->and($this->listing->fresh()->stock_qty)->toBe(10);
+    $this->actingAs($this->admin)
+        ->get(route('orders.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('orders.data.0.status', 'rejected')
+            ->where('orders.data.0.decision_comment', 'Товар закончился')
+            ->where('orders.data.0.decider.id', $this->owner->id)
+            ->where('orders.data.0.suborders.0.status', 'declined'),
+        );
 });
 
-it('requires a reason to reject an order', function () {
-    $order = placeAdminOrder();
+it('gives the admin no way to decide on an order', function () {
+    // Решение принимает продавец: у админки нет ни одного маршрута действия
+    expect(Route::has('orders.approve'))->toBeFalse()
+        ->and(Route::has('orders.reject'))->toBeFalse()
+        ->and(Route::has('orders.cancel'))->toBeFalse()
+        ->and(Route::has('orders.complete'))->toBeFalse();
 
-    $this->actingAs($this->admin)
-        ->patch(route('orders.reject', $order->id), [])
-        ->assertSessionHasErrors('comment');
-
-    $this->actingAs($this->admin)
-        ->patch(route('orders.reject', $order->id), ['comment' => 'Товара нет на складе'])
-        ->assertRedirect();
-
-    expect($order->fresh()->status)->toBe('rejected')
-        ->and($order->fresh()->admin_comment)->toBe('Товара нет на складе')
-        // Отказ до подтверждения остатков не касался — списания не было
-        ->and($this->listing->fresh()->stock_qty)->toBe(10);
-});
-
-it('closes a confirmed order as delivered', function () {
-    $order = placeAdminOrder();
-    $this->actingAs($this->admin)->patch(route('orders.approve', $order->id));
-
-    $this->actingAs($this->admin)
-        ->patch(route('orders.complete', $order->id))
-        ->assertRedirect();
-
-    expect($order->fresh()->status)->toBe('completed');
-});
-
-it('refuses to close an order the admin has not confirmed yet', function () {
-    $order = placeAdminOrder();
-
-    $this->actingAs($this->admin)
-        ->patch(route('orders.complete', $order->id))
-        ->assertSessionHasErrors('status');
-
-    expect($order->fresh()->status)->toBe('pending');
-});
-
-it('returns the stock when the admin cancels a confirmed order', function () {
-    $order = placeAdminOrder();
-    $this->actingAs($this->admin)->patch(route('orders.approve', $order->id));
-    expect($this->listing->fresh()->stock_qty)->toBe(8);
-
-    $this->actingAs($this->admin)
-        ->patch(route('orders.cancel', $order->id))
-        ->assertRedirect();
-
-    expect($order->fresh()->status)->toBe('canceled')
-        ->and($this->listing->fresh()->stock_qty)->toBe(10);
+    $this->actingAs($this->admin)->patch('/admin/orders/1/approve')->assertNotFound();
 });
 
 it('closes the orders section to a manager', function () {
     $manager = User::factory()->manager()->create();
-    $order   = placeAdminOrder();
+    placeAdminOrder();
 
     $this->actingAs($manager)->get(route('orders.index'))->assertForbidden();
-    $this->actingAs($manager)->patch(route('orders.approve', $order->id))->assertForbidden();
-    $this->actingAs($manager)->patch(route('orders.cancel', $order->id))->assertForbidden();
 });

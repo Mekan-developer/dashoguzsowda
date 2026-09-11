@@ -2,17 +2,23 @@
 
 namespace App\Actions;
 
+use App\Events\OrderApproved;
+use App\Events\OrderRejected;
 use App\Models\Suborder;
 use App\Models\User;
 use App\Services\OrderService;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Ответ владельца магазина на свою часть заказа: подтверждаю, что товар есть
- * и я его отдаю, — или отказываюсь.
+ * Ответ владельца магазина на пришедший заказ — и решение по заказу целиком.
  *
- * Отказ возвращает остатки по позициям этого магазина обратно: заказ ведёт
- * админ, он решает, отменять его целиком или везти остальное.
+ * Заказ передаётся прямо продавцу, поэтому его «принимаю» и есть подтверждение
+ * заказа: ровно здесь списываются остатки и покупатель получает уведомление.
+ * Отказ закрывает заказ — товар был только у этого магазина (в заказе всегда
+ * один продавец), везти больше нечего.
+ *
+ * Админ в решении не участвует: он видит в админке, что и кому продано
+ * (см. CLAUDE.md → «Заказы и корзина»).
  */
 class RespondToSuborderAction
 {
@@ -34,10 +40,25 @@ class RespondToSuborderAction
             ]);
         }
 
-        if ($status === 'declined') {
-            $this->orderService->releaseStock($suborder);
+        $order = $suborder->order;
+
+        if ($status === 'accepted') {
+            // До ответа продавца заказ ничего не резервирует — остаток
+            // списывается ровно в момент, когда наличие подтверждено
+            $this->orderService->takeStock($order);
+
+            event(new OrderApproved(
+                $this->orderService->changeStatus($order, 'approved', $owner),
+            ));
+        } else {
+            // Причина отказа уходит покупателю в push и остаётся в заказе
+            event(new OrderRejected(
+                $this->orderService->changeStatus($order, 'rejected', $owner, $comment),
+            ));
         }
 
+        // Ответ проставляем последним: так вернувшийся подзаказ везёт с собой
+        // уже новый статус заказа, а не тот, что был до решения
         return $this->orderService->respondToSuborder($suborder, $status, $comment);
     }
 }

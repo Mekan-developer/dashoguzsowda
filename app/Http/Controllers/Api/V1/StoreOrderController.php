@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\CompleteOrderAction;
 use App\Actions\RespondToSuborderAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RespondToSuborderRequest;
@@ -14,15 +15,17 @@ use Illuminate\Http\Request;
 /**
  * Заказы, пришедшие в магазин владельца.
  *
- * Владелец видит только свою часть заказа, но сразу после оформления: наличие
- * подтверждает он первым, и уже по его ответу админ подтверждает заказ целиком.
- * Контакты и адрес покупателя ему не отдаются — доставкой занимается платформа.
+ * Заказ идёт прямо продавцу и ведёт его он: принимает, собирает, везёт сам и
+ * закрывает доставленным. Контакты покупателя и адрес приходят вместе с
+ * заказом — без них доставку не сделать. Админ в решении не участвует
+ * (см. CLAUDE.md → «Заказы и корзина»).
  */
 class StoreOrderController extends Controller
 {
     public function __construct(
         private readonly OrderService $orderService,
         private readonly RespondToSuborderAction $respondToSuborder,
+        private readonly CompleteOrderAction $completeOrder,
     ) {}
 
     /**
@@ -61,7 +64,8 @@ class StoreOrderController extends Controller
     }
 
     /**
-     * «Товар есть, отдаю».
+     * «Товар есть, беру заказ» — заказ подтверждён, остатки списываются,
+     * покупатель получает уведомление.
      * POST /api/v1/my/store/orders/{id}/accept
      *
      * @authenticated
@@ -72,7 +76,8 @@ class StoreOrderController extends Controller
     }
 
     /**
-     * Отказ владельца: позиции возвращаются в остатки, дальше решает админ.
+     * Отказ продавца: заказ закрывается, остатки не трогаются, причина уходит
+     * покупателю.
      * POST /api/v1/my/store/orders/{id}/decline
      *
      * @authenticated
@@ -80,6 +85,26 @@ class StoreOrderController extends Controller
     public function decline(RespondToSuborderRequest $request, int $suborder)
     {
         return $this->respond($request, $suborder, 'declined', __('messages.suborder_declined'));
+    }
+
+    /**
+     * «Отвёз и получил деньги» — последний шаг заказа.
+     * POST /api/v1/my/store/orders/{id}/complete
+     *
+     * @authenticated
+     */
+    public function complete(Request $request, int $suborder)
+    {
+        $model = $this->orderService->findSuborderForOwner($suborder, $request->user());
+
+        abort_unless((bool) $model, 404, __('messages.order_not_found'));
+
+        $completed = $this->completeOrder->execute($model, $request->user());
+
+        return response()->json([
+            'data'    => new StoreOrderResource($completed),
+            'message' => __('messages.order_completed'),
+        ]);
     }
 
     private function respond(RespondToSuborderRequest $request, int $suborderId, string $status, string $message)

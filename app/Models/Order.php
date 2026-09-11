@@ -4,12 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Заказ товаров одного магазина: решение по нему принимает владелец магазина,
+ * он же доставляет (см. CLAUDE.md → «Заказы и корзина»).
+ */
 class Order extends Model
 {
     protected $fillable = [
         'user_id', 'status', 'total', 'commission_total',
         'contact_name', 'phone', 'region_id', 'city_id', 'district_id', 'address', 'comment',
-        'admin_comment', 'processed_by', 'processed_at',
+        'decision_comment', 'decided_by', 'decided_at',
     ];
 
     protected function casts(): array
@@ -17,7 +21,7 @@ class Order extends Model
         return [
             'total'            => 'decimal:2',
             'commission_total' => 'decimal:2',
-            'processed_at'     => 'datetime',
+            'decided_at'       => 'datetime',
         ];
     }
 
@@ -25,7 +29,8 @@ class Order extends Model
     public function region()    { return $this->belongsTo(Region::class); }
     public function city()      { return $this->belongsTo(City::class); }
     public function district()  { return $this->belongsTo(District::class); }
-    public function processor() { return $this->belongsTo(User::class, 'processed_by'); }
+    /** Кто решил по заказу: владелец магазина. При отмене покупателем — никто. */
+    public function decider()   { return $this->belongsTo(User::class, 'decided_by'); }
     public function suborders() { return $this->hasMany(Suborder::class); }
     public function items()     { return $this->hasMany(OrderItem::class); }
 
@@ -48,7 +53,7 @@ class Order extends Model
         return round((float) $this->total - (float) $this->commission_total, 2);
     }
 
-    /** Может ли покупатель ещё отменить заказ — только пока его не взяли в работу. */
+    /** Может ли покупатель ещё отменить заказ — только пока продавец не ответил. */
     public function isCancelableByBuyer(): bool
     {
         return $this->status === 'pending';

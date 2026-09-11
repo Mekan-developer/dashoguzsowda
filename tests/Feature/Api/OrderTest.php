@@ -1,7 +1,5 @@
 <?php
 
-use App\Actions\ApproveOrderAction;
-use App\Actions\RejectOrderAction;
 use App\Jobs\SendPushNotificationJob;
 use App\Models\Category;
 use App\Models\City;
@@ -16,9 +14,10 @@ use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 
 /**
- * Заказы: корзина собирается на устройстве, сюда приходит готовый заказ.
- * Заказать можно только товар магазина с доставкой; остатки списываются не при
- * оформлении, а когда админ подтвердил заказ.
+ * Заказы: корзина собирается на устройстве, сюда приходит готовый заказ — и
+ * всегда на один магазин. Заказать можно только товар магазина с доставкой;
+ * решение по заказу принимает владелец магазина, он же доставляет, и остатки
+ * списываются в момент, когда он принял заказ.
  */
 beforeEach(function () {
     Queue::fake();
@@ -43,7 +42,6 @@ beforeEach(function () {
     ]);
 
     $this->buyer = User::factory()->create(['tariff_id' => $basic->id]);
-    $this->admin = User::factory()->create(['role' => 'admin', 'tariff_id' => $basic->id]);
 
     $this->owner = User::factory()->create([
         'tariff_id' => $premium->id, 'tariff_ends_at' => now()->addDays(30),
@@ -96,30 +94,46 @@ function orderPayload(array $items, array $overrides = []): array
     ], $overrides);
 }
 
-it('places an order and splits it into suborders by store', function () {
-    $otherOwner   = User::factory()->create();
-    $otherStore   = orderStore($otherOwner, ['name' => 'Ikinji dükan']);
-    $otherListing = orderListing($otherStore, ['price' => 50, 'stock_qty' => null]);
-
+it('places an order for a single store', function () {
     Sanctum::actingAs($this->buyer);
+
+    $second = orderListing($this->store, ['title' => 'Сахар', 'price' => 50, 'stock_qty' => null]);
 
     $response = $this->postJson('/api/v1/orders', orderPayload([
         ['listing_id' => $this->listing->id, 'qty' => 2],
-        ['listing_id' => $otherListing->id,  'qty' => 3],
+        ['listing_id' => $second->id,        'qty' => 3],
     ]))->assertCreated();
 
-    // 2 × 100 + 3 × 50 = 350, две части заказа — по одной на магазин
+    // 2 × 100 + 3 × 50 = 350; магазин в заказе всегда один
     expect((float) $response->json('data.total'))->toBe(350.0)
         ->and($response->json('data.status'))->toBe('pending')
-        ->and($response->json('data.stores'))->toHaveCount(2)
+        ->and($response->json('data.stores'))->toHaveCount(1)
         ->and($response->json('data.can_cancel'))->toBeTrue();
 
     $this->assertDatabaseCount('orders', 1);
-    $this->assertDatabaseCount('suborders', 2);
+    $this->assertDatabaseCount('suborders', 1);
     $this->assertDatabaseCount('order_items', 2);
 
-    // Пока заказ не подтверждён, остаток не трогаем: это ещё не резерв
+    // Пока продавец не ответил, остаток не трогаем: это ещё не резерв
     expect($this->listing->fresh()->stock_qty)->toBe(10);
+});
+
+it('refuses a cart with goods of more than one store', function () {
+    // Заказ ведёт сам продавец, поэтому «общего» заказа на двух продавцов не
+    // существует: мобилка режет корзину по магазинам, здесь только страховка
+    $otherStore   = orderStore(User::factory()->create(), ['name' => 'Ikinji dükan']);
+    $otherListing = orderListing($otherStore, ['price' => 50]);
+
+    Sanctum::actingAs($this->buyer);
+
+    $this->postJson('/api/v1/orders', orderPayload([
+        ['listing_id' => $this->listing->id, 'qty' => 1],
+        ['listing_id' => $otherListing->id,  'qty' => 1],
+    ]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('items');
+
+    $this->assertDatabaseCount('orders', 0);
 });
 
 it('merges duplicate rows of the same listing', function () {
@@ -200,7 +214,7 @@ it('sends the order to the store owner right after it is placed', function () {
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))
         ->assertCreated();
 
-    // Владелец отвечает первым, поэтому push уходит ему сразу
+    // Заказ ведёт продавец, поэтому push уходит прямо ему
     Queue::assertPushed(SendPushNotificationJob::class, 1);
 
     Sanctum::actingAs($this->owner);
@@ -213,7 +227,7 @@ it('sends the order to the store owner right after it is placed', function () {
         ->assertJsonPath('meta.pending', 1);
 });
 
-it('takes the stock and tells the buyer when the admin approves after the store', function () {
+it('confirms the order and takes the stock when the owner accepts it', function () {
     Sanctum::actingAs($this->buyer);
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 3]]))
         ->assertCreated();
@@ -221,46 +235,88 @@ it('takes the stock and tells the buyer when the admin approves after the store'
     $order    = Order::first();
     $suborder = $order->suborders()->first();
 
-    // Сначала магазин подтверждает наличие
+    // Ответ продавца и есть решение по заказу: админ в нём не участвует
     Sanctum::actingAs($this->owner);
     $this->postJson("/api/v1/my/store/orders/{$suborder->id}/accept")
         ->assertOk()
-        ->assertJsonPath('data.status', 'accepted');
-
-    // Остаток держится до решения админа — заказ пока ничего не резервирует
-    expect($this->listing->fresh()->stock_qty)->toBe(10);
-
-    app(ApproveOrderAction::class)->execute($order, $this->admin);
+        ->assertJsonPath('data.status', 'accepted')
+        ->assertJsonPath('data.order_status', 'approved')
+        ->assertJsonPath('data.can_respond', false)
+        ->assertJsonPath('data.can_complete', true);
 
     expect($order->fresh()->status)->toBe('approved')
+        ->and($order->fresh()->decided_by)->toBe($this->owner->id)
         ->and($this->listing->fresh()->stock_qty)->toBe(7);
 
     $this->assertDatabaseHas('order_items', ['order_id' => $order->id, 'stock_taken' => true]);
 
-    // Владельцу — при оформлении, покупателю — сейчас
+    // Продавцу — при оформлении, покупателю — сейчас
     Queue::assertPushed(SendPushNotificationJob::class, 2);
 });
 
-it('closes the answer to the owner once the admin has decided', function () {
+it('gives the owner the contacts and the address of the buyer', function () {
+    Sanctum::actingAs($this->buyer);
+    $this->postJson('/api/v1/orders', orderPayload(
+        [['listing_id' => $this->listing->id, 'qty' => 1]],
+        ['contact_name' => 'Merdan', 'phone' => '+99365000000', 'city_id' => $this->city->id, 'comment' => 'Позвонить за час'],
+    ))->assertCreated();
+
+    $suborder = Order::first()->suborders()->first();
+
+    // Доставку делает продавец — без контактов и адреса заказ не выполнить
+    Sanctum::actingAs($this->owner);
+    $this->getJson("/api/v1/my/store/orders/{$suborder->id}")
+        ->assertOk()
+        ->assertJsonPath('data.buyer.name', 'Merdan')
+        ->assertJsonPath('data.buyer.phone', '+99365000000')
+        ->assertJsonPath('data.delivery.address', 'ул. Магтымгулы, 12')
+        ->assertJsonPath('data.delivery.city.id', $this->city->id)
+        ->assertJsonPath('data.delivery.comment', 'Позвонить за час');
+});
+
+it('closes the order as delivered when the owner has taken it', function () {
     Sanctum::actingAs($this->buyer);
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))
         ->assertCreated();
 
-    $order = Order::first();
-    app(ApproveOrderAction::class)->execute($order, $this->admin);
-
-    $suborder = $order->suborders()->first();
+    $suborder = Order::first()->suborders()->first();
 
     Sanctum::actingAs($this->owner);
+
+    // Пока наличие не подтверждено, доставлять нечего
+    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/complete")->assertStatus(422);
+
+    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/accept")->assertOk();
+    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/complete")
+        ->assertOk()
+        ->assertJsonPath('data.order_status', 'completed')
+        ->assertJsonPath('data.can_complete', false);
+
+    expect(Order::first()->status)->toBe('completed');
+
+    // Заказ продавцу, подтверждение и «доставлен» покупателю
+    Queue::assertPushed(SendPushNotificationJob::class, 3);
+});
+
+it('answers the owner only once', function () {
+    Sanctum::actingAs($this->buyer);
+    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))
+        ->assertCreated();
+
+    $suborder = Order::first()->suborders()->first();
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/accept")->assertOk();
+
+    // Решение принято — переигрывать его в приложении уже нельзя
+    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/decline")->assertStatus(422);
+
     $this->getJson("/api/v1/my/store/orders/{$suborder->id}")
         ->assertOk()
         ->assertJsonPath('data.can_respond', false);
-
-    // Заказ уже в работе — дальше вопрос решается с админом по телефону
-    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/decline")->assertStatus(422);
 });
 
-it('keeps the stock of a store that declined before approval', function () {
+it('rejects the order and keeps the stock when the owner declines', function () {
     Sanctum::actingAs($this->buyer);
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 4]]))
         ->assertCreated();
@@ -271,36 +327,38 @@ it('keeps the stock of a store that declined before approval', function () {
     Sanctum::actingAs($this->owner);
     $this->postJson("/api/v1/my/store/orders/{$suborder->id}/decline", ['comment' => 'Товар закончился'])
         ->assertOk()
-        ->assertJsonPath('data.status', 'declined');
+        ->assertJsonPath('data.status', 'declined')
+        ->assertJsonPath('data.order_status', 'rejected');
 
-    // Ответ даётся один раз
-    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/accept")->assertStatus(422);
-
-    // Даже если админ всё равно подтвердит заказ, товар отказавшегося
-    // магазина никуда не едет — списывать его нельзя
-    app(ApproveOrderAction::class)->execute($order->fresh(), $this->admin);
-
+    // Товар отказавшегося магазина никуда не едет — списаний не было
     expect($this->listing->fresh()->stock_qty)->toBe(10);
     $this->assertDatabaseHas('order_items', ['order_id' => $order->id, 'stock_taken' => false]);
+
+    // Причину отказа покупатель видит в своём заказе
+    Sanctum::actingAs($this->buyer);
+    $this->getJson("/api/v1/orders/{$order->id}")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'rejected')
+        ->assertJsonPath('data.decision_comment', 'Товар закончился')
+        ->assertJsonPath('data.stores.0.comment', 'Товар закончился')
+        ->assertJsonPath('data.can_cancel', false);
 });
 
-it('hides suborders of other stores', function () {
+it('hides orders of other stores', function () {
     Sanctum::actingAs($this->buyer);
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))
         ->assertCreated();
 
-    $order = Order::first();
-    app(ApproveOrderAction::class)->execute($order, $this->admin);
-    $suborder = $order->suborders()->first();
+    $suborder = Order::first()->suborders()->first();
 
-    $stranger = User::factory()->create();
-    Sanctum::actingAs($stranger);
+    Sanctum::actingAs(User::factory()->create());
 
     $this->getJson("/api/v1/my/store/orders/{$suborder->id}")->assertNotFound();
     $this->postJson("/api/v1/my/store/orders/{$suborder->id}/accept")->assertNotFound();
+    $this->postJson("/api/v1/my/store/orders/{$suborder->id}/complete")->assertNotFound();
 });
 
-it('lets the buyer cancel only while the order is pending', function () {
+it('lets the buyer cancel only until the owner has answered', function () {
     Sanctum::actingAs($this->buyer);
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 2]]))
         ->assertCreated();
@@ -311,13 +369,20 @@ it('lets the buyer cancel only while the order is pending', function () {
         ->assertOk()
         ->assertJsonPath('data.status', 'canceled');
 
-    // Второй заказ доводим до подтверждения — его отменяет уже только админ
+    // Часть магазина закрывается вместе с заказом, а продавец узнаёт об отмене
+    expect($order->suborders()->first()->fresh()->status)->toBe('canceled');
+    Queue::assertPushed(SendPushNotificationJob::class, 2);
+
+    // Второй заказ продавец успел принять — дальше вопрос решается с ним
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 2]]))
         ->assertCreated();
-    $approved = Order::latest('id')->first();
-    app(ApproveOrderAction::class)->execute($approved, $this->admin);
+    $accepted = Order::latest('id')->first();
 
-    $this->postJson("/api/v1/orders/{$approved->id}/cancel")->assertStatus(422);
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/my/store/orders/{$accepted->suborders()->first()->id}/accept")->assertOk();
+
+    Sanctum::actingAs($this->buyer);
+    $this->postJson("/api/v1/orders/{$accepted->id}/cancel")->assertStatus(422);
 });
 
 it('keeps orders of other buyers hidden', function () {
@@ -330,24 +395,6 @@ it('keeps orders of other buyers hidden', function () {
     Sanctum::actingAs(User::factory()->create());
     $this->getJson("/api/v1/orders/{$order->id}")->assertNotFound();
     $this->postJson("/api/v1/orders/{$order->id}/cancel")->assertNotFound();
-});
-
-it('rejects an order with a reason and leaves the stock alone', function () {
-    Sanctum::actingAs($this->buyer);
-    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 2]]))
-        ->assertCreated();
-
-    $order = Order::first();
-    app(RejectOrderAction::class)->execute($order, $this->admin, 'Товара нет на складе');
-
-    Sanctum::actingAs($this->buyer);
-    $this->getJson("/api/v1/orders/{$order->id}")
-        ->assertOk()
-        ->assertJsonPath('data.status', 'rejected')
-        ->assertJsonPath('data.admin_comment', 'Товара нет на складе')
-        ->assertJsonPath('data.can_cancel', false);
-
-    expect($this->listing->fresh()->stock_qty)->toBe(10);
 });
 
 it('marks a listing as orderable only when it can actually be ordered', function () {

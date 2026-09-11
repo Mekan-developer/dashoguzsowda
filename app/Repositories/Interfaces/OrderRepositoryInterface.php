@@ -10,7 +10,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 interface OrderRepositoryInterface
 {
     /**
-     * Создаёт заказ целиком: сам заказ, подзаказы по магазинам и позиции.
+     * Создаёт заказ целиком: сам заказ, часть магазина и позиции.
      * Только в транзакции — половина заказа никому не нужна.
      *
      * @param  array<string, mixed>  $order
@@ -30,7 +30,7 @@ interface OrderRepositoryInterface
     /** Очередь заказов в админке: фильтры status, search (номер / имя / телефон), store_id. */
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator;
 
-    /** Сколько заказов ждёт обработки — счётчик в меню админки. */
+    /** Сколько заказов ждёт ответа продавца — счётчик в меню админки. */
     public function countPending(): int;
 
     /**
@@ -40,16 +40,20 @@ interface OrderRepositoryInterface
      */
     public function storesWithOrders(): \Illuminate\Support\Collection;
 
-    /** Подзаказы магазина для владельца: только по подтверждённым заказам. */
+    /** Заказы магазина для владельца — с первой минуты, решение принимает он. */
     public function paginateForOwner(int $ownerId, array $filters, int $perPage = 20): LengthAwarePaginator;
 
-    /** Подзаказ владельца; null — чужой, несуществующий или ещё не подтверждённый админом. */
+    /** Заказ магазина; null — чужой или несуществующий. */
     public function findSuborderForOwner(int $suborderId, int $ownerId): ?Suborder;
 
-    /** Сколько подзаказов ждёт ответа владельца — бейдж в мобилке. */
+    /** Перечитывает часть заказа со всеми связями — после смены статуса заказа. */
+    public function refreshSuborder(Suborder $suborder): Suborder;
+
+    /** Сколько заказов ждёт ответа владельца — бейдж в мобилке. */
     public function countPendingForOwner(int $ownerId): int;
 
-    public function updateStatus(Order $order, string $status, ?int $adminId = null, ?string $comment = null): Order;
+    /** $deciderId — владелец магазина; при отмене покупателем решает никто. */
+    public function updateStatus(Order $order, string $status, ?int $deciderId = null, ?string $comment = null): Order;
 
     public function updateSuborderStatus(Suborder $suborder, string $status, ?string $comment = null): Suborder;
 

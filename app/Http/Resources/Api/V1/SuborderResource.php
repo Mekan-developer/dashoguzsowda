@@ -7,8 +7,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Часть заказа по одному магазину — так покупатель видит свой заказ:
- * «эти три товара из Altyn Bazar, а этот из другого магазина».
+ * Магазин заказа глазами покупателя: чей это товар, на какую сумму и что
+ * продавец ответил. Телефон магазина отдаётся намеренно — доставку делает сам
+ * продавец, и все вопросы по заказу решаются с ним.
  */
 class SuborderResource extends JsonResource
 {
@@ -17,7 +18,7 @@ class SuborderResource extends JsonResource
         return [
             'id'       => $this->id,
             // pending — ждём ответа магазина, accepted/declined — он ответил,
-            // canceled — заказ закрыт админом раньше, чем магазин ответил
+            // canceled — покупатель отменил заказ раньше, чем продавец ответил
             'status'   => $this->status,
             'subtotal' => (float) $this->subtotal,
             'comment'  => $this->comment,

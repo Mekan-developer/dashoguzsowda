@@ -20,9 +20,10 @@ use App\Listeners\SendChatReplyPush;
 use App\Listeners\SendListingApprovedPush;
 use App\Listeners\SendListingRejectedPush;
 use App\Listeners\SendOrderApprovedPush;
+use App\Listeners\SendOrderCanceledToStorePush;
 use App\Listeners\SendOrderRejectedPush;
 use App\Listeners\SendOrderStatusPush;
-use App\Listeners\SendOrderToStoreOwnersPush;
+use App\Listeners\SendOrderToStoreOwnerPush;
 use App\Listeners\SendSmsCode;
 use App\Listeners\SendStoreApprovedPush;
 use App\Listeners\SendStoreRejectedPush;
@@ -51,19 +52,23 @@ class EventServiceProvider extends ServiceProvider
         TariffRequestRejected::class => [
             SendTariffRequestRejectedPush::class,
         ],
-        // Оформленный заказ сразу уходит владельцам магазинов — отвечают они
-        // первыми, админ подтверждает заказ уже по их ответам
+        // Оформленный заказ сразу уходит владельцу магазина: решение по
+        // заказу принимает он, доставляет тоже он
         OrderPlaced::class => [
-            SendOrderToStoreOwnersPush::class,
+            SendOrderToStoreOwnerPush::class,
         ],
+        // Продавец принял заказ / отказался — покупателю уходит его решение
         OrderApproved::class => [
             SendOrderApprovedPush::class,
         ],
         OrderRejected::class => [
             SendOrderRejectedPush::class,
         ],
+        // Одно событие на два адресата: доставлен — покупателю,
+        // отменён покупателем — продавцу
         OrderStatusChanged::class => [
             SendOrderStatusPush::class,
+            SendOrderCanceledToStorePush::class,
         ],
         AdminReplied::class => [
             SendChatReplyPush::class,
