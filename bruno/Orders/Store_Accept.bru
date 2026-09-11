@@ -22,15 +22,18 @@ body:json {
 }
 
 docs {
-  «Товар есть, отдаю» — ответ владельца магазина по своей части заказа.
+  «Товар есть, беру заказ» — и это решение по заказу целиком: заказ переходит
+  в approved, остатки списываются ровно здесь, покупателю уходит push.
+  Дальше продавец везёт сам и закрывает заказ запросом «Доставлено».
+
   В URL — id ЧАСТИ заказа, не самого заказа ({{suborder_id}} подставляют
   «Оформить заказ» и «Магазин — заказы владельцу»).
 
   Отвечать можно один раз и только пока can_respond=true (заказ ещё в pending,
   ответа не было). Повторный ответ — 422 «Ответ по этому заказу уже дан»;
-  после того как админ подтвердил или закрыл заказ, отвечать поздно.
+  если покупатель успел отменить заказ, принять его уже нельзя.
 
-  comment необязателен и виден админу.
+  comment необязателен и виден покупателю.
   404 — часть чужого магазина.
   403 — заблокированному пользователю. Лимит частоты — 30 запросов в минуту.
 }
@@ -40,7 +43,10 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
 
-  test("suborder is accepted", function() {
-    expect(res.getBody().data.status).to.equal('accepted');
+  test("suborder is accepted and the order is approved", function() {
+    const data = res.getBody().data;
+    expect(data.status).to.equal('accepted');
+    expect(data.order_status).to.equal('approved');
+    expect(data.can_complete).to.equal(true);
   });
 }

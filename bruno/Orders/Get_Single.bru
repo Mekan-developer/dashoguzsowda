@@ -20,13 +20,22 @@ docs {
   не подтверждается.
 
   В ответе:
-  - number — человекочитаемый номер («000017»), по нему покупатель и админ
+  - number — человекочитаемый номер («000017»), по нему покупатель и продавец
     находят заказ в разговоре;
-  - stores[] — состав по магазинам: у каждого свой status (pending — владелец
-    ещё не ответил, accepted — подтвердил, declined — отказался), subtotal
-    и items[] со снимком title/unit_price на момент заказа;
-  - admin_comment — причина отказа или пометка админа после обзвона;
-  - can_cancel — можно ли ещё отменить самому (только пока pending).
+  - stores[] — магазин заказа: его name, phone и logo_url, subtotal, свой
+    status (pending — продавец ещё не ответил, accepted — принял, declined —
+    отказался, canceled — покупатель отменил раньше ответа), comment (ответ
+    продавца) и items[] со снимком title/unit_price на момент заказа.
+    Массив остался ради совместимости, но элемент в нём всегда один;
+  - decision_comment — причина отказа продавца (она же в stores[0].comment);
+  - decided_at — когда продавец решил по заказу;
+  - can_cancel — можно ли ещё отменить самому (только пока продавец молчит).
+
+  Комиссии платформы здесь нет ни в одном поле и не будет: покупатель платит
+  total целиком, процент удерживается с магазина.
+
+  Телефон продавца отдаётся намеренно — доставку делает он сам, и все вопросы
+  по заказу решаются напрямую с ним.
 
   {{order_id}} подставляется из запроса «Оформить заказ».
 }
@@ -36,9 +45,10 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
 
-  test("has a number and stores breakdown", function() {
+  test("has a number and the seller's store", function() {
     const data = res.getBody().data;
     expect(data).to.have.property('number');
-    expect(data).to.have.property('stores');
+    expect(data).to.have.property('decision_comment');
+    expect(data.stores.length).to.equal(1);
   });
 }

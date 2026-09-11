@@ -1,0 +1,46 @@
+meta {
+  name: Магазин — отметить доставленным
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{base_url}}/v1/my/store/orders/{{suborder_id}}/complete
+  body: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  «Отвёз и получил деньги» — последний шаг заказа. Доставку делает сам продавец,
+  поэтому и отметку ставит он; покупателю уходит push «Заказ доставлен».
+
+  Онлайн-оплаты нет: деньги передаются на месте, как и за тариф.
+
+  В URL — id ЧАСТИ заказа ({{suborder_id}} подставляют «Оформить заказ» и
+  «Магазин — заказы владельцу»).
+
+  Доступно, только пока can_complete=true: заказ принят (status = accepted,
+  order_status = approved). Для непринятого или уже закрытого — 422
+  «Недопустимая смена статуса заказа». Промежуточного «в пути» нет намеренно:
+  отмечается только результат.
+
+  404 — часть чужого магазина.
+  403 — заблокированному пользователю. Лимит частоты — 30 запросов в минуту.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("order is completed", function() {
+    const data = res.getBody().data;
+    expect(data.order_status).to.equal('completed');
+    expect(data.can_complete).to.equal(false);
+  });
+}
