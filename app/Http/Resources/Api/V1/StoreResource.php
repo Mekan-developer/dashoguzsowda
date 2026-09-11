@@ -33,9 +33,10 @@ class StoreResource extends JsonResource
                 : $this->category?->name_ru),
             'category_id' => $this->category_id,
 
-            // Вид торговли: флаги независимы, оба true = «оптом и в розницу»
+            // Вид торговли: флаги независимы, оба true = «оптом и в розницу».
+            // Опт видит только розничный продавец: клиенту флаг приходит false
             'sells_retail'    => (bool) $this->sells_retail,
-            'sells_wholesale' => (bool) $this->sells_wholesale,
+            'sells_wholesale' => (bool) $this->sells_wholesale && $this->resource->showsWholesaleTo($request->user('sanctum')),
             // false → покупатель забирает сам и платит на месте; цену и сроки
             // доставки стороны обсуждают по телефону, система их не считает
             'has_delivery'    => (bool) $this->has_delivery,

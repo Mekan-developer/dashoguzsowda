@@ -125,6 +125,9 @@ it('считает комиссию и от оптовой цены', function (
         'title' => 'Сахар', 'price' => 100, 'wholesale_price' => 80, 'min_order_qty' => 10, 'stock_qty' => 100,
     ]);
 
+    // Оптовую цену получает только розничный продавец
+    commissionStore($this->buyer, ['name' => 'Bereket']);
+
     $order = placeCommissionOrder([['listing_id' => $wholesale->id, 'qty' => 10]]);
     $item  = $order->items->first();
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Listing extends Model
@@ -47,5 +48,45 @@ class Listing extends Model
             && (bool) $this->store->has_delivery
             && ($this->stock_qty === null || $this->stock_qty > 0)
             && ($this->price !== null || $this->wholesale_price !== null);
+    }
+
+    /**
+     * Оптовое предложение: у товара только оптовая цена или его магазин торгует
+     * одним оптом. Клиенту такие не показываются — опт видит только розничный
+     * продавец (User::seesWholesale, CLAUDE.md → «Магазины»).
+     */
+    public function isWholesaleOnly(): bool
+    {
+        return ($this->price === null && $this->wholesale_price !== null)
+            || ($this->store !== null && ! $this->store->sells_retail);
+    }
+
+    /** Кому отдавать оптовую цену и партию: владельцу и тем, кто видит опт. */
+    public function showsWholesaleTo(?User $viewer): bool
+    {
+        return $viewer !== null && ($viewer->id === $this->user_id || $viewer->seesWholesale());
+    }
+
+    /** Доступна ли карточка: одобрена (или своя) и не оптовое предложение для клиента. */
+    public function isVisibleTo(?User $viewer): bool
+    {
+        if ($viewer !== null && $viewer->id === $this->user_id) {
+            return true;
+        }
+
+        return $this->status === 'approved'
+            && (! $this->isWholesaleOnly() || $viewer?->seesWholesale() === true);
+    }
+
+    /**
+     * То же, что ! isWholesaleOnly(), но для запросов: розничные предложения и
+     * обычные объявления. Выдача и карточка обязаны считать одинаково.
+     */
+    public function scopeRetailOffers(Builder $query): void
+    {
+        $query
+            ->where(fn ($q) => $q->whereNull('wholesale_price')->orWhereNotNull('price'))
+            ->where(fn ($q) => $q->whereNull('store_id')
+                ->orWhereHas('store', fn ($s) => $s->where('sells_retail', true)));
     }
 }

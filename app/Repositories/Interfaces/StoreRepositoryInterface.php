@@ -11,14 +11,17 @@ use Illuminate\Support\Collection;
 interface StoreRepositoryInterface
 {
     /** is_popular=true, отсортированы по sort_order — для GET /v1/stores/popular. */
-    public function popular(int $limit = 20): Collection;
+    public function popular(int $limit = 20, bool $withWholesale = false): Collection;
 
     /**
      * Публичный список для мобилки: только прошедшие модерацию и не погашенные.
      * Фильтры: region_id, city_id, district_id, category_id, type (retail|wholesale),
      * has_delivery, search.
+     *
+     * $withWholesale = false — зритель опта не видит: чисто оптовых магазинов
+     * в выдаче нет, type=wholesale пуст.
      */
-    public function paginatePublic(array $filters, int $perPage = 20): LengthAwarePaginator;
+    public function paginatePublic(array $filters, int $perPage = 20, bool $withWholesale = false): LengthAwarePaginator;
 
     public function findByUser(int $userId): ?Store;
 

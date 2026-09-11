@@ -22,8 +22,8 @@ class FavoriteService
         $this->favoriteRepository->remove($userId, $listingId);
     }
 
-    public function listForUser(int $userId, int $perPage = 20): LengthAwarePaginator
+    public function listForUser(int $userId, int $perPage = 20, bool $withWholesale = false): LengthAwarePaginator
     {
-        return $this->favoriteRepository->paginateForUser($userId, $perPage);
+        return $this->favoriteRepository->paginateForUser($userId, $perPage, $withWholesale);
     }
 }

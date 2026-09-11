@@ -110,7 +110,8 @@ class ListingService
             ];
         }
 
-        return $this->listingRepository->paginateForApi($filters, $perPage, $viewer?->id);
+        // Опт — только розничным продавцам (CLAUDE.md → «Магазины»)
+        return $this->listingRepository->paginateForApi($filters, $perPage, $viewer?->id, $viewer?->seesWholesale() ?? false);
     }
 
     /** Проставляет is_favorite для авторизованного зрителя карточки */

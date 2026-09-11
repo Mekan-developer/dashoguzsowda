@@ -24,8 +24,12 @@ interface ListingRepositoryInterface
     public function recent(int $limit = 6): \Illuminate\Database\Eloquent\Collection;
     public function countActiveByUser(int $userId): int;
 
-    /** Публичная выдача для мобильного приложения: только approved + фильтры/сортировки */
-    public function paginateForApi(array $filters, int $perPage = 20, ?int $viewerId = null): LengthAwarePaginator;
+    /**
+     * Публичная выдача для мобильного приложения: только approved + фильтры/сортировки.
+     * $withWholesale = false — зритель опта не видит: оптовые предложения
+     * отсекаются (кроме его собственных объявлений).
+     */
+    public function paginateForApi(array $filters, int $perPage = 20, ?int $viewerId = null, bool $withWholesale = false): LengthAwarePaginator;
 
     /** Проставляет атрибут is_favorite (в избранном ли у зрителя) на модель */
     public function loadFavoriteFlag(Listing $listing, ?int $viewerId): void;

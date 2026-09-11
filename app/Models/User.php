@@ -59,6 +59,19 @@ class User extends Authenticatable
     public function isBlocked() { return $this->status === 'blocked'; }
 
     /**
+     * Видит ли пользователь опт. Цепочка «клиент → розничный продавец →
+     * оптовик»: оптовые предложения — только для владельца розничного магазина,
+     * прошедшего модерацию и с горящей витриной. Клиент и гость видят розницу
+     * и обычные объявления (CLAUDE.md → «Магазины»).
+     */
+    public function seesWholesale(): bool
+    {
+        $store = $this->store;
+
+        return $store !== null && $store->sells_retail && $store->isPublic();
+    }
+
+    /**
      * Регистрация профиля завершена: есть имя, регион и город.
      *
      * По этому флагу мобильное приложение решает, куда вести после splash/OTP:

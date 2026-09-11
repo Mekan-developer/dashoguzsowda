@@ -65,8 +65,8 @@ class ListingController extends Controller
     {
         $viewer = $request->user('sanctum');
 
-        // Чужие непромодерированные объявления недоступны
-        abort_unless($listing->status === 'approved' || $viewer?->id === $listing->user_id, 404);
+        // Чужие непромодерированные объявления недоступны, оптовые — клиенту
+        abort_unless($listing->isVisibleTo($viewer), 404);
 
         $this->listingService->registerView($listing, $viewer);
         $this->listingService->loadFavoriteFlag($listing, $viewer);

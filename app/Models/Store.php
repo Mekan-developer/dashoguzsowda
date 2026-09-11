@@ -42,4 +42,19 @@ class Store extends Model
     {
         return $this->status === 'approved' && $this->is_active;
     }
+
+    /** Показывать ли, что магазин торгует оптом: владельцу и тем, кто видит опт. */
+    public function showsWholesaleTo(?User $viewer): bool
+    {
+        return $viewer !== null && ($viewer->id === $this->user_id || $viewer->seesWholesale());
+    }
+
+    /**
+     * Витрина для конкретного зрителя: публичная, а чисто оптовая — только
+     * тем, кто видит опт (CLAUDE.md → «Магазины»), и самому владельцу.
+     */
+    public function isVisibleTo(?User $viewer): bool
+    {
+        return $this->isPublic() && ($this->sells_retail || $this->showsWholesaleTo($viewer));
+    }
 }

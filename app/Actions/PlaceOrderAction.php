@@ -59,7 +59,7 @@ class PlaceOrderAction
 
             $this->assertOrderable($listing, $buyer, $qty);
 
-            [$unitPrice, $isWholesale] = $this->resolvePrice($listing, $qty);
+            [$unitPrice, $isWholesale] = $this->resolvePrice($listing, $qty, $buyer->seesWholesale());
             $lineTotal = round($unitPrice * $qty, 2);
             $total += $lineTotal;
 
@@ -164,7 +164,9 @@ class PlaceOrderAction
 
         $store = $listing->store;
 
-        if ($listing->status !== 'approved' || ! $store || ! $store->isPublic()) {
+        // Оптовое предложение клиент не видит — значит, и заказать не может:
+        // опт только для розничных продавцов (CLAUDE.md → «Магазины»)
+        if ($listing->status !== 'approved' || ! $store || ! $store->isPublic() || ! $listing->isVisibleTo($buyer)) {
             throw ValidationException::withMessages([
                 'items' => __('messages.order_item_unavailable', ['title' => $listing->title]),
             ]);
@@ -202,16 +204,18 @@ class PlaceOrderAction
 
     /**
      * Опт и розница — независимые ценники: оптовый применяется сам, как только
-     * количество дотянуло до min_order_qty. Товар только с оптовой ценой в
-     * розницу не продаётся — заказ на меньшее количество отбивается.
+     * количество дотянуло до min_order_qty, — но только тому, кто видит опт
+     * ($wholesale, розничный продавец). Клиент оптовой цены не видит и всегда
+     * платит розничную. Товар только с оптовой ценой в розницу не продаётся —
+     * заказ на меньшее количество отбивается.
      *
      * @return array{0: float, 1: bool} цена за единицу и признак оптовой
      */
-    private function resolvePrice(Listing $listing, int $qty): array
+    private function resolvePrice(Listing $listing, int $qty, bool $wholesale): array
     {
         $minQty = $listing->min_order_qty;
 
-        if ($listing->wholesale_price !== null && ($minQty === null || $qty >= $minQty)) {
+        if ($wholesale && $listing->wholesale_price !== null && ($minQty === null || $qty >= $minQty)) {
             return [(float) $listing->wholesale_price, true];
         }
 

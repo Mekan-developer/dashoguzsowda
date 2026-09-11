@@ -6,6 +6,7 @@ use App\Models\Region;
 use App\Models\Listing;
 use App\Models\Store;
 use App\Models\User;
+use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
     $this->region   = Region::create(['name_ru' => 'Ахал', 'name_tk' => 'Ahal']);
@@ -101,6 +102,19 @@ it('filters the public store list by trade type and delivery', function () {
         'name' => 'Опт', 'sells_retail' => false, 'sells_wholesale' => true, 'has_delivery' => true,
         'user_id' => User::factory()->create()->id,
     ]);
+
+    // Гость опта не видит: оптовика нет ни в каталоге, ни во вкладке «Опт»
+    $this->getJson('/api/v1/stores?type=wholesale')
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+
+    $this->getJson('/api/v1/stores')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name', 'Розница');
+
+    // Владелец одобренного розничного магазина видит опт
+    Sanctum::actingAs($this->owner);
 
     $this->getJson('/api/v1/stores?type=wholesale')
         ->assertOk()

@@ -84,10 +84,21 @@ class ListingRepository implements ListingRepositoryInterface
             ->count();
     }
 
-    public function paginateForApi(array $filters, int $perPage = 20, ?int $viewerId = null): LengthAwarePaginator
+    public function paginateForApi(array $filters, int $perPage = 20, ?int $viewerId = null, bool $withWholesale = false): LengthAwarePaginator
     {
         $query = Listing::with('user', 'store', 'category.parent.parent', 'region', 'city', 'district', 'media')
             ->where('status', 'approved')
+            // Клиенту опт не показываем — только розница и обычные объявления.
+            // Свои объявления владелец видит всегда
+            ->unless($withWholesale, fn ($q) => $q->where(function ($w) use ($viewerId) {
+                $w->where(fn ($r) => $r->retailOffers());
+
+                if ($viewerId) {
+                    $w->orWhere('user_id', $viewerId);
+                }
+            }))
+            // «Только опт» клиенту показать нечего
+            ->when(! $withWholesale && ($filters['trade'] ?? null) === 'wholesale', fn ($q) => $q->whereRaw('1 = 0'))
             ->tap(fn ($q) => $this->withRatingAggregates($q))
             ->when($viewerId, fn ($q, $id) => $q->withExists([
                 'favorites as is_favorite' => fn ($f) => $f->where('user_id', $id),

@@ -23,7 +23,9 @@ class FavoriteController extends Controller
      */
     public function index(Request $request)
     {
-        return $this->paginated($this->favoriteService->listForUser($request->user()->id));
+        $user = $request->user();
+
+        return $this->paginated($this->favoriteService->listForUser($user->id, withWholesale: $user->seesWholesale()));
     }
 
     /**

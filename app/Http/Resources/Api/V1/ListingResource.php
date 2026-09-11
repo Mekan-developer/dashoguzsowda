@@ -10,6 +10,11 @@ class ListingResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $viewer = $request->user('sanctum');
+        // Опт видит только розничный продавец (и владелец объявления): клиенту
+        // и гостю оптовая цена и партия приходят null, флаг опта магазина — false
+        $wholesale = $this->resource->showsWholesaleTo($viewer);
+
         return [
             'id'          => $this->id,
             'title'       => $this->title,
@@ -19,8 +24,8 @@ class ListingResource extends JsonResource
             // Опт: цена за единицу при заказе от min_order_qty. Оба ценника
             // независимы — товар может продаваться и в розницу, и оптом,
             // мобилка показывает те плашки, у которых цена не null.
-            'wholesale_price' => $this->wholesale_price !== null ? (float) $this->wholesale_price : null,
-            'min_order_qty'   => $this->min_order_qty !== null ? (int) $this->min_order_qty : null,
+            'wholesale_price' => $wholesale && $this->wholesale_price !== null ? (float) $this->wholesale_price : null,
+            'min_order_qty'   => $wholesale && $this->min_order_qty !== null ? (int) $this->min_order_qty : null,
             // null = «в наличии» (владелец не ведёт учёт), 0 = нет в наличии, N = N шт
             'stock_qty'       => $this->stock_qty !== null ? (int) $this->stock_qty : null,
             'phone'       => $this->phone,
@@ -84,7 +89,7 @@ class ListingResource extends JsonResource
                 'name'            => $this->store->name,
                 'logo_url'        => $this->store->logo ? Storage::disk('public')->url($this->store->logo) : null,
                 'sells_retail'    => (bool) $this->store->sells_retail,
-                'sells_wholesale' => (bool) $this->store->sells_wholesale,
+                'sells_wholesale' => (bool) $this->store->sells_wholesale && $this->store->showsWholesaleTo($viewer),
                 'has_delivery'    => (bool) $this->store->has_delivery,
             ] : null),
             // Показывать ли кнопку «В корзину»: товар опубликованного магазина

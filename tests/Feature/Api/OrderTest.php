@@ -180,6 +180,8 @@ it('applies the wholesale price from the minimum order quantity', function () {
         'price' => 100, 'wholesale_price' => 80, 'min_order_qty' => 5, 'stock_qty' => 50,
     ]);
 
+    // Опт видит только розничный продавец — покупает он как владелец магазина
+    orderStore($this->buyer, ['name' => 'Bereket', 'sells_wholesale' => false]);
     Sanctum::actingAs($this->buyer);
 
     // 5 × 80 — оптовая цена применилась сама, как только набралась партия
@@ -202,6 +204,7 @@ it('refuses a wholesale-only listing below its minimum order', function () {
         'price' => null, 'wholesale_price' => 80, 'min_order_qty' => 10, 'stock_qty' => 50,
     ]);
 
+    orderStore($this->buyer, ['name' => 'Bereket', 'sells_wholesale' => false]);
     Sanctum::actingAs($this->buyer);
 
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $listing->id, 'qty' => 3]]))

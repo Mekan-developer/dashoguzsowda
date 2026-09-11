@@ -12,27 +12,30 @@ use Illuminate\Support\Collection;
 
 class StoreRepository implements StoreRepositoryInterface
 {
-    public function popular(int $limit = 20): Collection
+    public function popular(int $limit = 20, bool $withWholesale = false): Collection
     {
         return Store::with('photos', 'category', 'region', 'city', 'district')
             ->where('is_popular', true)
-            ->tap($this->publicScope(...))
+            ->tap(fn ($q) => $this->publicScope($q, $withWholesale))
             ->orderBy('sort_order')
             ->limit($limit)
             ->get();
     }
 
-    public function paginatePublic(array $filters, int $perPage = 20): LengthAwarePaginator
+    public function paginatePublic(array $filters, int $perPage = 20, bool $withWholesale = false): LengthAwarePaginator
     {
         return Store::with('photos', 'category', 'region', 'city', 'district')
-            ->tap($this->publicScope(...))
+            ->tap(fn ($q) => $this->publicScope($q, $withWholesale))
             ->when($filters['region_id'] ?? null, fn ($q, $id) => $q->where('region_id', $id))
             ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
             ->when($filters['district_id'] ?? null, fn ($q, $id) => $q->where('district_id', $id))
             ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
             // type=retail показывает и «оптом и в розницу» — флаги независимы
             ->when(($filters['type'] ?? null) === 'retail', fn ($q) => $q->where('sells_retail', true))
-            ->when(($filters['type'] ?? null) === 'wholesale', fn ($q) => $q->where('sells_wholesale', true))
+            // Оптовиков клиенту не показываем вовсе — «только опт» для него пуст
+            ->when(($filters['type'] ?? null) === 'wholesale', fn ($q) => $withWholesale
+                ? $q->where('sells_wholesale', true)
+                : $q->whereRaw('1 = 0'))
             ->when(isset($filters['has_delivery']), fn ($q) => $q->where('has_delivery', (bool) $filters['has_delivery']))
             ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', '%'.addcslashes($s, '%_\\').'%'))
             // Курируемые из админки идут первыми, остальные — свежими
@@ -125,9 +128,13 @@ class StoreRepository implements StoreRepositoryInterface
         return Store::with('user.tariff')->get()->toBase();
     }
 
-    /** Единственное определение «магазин виден публично» — не размазывать по вызовам. */
-    private function publicScope(Builder $query): void
+    /**
+     * Единственное определение «магазин виден публично» — не размазывать по вызовам.
+     * Чисто оптовый магазин видят только те, кто видит опт (Store::isVisibleTo).
+     */
+    private function publicScope(Builder $query, bool $withWholesale): void
     {
-        $query->where('status', 'approved')->where('is_active', true);
+        $query->where('status', 'approved')->where('is_active', true)
+            ->unless($withWholesale, fn ($q) => $q->where('sells_retail', true));
     }
 }

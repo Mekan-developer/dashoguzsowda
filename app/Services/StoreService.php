@@ -37,25 +37,31 @@ class StoreService
      */
     private const MODERATED_FIELDS = ['name', 'description', 'address'];
 
-    /** GET /v1/stores/popular */
-    public function popular(int $limit = 20): Collection
+    /** GET /v1/stores/popular — чисто оптовые только для тех, кто видит опт. */
+    public function popular(int $limit = 20, ?User $viewer = null): Collection
     {
-        return $this->storeRepository->popular($limit);
+        return $this->storeRepository->popular($limit, $viewer?->seesWholesale() ?? false);
     }
 
     /** GET /v1/stores — публичный список с фильтрами (регион/город/тип/доставка/поиск). */
-    public function publicList(array $filters, int $perPage = 20): LengthAwarePaginator
+    public function publicList(array $filters, int $perPage = 20, ?User $viewer = null): LengthAwarePaginator
     {
-        return $this->storeRepository->paginatePublic($filters, $perPage);
+        return $this->storeRepository->paginatePublic($filters, $perPage, $viewer?->seesWholesale() ?? false);
     }
 
     /**
      * GET /v1/stores/{id}/listings — переиспользует общую выдачу объявлений
      * (те же фильтры/сортировка/approved-only, что и /v1/listings).
+     * Оптовые позиции — владельцу витрины и тем, кто видит опт.
      */
-    public function listingsForStore(Store $store, array $filters, int $perPage = 20): LengthAwarePaginator
+    public function listingsForStore(Store $store, array $filters, int $perPage = 20, ?User $viewer = null): LengthAwarePaginator
     {
-        return $this->listingRepository->paginateForApi([...$filters, 'store_id' => $store->id], $perPage);
+        return $this->listingRepository->paginateForApi(
+            [...$filters, 'store_id' => $store->id],
+            $perPage,
+            $viewer?->id,
+            $store->showsWholesaleTo($viewer),
+        );
     }
 
     public function findByUser(User $user): ?Store
