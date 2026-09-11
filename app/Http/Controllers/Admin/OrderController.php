@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\OrderIndexRequest;
 use App\Services\NotificationService;
 use App\Services\OrderService;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 /**
@@ -23,16 +23,22 @@ class OrderController extends Controller
         private readonly NotificationService $notificationService,
     ) {}
 
-    public function index(Request $request)
+    public function index(OrderIndexRequest $request)
     {
         $this->notificationService->markSectionSeen($request->user(), 'orders');
 
+        $filters = $request->validated();
+        $view    = $filters['view'] ?? 'orders';
+
         return Inertia::render('Orders/Index', [
-            'orders'  => $this->orderService->list($request->only('status', 'search', 'store_id')),
+            // Считаем только открытую вкладку: вторая всё равно не видна
+            'orders'  => $view === 'orders' ? $this->orderService->list($filters) : null,
+            'buyers'  => $view === 'buyers' ? $this->orderService->listBuyers($filters) : null,
+            'summary' => $this->orderService->summary($filters),
             'stores'  => $this->orderService->storesWithOrders(),
             // «Новые» — те, по которым продавец ещё не ответил
             'counts'  => ['pending' => $this->orderService->countPending()],
-            'filters' => $request->only('status', 'search', 'store_id'),
+            'filters' => $filters + ['view' => $view, 'sort' => $filters['sort'] ?? 'desc'],
         ]);
     }
 }

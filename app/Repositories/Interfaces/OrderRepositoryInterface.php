@@ -27,8 +27,27 @@ interface OrderRepositoryInterface
     /** Заказ для админки — со всеми связями, 404 если нет. */
     public function find(int $orderId): Order;
 
-    /** Очередь заказов в админке: фильтры status, search (номер / имя / телефон), store_id. */
+    /**
+     * Заказы в админке: фильтры status, search (номер / имя / телефон),
+     * store_id, from / to (дата оформления) и sort (desc|asc по дате).
+     */
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator;
+
+    /**
+     * Сводка по заказам под теми же фильтрами: сколько заказов и покупателей,
+     * и — без отказов и отмен — сколько штук продано, на какую сумму и сколько
+     * из неё комиссия платформы.
+     *
+     * @return array{orders: int, buyers: int, qty: int, total: float, commission: float}
+     */
+    public function summary(array $filters): array;
+
+    /**
+     * Покупатели под теми же фильтрами: сколько заказов сделал, в каких
+     * магазинах, сколько штук и на какую сумму (без отказов и отмен).
+     * sort — по дате последнего заказа.
+     */
+    public function paginateBuyers(array $filters, int $perPage = 25): LengthAwarePaginator;
 
     /** Сколько заказов ждёт ответа продавца — счётчик в меню админки. */
     public function countPending(): int;

@@ -7,6 +7,8 @@ use App\Models\OrderItem;
 use App\Models\Suborder;
 use App\Repositories\Interfaces\OrderRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class OrderRepository implements OrderRepositoryInterface
@@ -25,6 +27,12 @@ class OrderRepository implements OrderRepositoryInterface
         'order.region', 'order.city', 'order.district', 'order.user',
         'store', 'items.listing.media',
     ];
+
+    /**
+     * Отказ продавца и отмена покупателем денег не приносят: такие заказы в
+     * списке видны, но в штуки и суммы сводки и покупателей не входят.
+     */
+    private const UNPAID_STATUSES = ['rejected', 'canceled'];
 
     public function create(array $order, array $suborders): Order
     {
@@ -75,14 +83,114 @@ class OrderRepository implements OrderRepositoryInterface
 
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
+        $direction = self::direction($filters);
+
         // Состав грузим сразу: админка раскрывает заказ прямо в списке,
         // отдельного запроса на карточку нет. Владелец магазина — рядом с
         // магазином: админ смотрит, кто именно продал и кому
-        return Order::with(['user', 'city', 'district', 'suborders.store', 'suborders.user', 'suborders.items', 'decider'])
+        return $this->filtered($filters)
+            ->with(['user', 'city', 'district', 'suborders.store', 'suborders.user', 'suborders.items', 'decider'])
             ->withCount('items')
-            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            // Сколько штук в заказе — позиций может быть одна, а мешков десять
+            ->withSum('items as items_qty', 'qty')
+            // Админ заказы не ведёт, поэтому «ждущие» наверх не поднимаются:
+            // список идёт строго по дате, как он её выбрал
+            ->orderBy('orders.created_at', $direction)
+            ->orderBy('orders.id', $direction)
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    public function summary(array $filters): array
+    {
+        $paid = $this->filtered($filters)->whereNotIn('orders.status', self::UNPAID_STATUSES);
+
+        $money = (clone $paid)
+            ->selectRaw('COALESCE(SUM(total), 0) as total, COALESCE(SUM(commission_total), 0) as commission')
+            ->first();
+
+        return [
+            'orders'     => $this->filtered($filters)->count(),
+            'buyers'     => $this->filtered($filters)->distinct()->count('orders.user_id'),
+            'qty'        => (int) OrderItem::whereIn('order_id', (clone $paid)->select('orders.id'))->sum('qty'),
+            'total'      => round((float) $money->total, 2),
+            'commission' => round((float) $money->commission, 2),
+        ];
+    }
+
+    public function paginateBuyers(array $filters, int $perPage = 25): LengthAwarePaginator
+    {
+        $direction = self::direction($filters);
+        $unpaid    = "'".implode("','", self::UNPAID_STATUSES)."'";
+
+        // Штуки по каждому заказу считаем заранее: прямой join с позициями
+        // размножил бы строки заказов и задрал их число и суммы
+        $qty = OrderItem::query()
+            ->selectRaw('order_id, SUM(qty) as qty')
+            ->groupBy('order_id');
+
+        $buyers = $this->filtered($filters)
+            ->leftJoinSub($qty, 'order_qty', 'order_qty.order_id', '=', 'orders.id')
+            ->select('orders.user_id')
+            ->selectRaw('COUNT(*) as orders_count')
+            ->selectRaw("SUM(CASE WHEN orders.status IN ($unpaid) THEN 0 ELSE COALESCE(order_qty.qty, 0) END) as qty")
+            ->selectRaw("SUM(CASE WHEN orders.status IN ($unpaid) THEN 0 ELSE orders.total END) as total")
+            ->selectRaw('MAX(orders.created_at) as last_order_at')
+            ->with('user:id,name,phone')
+            ->groupBy('orders.user_id')
+            ->orderBy('last_order_at', $direction)
+            ->orderBy('orders.user_id', $direction)
+            ->paginate($perPage)
+            ->withQueryString();
+
+        // В каких магазинах и сколько раз заказывал — отдельным запросом по
+        // покупателям этой страницы, с теми же фильтрами
+        $stores = $this->filtered($filters)
+            ->whereIn('orders.user_id', $buyers->pluck('user_id'))
+            ->join('suborders', 'suborders.order_id', '=', 'orders.id')
+            ->leftJoin('stores', 'stores.id', '=', 'suborders.store_id')
+            ->select('orders.user_id', 'suborders.store_id', 'stores.name')
+            ->selectRaw('COUNT(*) as orders_count')
+            ->groupBy('orders.user_id', 'suborders.store_id', 'stores.name')
+            ->orderByDesc('orders_count')
+            ->toBase()
+            ->get()
+            ->groupBy('user_id');
+
+        return $buyers->through(fn (Order $row) => [
+            'id'            => $row->user_id,
+            'name'          => $row->user?->name,
+            'phone'         => $row->user?->phone,
+            'orders_count'  => (int) $row->orders_count,
+            'qty'           => (int) $row->qty,
+            'total'         => round((float) $row->total, 2),
+            'last_order_at' => $row->last_order_at
+                ? Carbon::parse($row->last_order_at)->toJSON()
+                : null,
+            'stores'        => ($stores[$row->user_id] ?? collect())
+                ->map(fn ($s) => [
+                    'id'           => $s->store_id ? (int) $s->store_id : null,
+                    'name'         => $s->name,
+                    'orders_count' => (int) $s->orders_count,
+                ])
+                ->values(),
+        ]);
+    }
+
+    private static function direction(array $filters): string
+    {
+        return ($filters['sort'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+    }
+
+    /** Фильтры админки — общие для списка, сводки и покупателей. */
+    private function filtered(array $filters): Builder
+    {
+        return Order::query()
+            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('orders.status', $status))
             ->when($filters['store_id'] ?? null, fn ($q, $id) => $q
                 ->whereHas('suborders', fn ($s) => $s->where('store_id', $id)))
+            ->when($filters['from'] ?? null, fn ($q, $from) => $q->whereDate('orders.created_at', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($q, $to) => $q->whereDate('orders.created_at', '<=', $to))
             ->when($filters['search'] ?? null, function ($q, $search) {
                 $term = '%'.addcslashes($search, '%_\\').'%';
                 // Номер заказа — это id с ведущими нулями («000123»), поэтому
@@ -90,22 +198,17 @@ class OrderRepository implements OrderRepositoryInterface
                 $number = ltrim(trim($search), '#0');
 
                 $q->where(function ($w) use ($term, $number) {
-                    $w->where('phone', 'like', $term)
-                        ->orWhere('contact_name', 'like', $term)
+                    $w->where('orders.phone', 'like', $term)
+                        ->orWhere('orders.contact_name', 'like', $term)
                         ->orWhereHas('user', fn ($u) => $u
                             ->where('name', 'like', $term)
                             ->orWhere('phone', 'like', $term));
 
                     if (is_numeric($number)) {
-                        $w->orWhere('id', (int) $number);
+                        $w->orWhere('orders.id', (int) $number);
                     }
                 });
-            })
-            // Необработанные — наверх: админ работает именно с ними
-            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
-            ->latest('id')
-            ->paginate($perPage)
-            ->withQueryString();
+            });
     }
 
     public function countPending(): int

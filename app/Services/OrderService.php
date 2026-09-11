@@ -54,6 +54,17 @@ class OrderService
         return $this->orderRepository->paginate($filters);
     }
 
+    /** @return array{orders: int, buyers: int, qty: int, total: float, commission: float} */
+    public function summary(array $filters): array
+    {
+        return $this->orderRepository->summary($filters);
+    }
+
+    public function listBuyers(array $filters): LengthAwarePaginator
+    {
+        return $this->orderRepository->paginateBuyers($filters);
+    }
+
     public function countPending(): int
     {
         return $this->orderRepository->countPending();
