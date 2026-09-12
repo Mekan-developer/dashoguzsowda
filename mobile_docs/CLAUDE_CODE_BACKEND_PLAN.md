@@ -1,6 +1,15 @@
 # Claude Code — Backend Implementation Plan (Sowda Mobile)
 
-Copy this file into the backend repo and run Claude Code with:
+> **Архив. План выполнен целиком — задач здесь не осталось.**
+>
+> Все шесть пунктов ниже реализованы и покрыты тестами. Файл оставлен как
+> история решений первой очереди; **актуальный контракт брать в
+> [`BACKEND_API.md`](./BACKEND_API.md)**, он расходится с этим планом там, где
+> API дорабатывали позже (заказы, комиссия, видимость опта, способы оплаты).
+>
+> Ничего из этого файла реализовывать повторно не нужно.
+
+Исходное задание, с которым запускался Claude Code:
 
 > Implement the missing Sowda mobile API endpoints described in this file.
 > Follow existing Laravel conventions in this project. Do not invent unrelated endpoints.
@@ -16,7 +25,7 @@ Copy this file into the backend repo and run Claude Code with:
 
 ## Priority order (implement in this order)
 
-| # | Feature | Endpoints | Mobile already wired? |
+| # | Feature | Endpoints | Статус |
 |---|---------|-----------|------------------------|
 | 1 | Profile completeness | extend `GET/PUT /v1/profile` | ✅ |
 | 2 | Search recent history | `GET/POST/DELETE /v1/search/recent` | ✅ |
@@ -26,7 +35,7 @@ Copy this file into the backend repo and run Claude Code with:
 | 6 | Search popular | `GET /v1/search/popular` | ✅ |
 
 This doc focuses on **1–3** (Onboarding / Search history / Profile).  
-Full schemas for stores/tariffs/popular are in `docs/BACKEND_API.md`.
+Full schemas for stores/tariffs/popular are in [`BACKEND_API.md`](./BACKEND_API.md).
 
 ---
 
