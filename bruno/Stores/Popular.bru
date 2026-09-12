@@ -24,8 +24,13 @@ docs {
   пока его не подняли в админке.
 
   Пагинации нет — отдаётся до 20 магазинов сразу.
-  Поля: id, name, subtitle_tk/subtitle_ru/subtitle (категория магазина),
+  Поля те же, что в карточке магазина: id, name, description, phone,
+  sells_retail/sells_wholesale/has_delivery, payment_methods[], address,
+  region/city/district, subtitle_tk/subtitle_ru/subtitle (категория магазина),
   logo_url, photos[] (они же photo_urls[] — ссылки на фото галереи).
+
+  Чисто оптовый магазин (sells_retail=0) в эту витрину клиенту и гостю
+  не попадает: опт видит только владелец одобренного розничного магазина.
 }
 
 tests {

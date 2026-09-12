@@ -1,0 +1,48 @@
+meta {
+  name: О нас
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/v1/about
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("both versions and the localized one are returned", function() {
+    const data = res.getBody().data;
+    expect(data).to.have.property('content_tk');
+    expect(data).to.have.property('content_ru');
+    expect(data).to.have.property('content');
+  });
+}
+
+docs {
+  Текст экрана «О нас». Без авторизации намеренно: экран открывается и до
+  входа, из онбординга — Authorization здесь не нужен.
+
+  Правит его админ в панели (Настройки → О нас) визуальным редактором, поэтому
+  в ответе HTML, а не простая строка: рисовать нужно html-виджетом, обычный
+  Text покажет теги.
+
+  Набор тегов закрытый и чистится на сервере при сохранении: p, br, strong, b,
+  em, i, s, u, h2, h3, ul, ol, li, blockquote, a. Единственный атрибут — href
+  у ссылки (схемы http, https, mailto, tel) плюс проставленные сервером target
+  и rel. Ни script, ни style, ни инлайновых стилей и обработчиков прийти
+  не может — проверять на клиенте нечего.
+
+  content — версия по Accept-Language. Если на языке пользователя текста нет,
+  подставляется вторая, чтобы экран не был пустым. Обе версии могут быть null:
+  админ ещё не заполнил текст — показываем заглушку.
+}

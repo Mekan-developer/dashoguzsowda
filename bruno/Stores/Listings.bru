@@ -42,9 +42,16 @@ docs {
 
   Ответ: { data, meta } — схема Listing из /v1/listings плюс торговые поля:
   price (розница), wholesale_price + min_order_qty (опт, за единицу при
-  заказе от min_order_qty), stock_qty и блок store { id, name, logo_url,
-  sells_retail, sells_wholesale, has_delivery } — по нему мобилка рисует
-  условия покупки.
+  заказе от min_order_qty), stock_qty, флаг is_orderable (показывать ли
+  «В корзину») и блок store { id, name, logo_url, sells_retail,
+  sells_wholesale, has_delivery } — по нему мобилка рисует условия покупки.
+  Способов оплаты в этом блоке нет: их брать из GET /v1/stores/{id}.
+
+  ОПТ ВИДЯТ ТОЛЬКО РОЗНИЧНЫЕ ПРОДАВЦЫ. Клиенту и гостю wholesale_price
+  и min_order_qty приходят null, sells_wholesale — false, товары только
+  с оптовой ценой из выдачи убраны, а trade=wholesale возвращает ПУСТОЙ
+  список. Опт видит владелец одобренного и активного розничного магазина —
+  и всегда сам владелец витрины, на своей странице.
 }
 
 tests {

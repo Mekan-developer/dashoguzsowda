@@ -24,6 +24,18 @@ docs {
 
   is_profile_complete — заполнены ли имя, регион и город. По нему мобильный
   клиент решает, вести ли пользователя после OTP на экран заполнения профиля.
+
+  Сводка в том же ответе:
+  - tariff (он же subscription — алиас того же объекта): name, price,
+    can_have_store, ads_limit/ads_used, videos_limit/videos_used,
+    boosts_limit, days_left. Право на магазин проверять по can_have_store,
+    а НЕ сравнивая name с «Premium»: набор тарифов меняется из админки.
+    days_left = 0 у бесплатного тарифа — он бессрочный.
+  - tariff_request — незакрытая заявка на платный тариф или null. Пока
+    status=pending, вместо кнопки смены тарифа показываем статус заявки.
+  - store — свой магазин или null (нет права по тарифу либо ещё не создан;
+    эти два случая по полю не различить — смотреть tariff.can_have_store).
+  - stats — views_count, likes_count, premium_days_left.
 }
 
 tests {

@@ -24,9 +24,21 @@ docs {
   Свой такой магазин владелец видит через GET /v1/my/store.
 
   В ответе: id, name, description, phone, sells_retail, sells_wholesale,
-  has_delivery, address, region/city/district {id, name_tk, name_ru},
-  subtitle_tk/subtitle_ru (категория магазина), subtitle (по Accept-Language),
-  logo_url, photos[] = photo_urls[].
+  has_delivery, payment_methods[], address, region/city/district
+  {id, name_tk, name_ru}, subtitle_tk/subtitle_ru (категория магазина),
+  subtitle (по Accept-Language), logo_url, photos[] = photo_urls[].
+
+  ОПТ ВИДЯТ ТОЛЬКО РОЗНИЧНЫЕ ПРОДАВЦЫ. Цепочка «клиент → розничный продавец →
+  оптовик»: чисто оптовый магазин (sells_retail=0) отдаётся лишь владельцу
+  одобренного и активного розничного магазина и самому владельцу. Клиенту
+  и гостю он не существует — 404 и пустой список, а флаг sells_wholesale
+  приходит false даже у магазина, который торгует оптом. Фильтровать
+  на клиенте нечего, бэкенд отсекает сам.
+
+  payment_methods[] = [{id, name_tk, name_ru}] — чем можно расплатиться с этим
+  магазином, минимум один. Единственное место, где бэкенд отдаёт текст, а не
+  флаг: справочник ведёт админ и пополняет его без релиза мобилки. Онлайн-
+  оплаты нет — деньги продавец получает сам при доставке.
 
   Тексты «Розница», «Опт», «Самовывоз, оплата на месте» и иконки рисует
   мобилка из своих словарей — бэкенд отдаёт только флаги.
