@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateBoostSettingsRequest;
 use App\Http\Requests\Admin\UpdateLocalizationRequest;
 use App\Http\Requests\Admin\UpdateManagerPermissionsRequest;
+use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Repositories\Interfaces\SettingRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
@@ -21,6 +22,7 @@ class SettingsController extends Controller
     public function __construct(
         private readonly SettingRepositoryInterface $settings,
         private readonly ReasonRepositoryInterface $reasons,
+        private readonly PaymentMethodRepositoryInterface $paymentMethods,
     ) {}
 
     public function index(MonitoringService $monitoring, OtpMonitorService $otpMonitor)
@@ -36,6 +38,9 @@ class SettingsController extends Controller
             // (Settings/Index.vue создаёт их с type: 'listing').
             'rejectionReasons'   => $this->reasons->rejectionReasonsByType('listing'),
             'complaintReasons'   => $this->reasons->allComplaintReasons(),
+            // Чем покупатель может рассчитаться с продавцом: из этого списка
+            // магазин отмечает свои способы (CLAUDE.md → «Заказы и корзина»)
+            'paymentMethods'     => $this->paymentMethods->all(),
             'ownLocale'          => Auth::user()->locale,
             'defaultAppLocale'   => $this->settings->get('default_app_locale', 'ru'),
             'boostIntervalHours' => (int) $this->settings->get('boost_interval_hours', 24),

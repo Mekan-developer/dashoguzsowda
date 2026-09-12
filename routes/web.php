@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\NewsController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\OtpMonitorController;
+use App\Http\Controllers\Admin\PaymentMethodController;
 use App\Http\Controllers\Admin\PushController;
 use App\Http\Controllers\Admin\RegionController;
 use App\Http\Controllers\Admin\RejectionReasonController;
@@ -201,6 +202,13 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         Route::post('complaint-reasons',                       [ComplaintReasonController::class, 'store'])->name('complaint-reasons.store');
         Route::put('complaint-reasons/{complaint_reason}',      [ComplaintReasonController::class, 'update'])->name('complaint-reasons.update');
         Route::delete('complaint-reasons/{complaint_reason}',   [ComplaintReasonController::class, 'destroy'])->name('complaint-reasons.destroy');
+
+        // Способы оплаты заказа: из этого списка магазин отмечает свои, а
+        // покупатель выбирает при оформлении. Страницы у справочника тоже нет —
+        // им управляет Settings/Index.vue.
+        Route::post('payment-methods',                         [PaymentMethodController::class, 'store'])->name('payment-methods.store');
+        Route::put('payment-methods/{payment_method}',          [PaymentMethodController::class, 'update'])->name('payment-methods.update');
+        Route::delete('payment-methods/{payment_method}',       [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
 
         // Настройки (мониторинг, права менеджера, локализация, SMS-шлюз)
         Route::get('settings',                       [SettingsController::class, 'index'])->name('settings.index');

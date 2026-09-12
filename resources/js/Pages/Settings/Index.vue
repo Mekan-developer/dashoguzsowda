@@ -17,6 +17,7 @@ const props = defineProps({
     canManageBanners:  { type: Boolean, default: false },
     rejectionReasons:  { type: Array, default: () => [] },
     complaintReasons:  { type: Array, default: () => [] },
+    paymentMethods:    { type: Array, default: () => [] },
     boostIntervalHours:{ type: Number, default: 24 },
 })
 
@@ -364,6 +365,32 @@ function destroyComplaint(item) {
     router.delete(route('complaint-reasons.destroy', item.id), opts)
 }
 
+// ── Способы оплаты ─────────────────────────────────────────
+// Онлайн-оплаты в проекте нет: это список договорённостей, из которого магазин
+// отмечает свои, а покупатель выбирает при оформлении заказа.
+const paymentCol    = ref(null)
+const paymentErrors = ref({})
+
+const paymentItems = computed(() => props.paymentMethods.map(m => ({ ...m, is_hidden: !m.is_active })))
+
+function createPayment(form) {
+    paymentErrors.value = {}
+    router.post(route('payment-methods.store'), { ...form, is_active: true },
+        { ...opts, onSuccess: () => paymentCol.value?.closeAdd(), onError: e => (paymentErrors.value = e) })
+}
+function updatePayment(item, form) {
+    paymentErrors.value = {}
+    router.put(route('payment-methods.update', item.id), form,
+        { ...opts, onSuccess: () => paymentCol.value?.closeEdit(), onError: e => (paymentErrors.value = e) })
+}
+function togglePayment(item) {
+    router.put(route('payment-methods.update', item.id), { is_active: !item.is_active }, opts)
+}
+function destroyPayment(item) {
+    if (!confirm(t('settings.confirmDeletePayment', { name: item.name_ru }))) return
+    router.delete(route('payment-methods.destroy', item.id), opts)
+}
+
 // ── Объявления: интервал поднятия ──────────────────────────
 const boostIntervalHours = ref(props.boostIntervalHours)
 const boostErrors        = ref({})
@@ -607,7 +634,29 @@ function saveBoostSettings() {
         </div>
       </section>
 
-      <!-- 5. Объявления -->
+      <!-- 5. Способы оплаты -->
+      <section>
+        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.paymentSection') }}</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <GeoColumn
+            ref="paymentCol"
+            :title="t('settings.paymentMethods')"
+            :items="paymentItems"
+            :empty-text="t('settings.emptyPaymentMethods')"
+            :subtitle="m => m.name_tk"
+            :errors="paymentErrors"
+            @create="createPayment"
+            @update="updatePayment"
+            @toggle="togglePayment"
+            @destroy="destroyPayment"
+          />
+          <div class="rounded-card border border-line bg-white p-5 text-[12px] leading-relaxed text-muted dark:border-dline dark:bg-dcard">
+            {{ t('settings.paymentHint') }}
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Объявления -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.listingsSection') }}</h2>
         <div class="grid gap-4 sm:grid-cols-2">

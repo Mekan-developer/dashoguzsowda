@@ -36,6 +36,8 @@ class UpdateOwnStoreRequest extends FormRequest
             wholesaleDefault: (bool) ($store?->sells_wholesale ?? false),
         );
 
+        $this->validatePaymentMethods($validator);
+
         $validator->after(function (Validator $v) use ($store) {
             $newCount = count($this->file('photos', []));
 

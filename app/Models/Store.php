@@ -37,6 +37,18 @@ class Store extends Model
     public function listings()        { return $this->hasMany(Listing::class); }
     public function photos()          { return $this->hasMany(StorePhoto::class)->orderBy('order'); }
 
+    /**
+     * Чем у этого магазина можно расплатиться. Деньги покупатель отдаёт лично
+     * продавцу, поэтому и условия расчёта — его: он отмечает свои способы из
+     * справочника админа, а покупатель выбирает при заказе только из них.
+     */
+    public function paymentMethods()
+    {
+        return $this->belongsToMany(PaymentMethod::class)
+            ->orderBy('sort_order')
+            ->orderBy('payment_methods.id');
+    }
+
     /** Виден ли магазин в публичной витрине: прошёл модерацию и тариф владельца не истёк. */
     public function isPublic(): bool
     {

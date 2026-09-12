@@ -19,6 +19,7 @@ const props = defineProps({
     categories: Array,
     regions: Array,
     rejectionReasons: Array,
+    paymentMethods: Array,
     counts: Object,
     filters: Object,
 })
@@ -38,6 +39,7 @@ const emptyForm = () => ({
     name: '', description: '', phone: '', address: '', category_id: null,
     region_id: null, city_id: null, district_id: null,
     sells_retail: true, sells_wholesale: false, has_delivery: false,
+    payment_method_ids: [],
     commission_percent: 0,
     logo: null, crop_x: 50, crop_y: 50, photos: [],
 })
@@ -102,6 +104,7 @@ function openEdit(s) {
         region_id: s.region_id ?? null, city_id: s.city_id ?? null, district_id: s.district_id ?? null,
         sells_retail: !!s.sells_retail, sells_wholesale: !!s.sells_wholesale,
         has_delivery: !!s.has_delivery,
+        payment_method_ids: (s.payment_methods || []).map(m => m.id),
         commission_percent: Number(s.commission_percent ?? 0),
         logo: null, crop_x: 50, crop_y: 50, photos: [],
     }
@@ -135,6 +138,15 @@ function removeExistingPhoto(photo) {
 }
 
 function save() {
+    // Хотя бы один способ оплаты обязателен: иначе покупателю при оформлении
+    // заказа не из чего выбрать. Пустой набор до сервера не доезжает вовсе —
+    // multipart просто не передаёт пустой массив, поэтому ловим здесь
+    // Если админ выключил весь справочник, выбирать не из чего — тогда набор
+    // магазина просто не трогаем, иначе правка магазина стала бы невозможна
+    if (props.paymentMethods?.length && !form.value.payment_method_ids.length) {
+        errors.value = { payment_method_ids: t('stores.paymentRequired') }
+        return
+    }
     router.post(route('stores.update', editItem.value.id), { ...form.value, _method: 'put' }, {
         forceFormData: true,
         onSuccess: () => { closeDrawer() },
@@ -343,6 +355,22 @@ function reasonName(reason) {
           </label>
         </div>
         <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.deliveryHint') }}</p>
+      </DrawerField>
+
+      <!-- Чем покупатель может рассчитаться с этим магазином: деньги идут
+           мимо системы, прямо продавцу, поэтому условия расчёта — его -->
+      <DrawerField :label="t('stores.paymentLabel')" :error="errors.payment_method_ids">
+        <div class="flex flex-wrap gap-4">
+          <label
+            v-for="method in paymentMethods || []"
+            :key="method.id"
+            class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]"
+          >
+            <input type="checkbox" :value="method.id" v-model="form.payment_method_ids" class="accent-blue" />
+            {{ method.name_ru || method.name_tk }}
+          </label>
+        </div>
+        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.paymentHint') }}</p>
       </DrawerField>
 
       <!-- Комиссия платформы: своя ставка у каждого магазина, удерживается

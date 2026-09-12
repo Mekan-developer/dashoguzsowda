@@ -53,6 +53,15 @@ class StoreOrderResource extends JsonResource
                 'comment'  => $this->order->comment,
             ] : null),
 
+            // Чем покупатель собирается рассчитаться — продавец везёт заказ
+            // сам и деньги получает на месте, значит должен приехать готовым
+            // (сдача, терминал). null — способ не выбран, решат по телефону
+            'payment_method' => $this->whenLoaded('order', fn () => $this->order?->paymentMethod ? [
+                'id'      => $this->order->paymentMethod->id,
+                'name_tk' => $this->order->paymentMethod->name_tk,
+                'name_ru' => $this->order->paymentMethod->name_ru,
+            ] : null),
+
             'items'        => StoreOrderItemResource::collection($this->whenLoaded('items')),
             'created_at'   => $this->created_at?->toIso8601String(),
             'responded_at' => $this->responded_at?->toIso8601String(),

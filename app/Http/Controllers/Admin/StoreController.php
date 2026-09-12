@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\UpdateStoreRequest;
 use App\Models\Store;
 use App\Models\StorePhoto;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
+use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Repositories\Interfaces\RegionRepositoryInterface;
 use App\Services\NotificationService;
@@ -24,6 +25,7 @@ class StoreController extends Controller
         private readonly CategoryRepositoryInterface $categories,
         private readonly RegionRepositoryInterface $regions,
         private readonly ReasonRepositoryInterface $reasons,
+        private readonly PaymentMethodRepositoryInterface $paymentMethods,
         private readonly ApproveStoreAction $approveStore,
         private readonly RejectStoreAction $rejectStore,
         private readonly NotificationService $notificationService,
@@ -38,6 +40,9 @@ class StoreController extends Controller
             'categories' => $this->categories->activeTree(),
             'regions'    => $this->regions->activeListWithDistricts(),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('store'),
+            // Набор способов оплаты магазина правится здесь же: платит
+            // покупатель лично продавцу, значит и условия расчёта его
+            'paymentMethods'   => $this->paymentMethods->active(),
             'counts'     => $this->storeService->moderationCounts(),
             'filters'    => $request->only('search', 'is_popular', 'status'),
         ]);
@@ -51,6 +56,7 @@ class StoreController extends Controller
                 'name', 'description', 'phone', 'address', 'category_id',
                 'region_id', 'city_id', 'district_id',
                 'sells_retail', 'sells_wholesale', 'has_delivery', 'commission_percent',
+                'payment_method_ids',
             ),
             $request->file('logo'),
             $request->safe()->only('crop_x', 'crop_y'),

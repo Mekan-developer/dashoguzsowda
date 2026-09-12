@@ -4,6 +4,7 @@ return [
     'created'   => 'Создано успешно',
     'updated'   => 'Сохранено',
     'deleted'   => 'Удалено',
+    'payment_method_in_use' => 'Способ оплаты уже использован в заказах — его нельзя удалить, отключите его',
     'published' => 'Опубликовано',
     'unpublished' => 'Снято с публикации',
     'admin_only' => 'Только администратор',
@@ -32,6 +33,7 @@ return [
     'store_approved'     => 'Магазин одобрен',
     'store_rejected'     => 'Магазин отклонён',
     'store_trade_type_required' => 'Выберите хотя бы один вид торговли: розница или опт',
+    'store_payment_method_required' => 'Оставьте хотя бы один способ оплаты — иначе покупателю нечего выбрать при заказе',
     'wholesale_requires_wholesale_store' => 'Оптовая цена доступна только магазину с включённой оптовой торговлей',
 
     'news_ad_link_store_missing'   => 'Магазин с таким ID не найден или не опубликован',
@@ -59,6 +61,7 @@ return [
     'order_item_stock_exceeded' => 'Товара «:title» осталось :count шт.',
     'order_item_min_qty'       => 'Минимальный заказ товара «:title» — :count шт.',
     'order_item_no_price'      => 'У товара «:title» не указана цена — свяжитесь с продавцом',
+    'order_payment_method_unsupported' => 'Магазин не принимает такой способ оплаты — выберите другой',
     'order_already_processed'  => 'Заказ уже обработан',
     'order_cannot_cancel'      => 'Продавец уже принял заказ — свяжитесь с ним по телефону',
     'order_status_transition_invalid' => 'Недопустимая смена статуса заказа',

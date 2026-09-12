@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\StorePhoto;
 use App\Models\User;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
+use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
 use App\Repositories\Interfaces\StoreRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -27,6 +28,7 @@ class StoreService
     public function __construct(
         private readonly StoreRepositoryInterface $storeRepository,
         private readonly ListingRepositoryInterface $listingRepository,
+        private readonly PaymentMethodRepositoryInterface $paymentMethods,
         private readonly ImageConversionService $imageConversion,
     ) {}
 
@@ -104,11 +106,36 @@ class StoreService
             $store = $this->storeRepository->update($store, ['logo' => $this->storeLogo($store, $logo, $crop)]);
         }
 
+        $this->syncPaymentMethods($store, $data, isNew: $existing === null);
+
         if ($photos !== []) {
             $this->addPhotos($store, $photos);
         }
 
-        return $store->fresh(['photos', 'category', 'region', 'city', 'district', 'rejectionReason']);
+        return $store->fresh(['photos', 'category', 'region', 'city', 'district', 'rejectionReason', 'paymentMethods']);
+    }
+
+    /**
+     * Набор способов оплаты магазина. Поля нет в запросе — набор не трогаем:
+     * для правки это «не менял», для нового магазина (и для того, у кого набор
+     * пуст) подставляем способ по умолчанию, иначе покупателю при оформлении
+     * не из чего выбрать, а форма правки не даст сохранить магазин.
+     */
+    private function syncPaymentMethods(Store $store, array $data, bool $isNew): void
+    {
+        if (array_key_exists('payment_method_ids', $data)) {
+            $this->storeRepository->syncPaymentMethods($store, array_map('intval', $data['payment_method_ids']));
+
+            return;
+        }
+
+        if (! $isNew && $this->storeRepository->countPaymentMethods($store) > 0) {
+            return;
+        }
+
+        $default = $this->paymentMethods->defaultId();
+
+        $this->storeRepository->syncPaymentMethods($store, $default ? [$default] : []);
     }
 
     /** Плоский массив для UserResource — null, если тариф не даёт право или магазина ещё нет. */
@@ -138,6 +165,12 @@ class StoreService
             'has_delivery'     => $store->has_delivery,
             // Ставка комиссии платформы — владелец её видит, но не меняет
             'commission_percent' => (float) $store->commission_percent,
+            // Чем у него можно расплатиться: набор он собирает сам
+            'payment_methods'  => $store->paymentMethods->map(fn ($method) => [
+                'id'      => $method->id,
+                'name_tk' => $method->name_tk,
+                'name_ru' => $method->name_ru,
+            ])->values(),
             'status'           => $store->status,
             'is_active'        => $store->is_active,
             'rejection_reason' => $store->status === 'rejected' && $store->rejectionReason ? [
@@ -238,13 +271,20 @@ class StoreService
             $data['logo'] = $this->storeLogo($store, $logo, $crop);
         }
 
+        $paymentMethodIds = $data['payment_method_ids'] ?? null;
+        unset($data['payment_method_ids']);
+
         $store = $this->storeRepository->update($store, $data);
+
+        if ($paymentMethodIds !== null) {
+            $this->storeRepository->syncPaymentMethods($store, array_map('intval', $paymentMethodIds));
+        }
 
         if ($newPhotos !== []) {
             $this->addPhotos($store, $newPhotos);
         }
 
-        return $store->fresh(['photos', 'category', 'user', 'region', 'city', 'district']);
+        return $store->fresh(['photos', 'category', 'user', 'region', 'city', 'district', 'paymentMethods']);
     }
 
     public function togglePopular(Store $store): Store

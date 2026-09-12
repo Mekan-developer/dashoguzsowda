@@ -36,6 +36,17 @@ interface StoreRepositoryInterface
 
     public function update(Store $store, array $data): Store;
 
+    /**
+     * Какие способы оплаты принимает магазин. Набор заменяется целиком: форма
+     * всегда присылает его полностью, а «минимум один» проверяет Form Request.
+     *
+     * @param  array<int, int>  $paymentMethodIds
+     */
+    public function syncPaymentMethods(Store $store, array $paymentMethodIds): void;
+
+    /** Сколько способов оплаты уже отмечено у магазина. */
+    public function countPaymentMethods(Store $store): int;
+
     public function delete(Store $store): void;
 
     public function maxPopularSortOrder(): int;

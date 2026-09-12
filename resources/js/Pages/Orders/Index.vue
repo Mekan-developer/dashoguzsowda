@@ -386,6 +386,14 @@ const td = 'px-4 py-3 align-top'
                         <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.colDelivery') }}</div>
                         <div class="mt-0.5 text-ink dark:text-slate-200">{{ deliveryLine(order) || '—' }}</div>
                       </div>
+                      <!-- Чем покупатель обещал рассчитаться: деньги продавец
+                           получает на месте, значит должен приехать готовым -->
+                      <div>
+                        <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.paymentMethod') }}</div>
+                        <div class="mt-0.5 text-ink dark:text-slate-200">
+                          {{ order.payment_method ? (order.payment_method.name_ru || order.payment_method.name_tk) : t('orders.paymentNotChosen') }}
+                        </div>
+                      </div>
                       <div v-if="part(order)?.store?.phone">
                         <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.storePhone') }}</div>
                         <div class="mt-0.5 text-ink dark:text-slate-200">{{ part(order).store.phone }}</div>

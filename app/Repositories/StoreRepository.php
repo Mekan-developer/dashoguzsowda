@@ -14,7 +14,7 @@ class StoreRepository implements StoreRepositoryInterface
 {
     public function popular(int $limit = 20, bool $withWholesale = false): Collection
     {
-        return Store::with('photos', 'category', 'region', 'city', 'district')
+        return Store::with('photos', 'category', 'region', 'city', 'district', 'paymentMethods')
             ->where('is_popular', true)
             ->tap(fn ($q) => $this->publicScope($q, $withWholesale))
             ->orderBy('sort_order')
@@ -24,7 +24,7 @@ class StoreRepository implements StoreRepositoryInterface
 
     public function paginatePublic(array $filters, int $perPage = 20, bool $withWholesale = false): LengthAwarePaginator
     {
-        return Store::with('photos', 'category', 'region', 'city', 'district')
+        return Store::with('photos', 'category', 'region', 'city', 'district', 'paymentMethods')
             ->tap(fn ($q) => $this->publicScope($q, $withWholesale))
             ->when($filters['region_id'] ?? null, fn ($q, $id) => $q->where('region_id', $id))
             ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
@@ -49,7 +49,7 @@ class StoreRepository implements StoreRepositoryInterface
 
     public function findByUser(int $userId): ?Store
     {
-        return Store::with('category', 'region', 'city', 'district', 'photos', 'rejectionReason')
+        return Store::with('category', 'region', 'city', 'district', 'photos', 'rejectionReason', 'paymentMethods')
             ->where('user_id', $userId)
             ->first();
     }
@@ -61,7 +61,7 @@ class StoreRepository implements StoreRepositoryInterface
 
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
-        return Store::with('user', 'category', 'photos', 'region', 'city', 'district', 'rejectionReason')
+        return Store::with('user', 'category', 'photos', 'region', 'city', 'district', 'rejectionReason', 'paymentMethods')
             ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', "%{$s}%"))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
             ->when(array_key_exists('is_popular', $filters) && $filters['is_popular'] !== null && $filters['is_popular'] !== '',
@@ -81,6 +81,16 @@ class StoreRepository implements StoreRepositoryInterface
         $store->update($data);
 
         return $store->fresh();
+    }
+
+    public function syncPaymentMethods(Store $store, array $paymentMethodIds): void
+    {
+        $store->paymentMethods()->sync($paymentMethodIds);
+    }
+
+    public function countPaymentMethods(Store $store): int
+    {
+        return $store->paymentMethods()->count();
     }
 
     public function delete(Store $store): void

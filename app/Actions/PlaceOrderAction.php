@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Events\OrderPlaced;
 use App\Models\Listing;
 use App\Models\Order;
+use App\Models\Store;
 use App\Models\User;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
 use App\Services\OrderService;
@@ -33,7 +34,7 @@ class PlaceOrderAction
     ) {}
 
     /**
-     * @param  array{items: array<int, array{listing_id: int|string, qty: int|string}>, phone?: string|null, contact_name?: string|null, region_id?: int|null, city_id?: int|null, district_id?: int|null, address: string, comment?: string|null}  $data
+     * @param  array{items: array<int, array{listing_id: int|string, qty: int|string}>, phone?: string|null, contact_name?: string|null, region_id?: int|null, city_id?: int|null, district_id?: int|null, address: string, comment?: string|null, payment_method_id?: int|null}  $data
      */
     public function execute(User $buyer, array $data): Order
     {
@@ -52,6 +53,7 @@ class PlaceOrderAction
         $suborders = [];
         $total = 0.0;
         $commissionTotal = 0.0;
+        $orderStore = null;
 
         foreach ($quantities as $listingId => $qty) {
             /** @var Listing|null $listing */
@@ -63,7 +65,7 @@ class PlaceOrderAction
             $lineTotal = round($unitPrice * $qty, 2);
             $total += $lineTotal;
 
-            $store = $listing->store;
+            $store = $orderStore = $listing->store;
 
             // Комиссия платформы: своя ставка у каждого магазина, считается с
             // каждой позиции и удерживается с магазина — сумма покупателя от
@@ -103,6 +105,8 @@ class PlaceOrderAction
             ]);
         }
 
+        $paymentMethodId = $this->resolvePaymentMethod($orderStore, $data['payment_method_id'] ?? null);
+
         $order = $this->orderService->create([
             'user_id'      => $buyer->id,
             'status'       => 'pending',
@@ -115,6 +119,7 @@ class PlaceOrderAction
             'district_id'  => $data['district_id'] ?? $buyer->district_id,
             'address'      => $data['address'],
             'comment'      => $data['comment'] ?? null,
+            'payment_method_id' => $paymentMethodId,
         ], array_values($suborders));
 
         // Владелец магазина узнаёт о заказе сразу: дальше заказ ведёт он —
@@ -122,6 +127,32 @@ class PlaceOrderAction
         event(new OrderPlaced($order));
 
         return $order;
+    }
+
+    /**
+     * Способ оплаты: покупатель выбирает, чем рассчитается с продавцом при
+     * доставке. Онлайн-платежа за этим нет — это договорённость, поэтому поле
+     * необязательное: пусто значит «обсудят по телефону», как было до
+     * появления справочника.
+     *
+     * Проверяется одно — что магазин такой расчёт принимает: набор он собирает
+     * сам, и обещать ему перевод на карту, которого у него нет, нельзя.
+     */
+    private function resolvePaymentMethod(?Store $store, int|string|null $paymentMethodId): ?int
+    {
+        if ($paymentMethodId === null || $paymentMethodId === '') {
+            return null;
+        }
+
+        $paymentMethodId = (int) $paymentMethodId;
+
+        if (! $store?->paymentMethods->contains('id', $paymentMethodId)) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => __('messages.order_payment_method_unsupported'),
+            ]);
+        }
+
+        return $paymentMethodId;
     }
 
     /**

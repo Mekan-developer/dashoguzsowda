@@ -4,6 +4,7 @@ return [
     'created'   => 'Üstünlikli döredildi',
     'updated'   => 'Saklandy',
     'deleted'   => 'Öçürildi',
+    'payment_method_in_use' => 'Bu töleg usuly sargytlarda ulanyldy — ony öçürip bolmaýar, işjeňsizlendiriň',
     'published' => 'Çap edildi',
     'unpublished' => 'Çap etmekden aýryldy',
     'admin_only' => 'Diňe administrator',
@@ -32,6 +33,7 @@ return [
     'store_approved'     => 'Dükan tassyklandy',
     'store_rejected'     => 'Dükan ret edildi',
     'store_trade_type_required' => 'Iň bolmanda bir söwda görnüşini saýlaň: bölek ýa-da lomaý',
+    'store_payment_method_required' => 'Iň bolmanda bir töleg usulyny goýuň — ýogsam alyjy sargyt edende saýlar ýaly zat bolmaz',
     'wholesale_requires_wholesale_store' => 'Lomaý baha diňe lomaý söwda açylan dükana elýeterli',
 
     'news_ad_link_store_missing'   => 'Şeýle ID-li dükan tapylmady ýa-da çap edilmedik',
@@ -58,6 +60,7 @@ return [
     'order_item_stock_exceeded' => '«:title» harydyndan :count sany galdy',
     'order_item_min_qty'       => '«:title» harydynyň iň az sargydy — :count sany',
     'order_item_no_price'      => '«:title» harydynyň bahasy görkezilmedik — satyjy bilen habarlaşyň',
+    'order_payment_method_unsupported' => 'Dükan beýle töleg usulyny kabul etmeýär — başgasyny saýlaň',
     'order_already_processed'  => 'Sargyt eýýäm gaýtadan işlendi',
     'order_cannot_cancel'      => 'Satyjy sargydy eýýäm kabul etdi — onuň bilen telefon arkaly habarlaşyň',
     'order_status_transition_invalid' => 'Sargydyň statusyny beýle üýtgedip bolmaýar',

@@ -43,6 +43,13 @@ class OrderResource extends JsonResource
             ] : null),
 
             'comment' => $this->comment,
+            // Чем покупатель обещал рассчитаться. null — способ не выбирали,
+            // условия расчёта стороны обсудят по телефону
+            'payment_method' => $this->whenLoaded('paymentMethod', fn () => $this->paymentMethod ? [
+                'id'      => $this->paymentMethod->id,
+                'name_tk' => $this->paymentMethod->name_tk,
+                'name_ru' => $this->paymentMethod->name_ru,
+            ] : null),
             // Причина отказа от продавца: решение по заказу принимает он
             'decision_comment' => $this->decision_comment,
 

@@ -41,6 +41,17 @@ class StoreResource extends JsonResource
             // доставки стороны обсуждают по телефону, система их не считает
             'has_delivery'    => (bool) $this->has_delivery,
 
+            // Чем можно рассчитаться с этим магазином: покупатель выбирает при
+            // оформлении заказа только из этого набора. Названия отдаются, а не
+            // коды: справочник ведёт админ, и новый способ должен заработать
+            // в мобилке без её релиза
+            'payment_methods' => $this->whenLoaded('paymentMethods', fn () => $this->paymentMethods
+                ->map(fn ($method) => [
+                    'id'      => $method->id,
+                    'name_tk' => $method->name_tk,
+                    'name_ru' => $method->name_ru,
+                ])->values()),
+
             'address'  => $this->address,
             'region'   => $this->whenLoaded('region', fn () => $this->region ? [
                 'id'      => $this->region->id,

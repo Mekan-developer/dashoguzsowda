@@ -15,7 +15,7 @@ class OrderRepository implements OrderRepositoryInterface
 {
     /** Состав заказа для карточки покупателя и для админки. */
     private const FULL_RELATIONS = [
-        'region', 'city', 'district',
+        'region', 'city', 'district', 'paymentMethod',
         'suborders.store', 'suborders.user', 'suborders.items.listing.media',
     ];
 
@@ -24,7 +24,7 @@ class OrderRepository implements OrderRepositoryInterface
      * делает он сам, значит и адрес доставки — его рабочие данные.
      */
     private const OWNER_RELATIONS = [
-        'order.region', 'order.city', 'order.district', 'order.user',
+        'order.region', 'order.city', 'order.district', 'order.user', 'order.paymentMethod',
         'store', 'items.listing.media',
     ];
 
@@ -89,7 +89,7 @@ class OrderRepository implements OrderRepositoryInterface
         // отдельного запроса на карточку нет. Владелец магазина — рядом с
         // магазином: админ смотрит, кто именно продал и кому
         return $this->filtered($filters)
-            ->with(['user', 'city', 'district', 'suborders.store', 'suborders.user', 'suborders.items', 'decider'])
+            ->with(['user', 'city', 'district', 'paymentMethod', 'suborders.store', 'suborders.user', 'suborders.items', 'decider'])
             ->withCount('items')
             // Сколько штук в заказе — позиций может быть одна, а мешков десять
             ->withSum('items as items_qty', 'qty')

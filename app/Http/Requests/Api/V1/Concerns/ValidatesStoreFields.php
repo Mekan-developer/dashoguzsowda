@@ -40,6 +40,13 @@ trait ValidatesStoreFields
             'sells_wholesale' => ['sometimes', 'boolean'],
             'has_delivery'    => ['sometimes', 'boolean'],
 
+            // Чем у магазина можно расплатиться: набор из справочника админа,
+            // покупатель выбирает при заказе только из него. Поле не required:
+            // при создании без него магазин получает способ по умолчанию —
+            // иначе старая версия мобилки перестала бы создавать магазины
+            'payment_method_ids'   => ['sometimes', 'array'],
+            'payment_method_ids.*' => [Rule::exists('payment_methods', 'id')->where('is_active', 1)],
+
             'logo'     => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:15360'],
             'crop_x'   => ['sometimes', 'nullable', 'numeric', 'between:0,100'],
             'crop_y'   => ['sometimes', 'nullable', 'numeric', 'between:0,100'],
@@ -72,6 +79,20 @@ trait ValidatesStoreFields
 
             if (! $retail && ! $wholesale) {
                 $v->errors()->add('sells_retail', __('messages.store_trade_type_required'));
+            }
+        });
+    }
+
+    /**
+     * Способ оплаты у магазина обязан остаться хотя бы один: иначе покупателю
+     * при оформлении не из чего выбрать. Пустой массив — именно попытка снять
+     * все, её и отбиваем; не присланное поле означает «не трогаем набор».
+     */
+    protected function validatePaymentMethods(Validator $validator): void
+    {
+        $validator->after(function (Validator $v) {
+            if ($this->has('payment_method_ids') && $this->input('payment_method_ids') === []) {
+                $v->errors()->add('payment_method_ids', __('messages.store_payment_method_required'));
             }
         });
     }

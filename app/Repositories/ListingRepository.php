@@ -199,7 +199,9 @@ class ListingRepository implements ListingRepositoryInterface
 
     public function findManyWithStore(array $ids): \Illuminate\Database\Eloquent\Collection
     {
-        return Listing::with('store')->whereIn('id', $ids)->get();
+        // Способы оплаты магазина — вместе с ним: оформление заказа проверяет,
+        // принимает ли магазин выбранный покупателем способ
+        return Listing::with('store.paymentMethods')->whereIn('id', $ids)->get();
     }
 
     public function adjustStock(int $listingId, int $delta): void

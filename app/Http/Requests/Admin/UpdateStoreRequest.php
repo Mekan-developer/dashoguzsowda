@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\StorePhoto;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateStoreRequest extends FormRequest
@@ -38,6 +39,10 @@ class UpdateStoreRequest extends FormRequest
             'sells_retail'    => 'boolean',
             'sells_wholesale' => 'boolean',
             'has_delivery'    => 'boolean',
+            // Чем у магазина можно расплатиться: минимум один способ обязан
+            // остаться, иначе покупателю при оформлении нечего выбрать
+            'payment_method_ids'   => ['sometimes', 'array', 'min:1'],
+            'payment_method_ids.*' => [Rule::exists('payment_methods', 'id')->where('is_active', 1)],
             // Комиссия платформы с товаров этого магазина: своя у каждого,
             // ставит только админ (маршрут закрыт role:admin)
             'commission_percent' => 'required|numeric|between:0,100',

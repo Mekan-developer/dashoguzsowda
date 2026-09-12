@@ -22,5 +22,6 @@ class StoreOwnStoreRequest extends FormRequest
     {
         // По умолчанию магазин розничный — как и колонка sells_retail в БД
         $this->validateTradeFlags($validator, retailDefault: true, wholesaleDefault: false);
+        $this->validatePaymentMethods($validator);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Actions\PlaceOrderAction;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * POST /v1/orders — корзина уезжает на сервер целиком.
@@ -31,6 +32,12 @@ class PlaceOrderRequest extends FormRequest
             // Адрес обязателен всегда: заказ существует только с доставкой
             'address'              => ['required', 'string', 'max:500'],
             'comment'              => ['nullable', 'string', 'max:1000'],
+
+            // Чем покупатель рассчитается. Необязательно: пусто — договорятся
+            // по телефону, как было до появления справочника. Принимает ли
+            // магазин этот способ, проверяет PlaceOrderAction: это правило
+            // предметной области, а не формы
+            'payment_method_id'    => ['nullable', 'integer', Rule::exists('payment_methods', 'id')->where('is_active', 1)],
         ];
     }
 }

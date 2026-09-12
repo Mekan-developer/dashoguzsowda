@@ -13,6 +13,7 @@ class Order extends Model
     protected $fillable = [
         'user_id', 'status', 'total', 'commission_total',
         'contact_name', 'phone', 'region_id', 'city_id', 'district_id', 'address', 'comment',
+        'payment_method_id',
         'decision_comment', 'decided_by', 'decided_at',
     ];
 
@@ -31,6 +32,8 @@ class Order extends Model
     public function district()  { return $this->belongsTo(District::class); }
     /** Кто решил по заказу: владелец магазина. При отмене покупателем — никто. */
     public function decider()   { return $this->belongsTo(User::class, 'decided_by'); }
+    /** Чем покупатель рассчитается. Пусто — договорятся по телефону. */
+    public function paymentMethod() { return $this->belongsTo(PaymentMethod::class); }
     public function suborders() { return $this->hasMany(Suborder::class); }
     public function items()     { return $this->hasMany(OrderItem::class); }
 
