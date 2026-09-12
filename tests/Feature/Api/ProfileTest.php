@@ -147,12 +147,15 @@ it('reports is_premium false and no store on the free tariff', function () {
         ->assertJsonPath('data.store', null)
         ->assertJsonPath('data.tariff.name', 'Basic')
         ->assertJsonPath('data.tariff.ads_limit', 5)
+        // По can_have_store мобилка решает, показывать ли раздел «Мой магазин»:
+        // сравнивать имя тарифа нельзя, набор тарифов меняется из админки
+        ->assertJsonPath('data.tariff.can_have_store', false)
         ->assertJsonPath('data.subscription.name', 'Basic');
 });
 
 it('reports is_premium true on a paid tariff', function () {
     $premium = Tariff::create([
-        'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium',
+        'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium', 'price' => 250,
         'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
         'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
     ]);
@@ -161,7 +164,11 @@ it('reports is_premium true on a paid tariff', function () {
     $this->getJson('/api/v1/profile')
         ->assertOk()
         ->assertJsonPath('data.is_premium', true)
-        ->assertJsonPath('data.tariff.name', 'Premium');
+        ->assertJsonPath('data.tariff.name', 'Premium')
+        ->assertJsonPath('data.tariff.can_have_store', true)
+        // Сумма к передаче админу — чтобы не запрашивать каталог отдельно
+        // (целое число уезжает в JSON как 250, без дробной части)
+        ->assertJsonPath('data.tariff.price', 250);
 });
 
 it('rejects a nested store update on a tariff without can_have_store', function () {

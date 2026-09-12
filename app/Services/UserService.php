@@ -108,7 +108,7 @@ class UserService
      * Сводка для мобильного профиля: is_premium/tariff/store/stats
      * (mobile_docs/BACKEND_API.md §2).
      *
-     * @return array{is_premium: bool, tariff: array|null, store: array|null, stats: array}
+     * @return array{is_premium: bool, tariff: array|null, tariff_request: array|null, store: array|null, stats: array}
      */
     public function profileSummary(User $user): array
     {
@@ -118,7 +118,15 @@ class UserService
 
         return [
             'is_premium' => $tariff !== null && ! $tariff->is_free,
-            'tariff'     => $tariff ? [...$usage, 'name' => $tariff->name] : null,
+            // price и can_have_store — те же поля, что в каталоге /v1/tariffs:
+            // по ним мобилка решает, показывать ли раздел «Мой магазин», и
+            // называет сумму к передаче админу, не запрашивая каталог отдельно
+            'tariff'     => $tariff ? [
+                ...$usage,
+                'name'           => $tariff->name,
+                'price'          => (float) $tariff->price,
+                'can_have_store' => $tariff->canHaveStore(),
+            ] : null,
             // Пока заявка в статусе pending, мобилка показывает «На рассмотрении»
             // вместо кнопки смены тарифа, а после отказа — комментарий админа
             'tariff_request' => $this->tariffRequestService->forProfile($user),
