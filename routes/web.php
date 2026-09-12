@@ -215,6 +215,8 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         Route::get('settings/monitoring',             StatusController::class)->name('settings.monitoring');
         Route::patch('settings/manager-permissions',  [SettingsController::class, 'updateManagerPermissions'])->name('settings.manager-permissions');
         Route::patch('settings/localization',         [SettingsController::class, 'updateLocalization'])->name('settings.localization');
+        // «О нас»: статический текст для одноимённого экрана приложения
+        Route::patch('settings/about',                [SettingsController::class, 'updateAbout'])->name('settings.about');
         Route::patch('settings/boost',                [SettingsController::class, 'updateBoostSettings'])->name('settings.boost');
         Route::get('settings/sms-gateway',            [SmsGatewayController::class, 'status'])->name('settings.sms-gateway');
         Route::post('settings/sms-gateway/test',      [SmsGatewayController::class, 'test'])->name('settings.sms-gateway.test');

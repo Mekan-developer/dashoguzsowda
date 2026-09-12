@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\ToggleManagerBannerPermissionAction;
+use App\Actions\UpdateAboutPageAction;
 use App\Actions\ToggleManagerNewsPermissionAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateAboutRequest;
 use App\Http\Requests\Admin\UpdateBoostSettingsRequest;
 use App\Http\Requests\Admin\UpdateLocalizationRequest;
 use App\Http\Requests\Admin\UpdateManagerPermissionsRequest;
@@ -44,6 +46,10 @@ class SettingsController extends Controller
             'ownLocale'          => Auth::user()->locale,
             'defaultAppLocale'   => $this->settings->get('default_app_locale', 'ru'),
             'boostIntervalHours' => (int) $this->settings->get('boost_interval_hours', 24),
+            // «О нас»: HTML из визуального редактора, уходит на экран
+            // приложения как есть (GET /api/v1/about)
+            'aboutRu'            => $this->settings->get(UpdateAboutPageAction::KEY_RU, ''),
+            'aboutTk'            => $this->settings->get(UpdateAboutPageAction::KEY_TK, ''),
         ]);
     }
 
@@ -52,6 +58,13 @@ class SettingsController extends Controller
         $this->settings->set('boost_interval_hours', (string) $request->validated('boost_interval_hours'));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.boost_settings_updated')]);
+    }
+
+    public function updateAbout(UpdateAboutRequest $request, UpdateAboutPageAction $updateAbout)
+    {
+        $updateAbout->execute($request->validated());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.about_updated')]);
     }
 
     public function updateManagerPermissions(UpdateManagerPermissionsRequest $request, ToggleManagerNewsPermissionAction $newsAction, ToggleManagerBannerPermissionAction $bannerAction)

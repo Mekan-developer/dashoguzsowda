@@ -4,6 +4,7 @@ return [
     'created'   => 'Üstünlikli döredildi',
     'updated'   => 'Saklandy',
     'deleted'   => 'Öçürildi',
+    'about_updated' => '«Biz barada» tekst ýatda saklandy',
     'payment_method_in_use' => 'Bu töleg usuly sargytlarda ulanyldy — ony öçürip bolmaýar, işjeňsizlendiriň',
     'published' => 'Çap edildi',
     'unpublished' => 'Çap etmekden aýryldy',

@@ -1,234 +1,153 @@
 <script setup>
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { EditorContent, useEditor } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import Link from '@tiptap/extension-link'
+import Icon from '@/Components/Icon.vue'
 
-const props = defineProps({
-    modelValue: String,
-    placeholder: String,
-})
-const emit = defineEmits(['update:modelValue'])
+// Визуальный редактор для статических текстов админки (сейчас — «О нас»).
+// Отдаёт HTML: набор тегов ровно тот, что чистит App\Services\RichTextSanitizer,
+// поэтому кнопок здесь не больше, чем переживёт сохранение.
 
 const { t } = useI18n()
 
-const editor = ref(null)
-const isUpdating = ref(false)
+const props = defineProps({
+    modelValue: { type: String, default: '' },
+})
+const emit = defineEmits(['update:modelValue'])
 
-// Синхронизируем содержимое при изменении modelValue (например, при смене языка)
-watch(() => props.modelValue, (newValue) => {
-    if (!isUpdating.value && editor.value) {
-        editor.value.innerHTML = newValue || ''
-    }
+const editor = useEditor({
+    content: props.modelValue || '',
+    extensions: [
+        // Заголовки только h2/h3: h1 — это заголовок экрана в приложении
+        StarterKit.configure({
+            heading: { levels: [2, 3] },
+            codeBlock: false,
+            code: false,
+            horizontalRule: false,
+        }),
+        Link.configure({ openOnClick: false, autolink: false }),
+    ],
+    onUpdate: ({ editor }) => {
+        // Пустой редактор отдаёт <p></p> — наружу это должно уходить пустой
+        // строкой, иначе «текста нет» не отличить от «текст есть»
+        emit('update:modelValue', editor.isEmpty ? '' : editor.getHTML())
+    },
 })
 
-// При монтировании watch ещё не имеет доступа к DOM-узлу: без этого
-// открытие формы редактирования показывало бы пустой редактор
-onMounted(() => {
-    if (editor.value) editor.value.innerHTML = props.modelValue || ''
+// Переключение языка меняет modelValue снаружи — перезаливаем содержимое.
+// Сравнение с текущим HTML обязательно: без него setContent сработал бы на
+// собственный onUpdate и сбрасывал каретку в начало на каждом нажатии.
+watch(() => props.modelValue, (value) => {
+    if (!editor.value) return
+    const current = editor.value.isEmpty ? '' : editor.value.getHTML()
+    if (value !== current) editor.value.commands.setContent(value || '', { emitUpdate: false })
 })
 
-const sanitizeHtml = (html) => {
-    // Разрешённые теги
-    const allowedTags = ['b', 'i', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'br', 'p']
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html')
+onBeforeUnmount(() => editor.value?.destroy())
 
-    const walk = (node) => {
-        let i = node.childNodes.length
-        while (i--) {
-            const child = node.childNodes[i]
-            if (child.nodeType === 1) { // Element
-                if (!allowedTags.includes(child.tagName.toLowerCase())) {
-                    while (child.firstChild) node.insertBefore(child.firstChild, child)
-                    node.removeChild(child)
-                } else {
-                    // Оставляем только безопасные атрибуты: у <a> — href с http/https/mailto/tel
-                    for (const attr of [...child.attributes]) {
-                        if (attr.name !== 'href') child.removeAttribute(attr.name)
-                    }
-                    if (child.tagName.toLowerCase() === 'a') {
-                        const href = (child.getAttribute('href') || '').trim()
-                        if (/^(https?:|mailto:|tel:)/i.test(href)) {
-                            child.setAttribute('target', '_blank')
-                            child.setAttribute('rel', 'noopener noreferrer')
-                        } else {
-                            child.removeAttribute('href')
-                        }
-                    } else {
-                        child.removeAttribute('href')
-                    }
-                    walk(child)
-                }
-            }
-        }
+const buttonClass = (active) => [
+    'flex h-8 min-w-8 items-center justify-center rounded-btn px-2 text-[13px] font-bold transition',
+    active
+        ? 'bg-blue text-white'
+        : 'text-[var(--text-secondary)] hover:bg-surface dark:hover:bg-dbg',
+]
+
+function setLink() {
+    const previous = editor.value?.getAttributes('link').href || ''
+    const url = window.prompt(t('editor.linkPrompt'), previous)
+
+    if (url === null) return
+
+    if (url === '') {
+        editor.value?.chain().focus().extendMarkRange('link').unsetLink().run()
+        return
     }
 
-    walk(doc.body)
-    return doc.body.innerHTML
-}
-
-const updateContent = () => {
-    if (editor.value) {
-        isUpdating.value = true
-        const html = editor.value.innerHTML
-        const sanitized = sanitizeHtml(html)
-        emit('update:modelValue', sanitized)
-        nextTick(() => {
-            isUpdating.value = false
-        })
-    }
-}
-
-const execCommand = (cmd, arg = null) => {
-    document.execCommand(cmd, false, arg)
-    editor.value?.focus()
-    updateContent()
-}
-
-const insertLink = () => {
-    const url = prompt(t('editor.urlPrompt'), 'https://')
-    if (url) {
-        // Проверяем протокол
-        const finalUrl = url.startsWith('http') ? url : `https://${url}`
-        execCommand('createLink', finalUrl)
-    }
-}
-
-const onPaste = (e) => {
-    e.preventDefault()
-    const text = e.clipboardData?.getData('text/plain') || ''
-    if (text) {
-        document.execCommand('insertText', false, text)
-        updateContent()
-    }
-}
-
-const onKeyDown = (e) => {
-    // Ctrl+B для жирного
-    if (e.ctrlKey && e.key === 'b') {
-        e.preventDefault()
-        execCommand('bold')
-    }
-    // Ctrl+I для курсива
-    if (e.ctrlKey && e.key === 'i') {
-        e.preventDefault()
-        execCommand('italic')
-    }
-}
-
-const onBlur = () => {
-    // Санитизируем при blur
-    if (editor.value && editor.value.innerHTML) {
-        const sanitized = sanitizeHtml(editor.value.innerHTML)
-        if (sanitized !== editor.value.innerHTML) {
-            editor.value.innerHTML = sanitized
-            updateContent()
-        }
-    }
+    editor.value?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 </script>
 
 <template>
-  <div class="rounded-[10px] border border-[var(--field-border)] overflow-hidden">
-    <!-- Toolbar -->
-    <div class="flex items-center gap-1 bg-[var(--field-bg)] border-b border-[var(--field-border)] px-2 py-1.5">
-      <button
-        type="button"
-        @click="() => execCommand('bold')"
-        @mousedown.prevent
-        :title="t('editor.bold')"
-        class="h-7 px-2 rounded-[6px] font-black text-[12px] hover:bg-[var(--accent)]/20 transition text-[var(--text)]"
-      >B</button>
-      <button
-        type="button"
-        @click="() => execCommand('italic')"
-        @mousedown.prevent
-        :title="t('editor.italic')"
-        class="h-7 px-2 rounded-[6px] italic font-black text-[12px] hover:bg-[var(--accent)]/20 transition text-[var(--text)]"
-      >I</button>
-
-      <div class="w-px h-5 bg-[var(--field-border)]"></div>
-
-      <button
-        type="button"
-        @click="() => execCommand('insertUnorderedList')"
-        @mousedown.prevent
-        :title="t('editor.ulist')"
-        class="h-7 w-7 flex items-center justify-center rounded-[6px] hover:bg-[var(--accent)]/20 transition text-[var(--text)]"
-      >
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <circle cx="6" cy="6" r="1.5" />
-          <line x1="10" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          <circle cx="6" cy="12" r="1.5" />
-          <line x1="10" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          <circle cx="6" cy="18" r="1.5" />
-          <line x1="10" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        </svg>
+  <div class="overflow-hidden rounded-btn border-2 border-line dark:border-dline">
+    <!-- Панель: набор кнопок = набор тегов, которые переживут сохранение -->
+    <div v-if="editor" class="flex flex-wrap items-center gap-1 border-b border-line bg-surface px-2 py-1.5 dark:border-dline dark:bg-dbg">
+      <button type="button" :title="t('editor.bold')" :class="buttonClass(editor.isActive('bold'))"
+              @click="editor.chain().focus().toggleBold().run()">
+        <span class="font-black">B</span>
+      </button>
+      <button type="button" :title="t('editor.italic')" :class="buttonClass(editor.isActive('italic'))"
+              @click="editor.chain().focus().toggleItalic().run()">
+        <span class="italic">I</span>
+      </button>
+      <button type="button" :title="t('editor.strike')" :class="buttonClass(editor.isActive('strike'))"
+              @click="editor.chain().focus().toggleStrike().run()">
+        <span class="line-through">S</span>
       </button>
 
-      <button
-        type="button"
-        @click="() => execCommand('insertOrderedList')"
-        @mousedown.prevent
-        :title="t('editor.olist')"
-        class="h-7 w-7 flex items-center justify-center rounded-[6px] hover:bg-[var(--accent)]/20 transition text-[var(--text)]"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-          <text x="3" y="11" font-size="8" fill="currentColor" font-weight="bold">1.</text>
-          <line x1="10" y1="8" x2="20" y2="8" stroke="currentColor" stroke-width="1.5" />
-          <text x="3" y="16" font-size="8" fill="currentColor" font-weight="bold">2.</text>
-          <line x1="10" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1.5" />
-          <text x="3" y="21" font-size="8" fill="currentColor" font-weight="bold">3.</text>
-          <line x1="10" y1="20" x2="20" y2="20" stroke="currentColor" stroke-width="1.5" />
-        </svg>
+      <span class="mx-1 h-5 w-px bg-line dark:bg-dline"></span>
+
+      <button type="button" :title="t('editor.heading2')" :class="buttonClass(editor.isActive('heading', { level: 2 }))"
+              @click="editor.chain().focus().toggleHeading({ level: 2 }).run()">H2</button>
+      <button type="button" :title="t('editor.heading3')" :class="buttonClass(editor.isActive('heading', { level: 3 }))"
+              @click="editor.chain().focus().toggleHeading({ level: 3 }).run()">H3</button>
+
+      <span class="mx-1 h-5 w-px bg-line dark:bg-dline"></span>
+
+      <button type="button" :title="t('editor.bulletList')" :class="buttonClass(editor.isActive('bulletList'))"
+              @click="editor.chain().focus().toggleBulletList().run()">•—</button>
+      <button type="button" :title="t('editor.orderedList')" :class="buttonClass(editor.isActive('orderedList'))"
+              @click="editor.chain().focus().toggleOrderedList().run()">1.</button>
+      <button type="button" :title="t('editor.quote')" :class="buttonClass(editor.isActive('blockquote'))"
+              @click="editor.chain().focus().toggleBlockquote().run()">❝</button>
+
+      <span class="mx-1 h-5 w-px bg-line dark:bg-dline"></span>
+
+      <button type="button" :title="t('editor.link')" :class="buttonClass(editor.isActive('link'))" @click="setLink">
+        <Icon kind="link" :size="15" />
+      </button>
+      <button type="button" :title="t('editor.clearFormat')" :class="buttonClass(false)"
+              @click="editor.chain().focus().unsetAllMarks().clearNodes().run()">
+        <Icon kind="close" :size="15" />
       </button>
 
-      <div class="w-px h-5 bg-[var(--field-border)]"></div>
+      <span class="mx-1 h-5 w-px bg-line dark:bg-dline"></span>
 
-      <button
-        type="button"
-        @click="insertLink"
-        @mousedown.prevent
-        :title="t('editor.link')"
-        class="h-7 w-7 flex items-center justify-center rounded-[6px] hover:bg-[var(--accent)]/20 transition text-[var(--text)]"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-          <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
+      <button type="button" :title="t('editor.undo')" :class="buttonClass(false)"
+              :disabled="!editor.can().undo()" @click="editor.chain().focus().undo().run()">↶</button>
+      <button type="button" :title="t('editor.redo')" :class="buttonClass(false)"
+              :disabled="!editor.can().redo()" @click="editor.chain().focus().redo().run()">↷</button>
     </div>
 
-    <!-- Editor -->
-    <div
-      ref="editor"
-      contenteditable
-      :data-placeholder="placeholder"
-      class="min-h-[120px] p-3 outline-none text-sm bg-white dark:bg-[var(--field-bg)] text-[var(--text)]"
-      @input="updateContent"
-      @paste="onPaste"
-      @blur="onBlur"
-      @keydown="onKeyDown"
-    ></div>
+    <EditorContent :editor="editor" class="rich-text bg-white dark:bg-dcard" />
   </div>
 </template>
 
 <style scoped>
-[contenteditable]:empty::before {
-  content: attr(data-placeholder);
-  color: var(--text-muted);
-  pointer-events: none;
+/* ProseMirror строит разметку сам, навесить на неё Tailwind-классы неоткуда —
+   это тот случай «крайней необходимости», о котором говорит resources/js/CLAUDE.md.
+   Стилей ровно столько, чтобы абзацы и списки читались при наборе. */
+.rich-text :deep(.ProseMirror) {
+    min-height: 220px;
+    max-height: 460px;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    outline: none;
 }
-
-[contenteditable] {
-  word-wrap: break-word;
-  white-space: pre-wrap;
-}
-
-[contenteditable]:focus {
-  outline: none;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: underline;
+.rich-text :deep(.ProseMirror > * + *) { margin-top: 0.7em; }
+.rich-text :deep(.ProseMirror h2)      { font-size: 18px; font-weight: 800; }
+.rich-text :deep(.ProseMirror h3)      { font-size: 15px; font-weight: 800; }
+.rich-text :deep(.ProseMirror ul)      { list-style: disc;    padding-left: 1.4em; }
+.rich-text :deep(.ProseMirror ol)      { list-style: decimal; padding-left: 1.4em; }
+.rich-text :deep(.ProseMirror li)      { margin-top: 0.25em; }
+.rich-text :deep(.ProseMirror a)       { color: #4361ee; text-decoration: underline; }
+.rich-text :deep(.ProseMirror blockquote) {
+    border-left: 3px solid var(--card-border);
+    padding-left: 0.9em;
+    color: var(--text-secondary);
 }
 </style>

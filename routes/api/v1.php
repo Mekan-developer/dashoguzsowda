@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AboutController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BannerController;
 use App\Http\Controllers\Api\V1\CategoryController;
@@ -44,6 +45,14 @@ Route::prefix('v1')
     ->name('api.v1.')
     ->middleware(\App\Http\Middleware\SetApiLocale::class)
     ->group(function () {
+
+        /*
+        |----------------------------------------------------------------------
+        | О нас — статический текст, который админ правит в настройках
+        |----------------------------------------------------------------------
+        | Без авторизации: экран открывается и до входа, из онбординга.
+        */
+        Route::get('about', AboutController::class)->name('about');
 
         /*
         |----------------------------------------------------------------------

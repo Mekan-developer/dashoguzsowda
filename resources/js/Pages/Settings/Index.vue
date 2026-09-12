@@ -7,6 +7,7 @@ import GeoColumn from '@/Components/GeoColumn.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import Icon from '@/Components/Icon.vue'
+import RichTextEditor from '@/Components/RichTextEditor.vue'
 
 const { t } = useI18n()
 
@@ -19,6 +20,8 @@ const props = defineProps({
     complaintReasons:  { type: Array, default: () => [] },
     paymentMethods:    { type: Array, default: () => [] },
     boostIntervalHours:{ type: Number, default: 24 },
+    aboutRu:           { type: String, default: '' },
+    aboutTk:           { type: String, default: '' },
 })
 
 const opts = { preserveScroll: true, preserveState: true }
@@ -391,6 +394,25 @@ function destroyPayment(item) {
     router.delete(route('payment-methods.destroy', item.id), opts)
 }
 
+// ── О нас ──────────────────────────────────────────────────
+// Текст для одноимённого экрана приложения (GET /v1/about). Две версии
+// правятся в одном редакторе с переключателем языка — как текст новости.
+const aboutLang   = ref('ru')
+const aboutForm   = ref({ about_ru: props.aboutRu || '', about_tk: props.aboutTk || '' })
+const aboutErrors = ref({})
+
+const aboutContent = computed({
+    get: () => aboutLang.value === 'ru' ? aboutForm.value.about_ru : aboutForm.value.about_tk,
+    set: v  => { aboutForm.value[aboutLang.value === 'ru' ? 'about_ru' : 'about_tk'] = v },
+})
+
+function saveAbout() {
+    aboutErrors.value = {}
+    // Обе версии уходят вместе: пустая — это «на этом языке текста нет»
+    router.patch(route('settings.about'), { ...aboutForm.value },
+        { ...opts, onError: e => (aboutErrors.value = e) })
+}
+
 // ── Объявления: интервал поднятия ──────────────────────────
 const boostIntervalHours = ref(props.boostIntervalHours)
 const boostErrors        = ref({})
@@ -656,7 +678,48 @@ function saveBoostSettings() {
         </div>
       </section>
 
-      <!-- 6. Объявления -->
+      <!-- 6. О нас -->
+      <section>
+        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.aboutSection') }}</h2>
+        <div class="rounded-card border border-line bg-white p-5 dark:border-dline dark:bg-dcard">
+          <div class="mb-1 font-extrabold text-ink dark:text-slate-100">{{ t('settings.aboutTitle') }}</div>
+          <div class="mb-4 text-[12px] text-muted">{{ t('settings.aboutHint') }}</div>
+
+          <!-- Язык правится по одному, но сохраняются обе версии сразу -->
+          <div class="mb-3 flex items-center gap-2">
+            <button
+              v-for="code in ['ru', 'tk']"
+              :key="code"
+              @click="aboutLang = code"
+              class="rounded-btn px-3 py-1.5 text-[12px] font-bold uppercase transition"
+              :class="aboutLang === code
+                ? 'bg-blue text-white'
+                : 'bg-surface text-[var(--text-secondary)] hover:bg-line dark:bg-dbg dark:hover:bg-dline'"
+            >{{ code }}</button>
+
+            <span class="ml-auto flex gap-3 text-[11px]">
+              <span :class="(aboutForm.about_ru || '').trim() ? 'text-green' : 'text-muted'">
+                {{ (aboutForm.about_ru || '').trim() ? t('settings.aboutRuFilled') : t('settings.aboutRuEmpty') }}
+              </span>
+              <span :class="(aboutForm.about_tk || '').trim() ? 'text-green' : 'text-muted'">
+                {{ (aboutForm.about_tk || '').trim() ? t('settings.aboutTkFilled') : t('settings.aboutTkEmpty') }}
+              </span>
+            </span>
+          </div>
+
+          <RichTextEditor v-model="aboutContent" />
+
+          <div v-if="aboutErrors.about_ru || aboutErrors.about_tk" class="mt-1 text-[11px] text-red">
+            {{ aboutErrors.about_ru || aboutErrors.about_tk }}
+          </div>
+
+          <button @click="saveAbout" class="mt-4 rounded-btn bg-blue px-5 py-2 text-[13px] font-bold text-white transition hover:bg-blue/90">
+            {{ t('actions.save') }}
+          </button>
+        </div>
+      </section>
+
+      <!-- 7. Объявления -->
       <section>
         <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.listingsSection') }}</h2>
         <div class="grid gap-4 sm:grid-cols-2">
