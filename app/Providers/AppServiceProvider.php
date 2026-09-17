@@ -95,9 +95,18 @@ class AppServiceProvider extends ServiceProvider
 
         // SMS_DRIVER=log — OTP пишется в laravel.log (dev);
         // SMS_DRIVER=modem — уходит в socket-server → телефон-отправитель (прод).
-        $this->app->bind(SmsSenderInterface::class, fn () => config('sms.driver') === 'modem'
-            ? $this->app->make(LocalModemSmsService::class)
-            : $this->app->make(LogSmsService::class));
+        // В production log запрещён: коды окажутся в plaintext-логах без SMS.
+        $this->app->bind(SmsSenderInterface::class, function () {
+            $driver = config('sms.driver');
+
+            if ($driver === 'log' && $this->app->environment('production')) {
+                throw new \RuntimeException('SMS_DRIVER=log запрещён в production — используйте modem');
+            }
+
+            return $driver === 'modem'
+                ? $this->app->make(LocalModemSmsService::class)
+                : $this->app->make(LogSmsService::class);
+        });
 
         // Длительность роликов при загрузке (в тестах подменяется фейком)
         $this->app->bind(VideoProbeInterface::class, FfprobeVideoProbe::class);

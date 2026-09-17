@@ -45,10 +45,12 @@ class ListingController extends Controller
     {
         return Inertia::render('Listings/Show', [
             'listing'          => $listing->load('user', 'category.parent.parent', 'region', 'city', 'media', 'rejectionReason'),
+            'categories'       => $this->categories->activeTree(),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('listing'),
         ]);
     }
 
+    /** Частичная правка текста, цены и категории модератором. */
     public function update(UpdateListingRequest $request, Listing $listing)
     {
         $this->listingService->updateFromAdmin($listing, $request->validated());

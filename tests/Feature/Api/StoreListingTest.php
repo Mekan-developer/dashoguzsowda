@@ -187,3 +187,46 @@ it('filters the store showcase by trade type and stock', function () {
 
     expect($titles)->toContain('Розничный')->not->toContain('Закончился');
 });
+
+it('filters the store showcase by category leaf and parent subtree', function () {
+    $root = Category::create(['name_ru' => 'Техника', 'name_tk' => 'Tehnika', 'slug' => 'tech', 'level' => 1]);
+    $mid  = Category::create([
+        'parent_id' => $root->id, 'name_ru' => 'Телефоны', 'name_tk' => 'Telefonlar',
+        'slug' => 'phones', 'level' => 2,
+    ]);
+    $leafA = Category::create([
+        'parent_id' => $mid->id, 'name_ru' => 'Смартфоны', 'name_tk' => 'Smartfonlar',
+        'slug' => 'smartphones', 'level' => 3,
+    ]);
+    $leafB = Category::create([
+        'parent_id' => $mid->id, 'name_ru' => 'Кнопочные', 'name_tk' => 'Düwmeli',
+        'slug' => 'feature-phones', 'level' => 3,
+    ]);
+    $otherLeaf = Category::create([
+        'parent_id' => $root->id, 'name_ru' => 'Ноутбуки', 'name_tk' => 'Noutbuklar',
+        'slug' => 'laptops', 'level' => 2,
+    ]);
+
+    $base = [
+        'user_id' => $this->owner->id, 'store_id' => $this->store->id,
+        'region_id' => $this->region->id, 'city_id' => $this->city->id,
+        'type' => 'goods', 'phone' => $this->owner->phone, 'status' => 'approved',
+    ];
+
+    App\Models\Listing::create([...$base, 'category_id' => $leafA->id, 'title' => 'Смартфон']);
+    App\Models\Listing::create([...$base, 'category_id' => $leafB->id, 'title' => 'Кнопочный']);
+    App\Models\Listing::create([...$base, 'category_id' => $otherLeaf->id, 'title' => 'Ноутбук']);
+
+    $this->getJson("/api/v1/stores/{$this->store->id}/listings?category_id={$leafA->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Смартфон');
+
+    $titles = collect(
+        $this->getJson("/api/v1/stores/{$this->store->id}/listings?category_id={$mid->id}")
+            ->assertOk()
+            ->json('data')
+    )->pluck('title');
+
+    expect($titles)->toContain('Смартфон', 'Кнопочный')->not->toContain('Ноутбук');
+});

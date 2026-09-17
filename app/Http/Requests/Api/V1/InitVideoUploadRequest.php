@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Http\Requests\Concerns\ValidatesRootCategory;
 use Illuminate\Foundation\Http\FormRequest;
 
 class InitVideoUploadRequest extends FormRequest
 {
+    use ValidatesRootCategory;
+
     public function authorize(): bool
     {
         return true;
@@ -13,7 +16,7 @@ class InitVideoUploadRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge([
             'title'      => ['required', 'string', 'max:255'],
             'tags'       => ['nullable', 'array', 'max:10'],
             'tags.*'     => ['string', 'max:30'],
@@ -22,6 +25,11 @@ class InitVideoUploadRequest extends FormRequest
             'extension'  => ['nullable', 'string', 'max:10'],
             // Необязательная подсказка размера — для клиентской индикации прогресса
             'total_size' => ['nullable', 'integer', 'min:1'],
-        ];
+        ], $this->rootCategoryRules());
+    }
+
+    public function messages(): array
+    {
+        return $this->rootCategoryMessages();
     }
 }

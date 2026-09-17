@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\ProcessVideoJob;
+use App\Models\Category;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Models\Video;
@@ -43,14 +44,23 @@ beforeEach(function () {
     ]);
 
     $this->user = User::factory()->create();
+
+    $this->rootCategory = Category::create([
+        'name_ru' => 'Недвижимость', 'name_tk' => 'Emlak', 'slug' => 'realty', 'level' => 1, 'is_active' => true,
+    ]);
+    $this->childCategory = Category::create([
+        'parent_id' => $this->rootCategory->id,
+        'name_ru' => 'Квартиры', 'name_tk' => 'Kwartiralar', 'slug' => 'flats', 'level' => 2, 'is_active' => true,
+    ]);
 });
 
 function videoPayload(array $overrides = []): array
 {
     return array_merge([
-        'video' => UploadedFile::fake()->create('reel.mp4', 2048, 'video/mp4'),
-        'title' => 'Сдаётся квартира',
-        'tags'  => ['Недвижимость', 'Аренда'],
+        'video'       => UploadedFile::fake()->create('reel.mp4', 2048, 'video/mp4'),
+        'title'       => 'Сдаётся квартира',
+        'tags'        => ['Недвижимость', 'Аренда'],
+        'category_id' => test()->rootCategory->id,
     ], $overrides);
 }
 
@@ -58,6 +68,7 @@ function makeVideo(array $overrides = []): Video
 {
     return Video::create(array_merge([
         'user_id'          => test()->user->id,
+        'category_id'      => test()->rootCategory->id,
         'title'            => 'Ролик',
         'path'             => 'videos/'.uniqid().'/original.mp4',
         'duration_seconds' => 42,
@@ -80,12 +91,14 @@ it('uploads a video with pending status and queues compression', function () {
         ->assertJsonPath('data.status', 'pending')
         ->assertJsonPath('data.title', 'Сдаётся квартира')
         ->assertJsonPath('data.tags.0', 'Недвижимость')
+        ->assertJsonPath('data.category.id', $this->rootCategory->id)
         ->assertJsonPath('data.duration_seconds', 30)
         // Queue::fake() — сжатие ещё не выполнялось
         ->assertJsonPath('data.processing', true);
 
     $video = Video::first();
     expect($video->status)->toBe('pending')
+        ->and($video->category_id)->toBe($this->rootCategory->id)
         ->and($video->duration_seconds)->toBe(30);
 
     Queue::assertPushed(ProcessVideoJob::class, 1);
@@ -108,7 +121,58 @@ it('validates required fields', function () {
 
     $this->postJson('/api/v1/videos', [])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['video', 'title']);
+        ->assertJsonValidationErrors(['video', 'title', 'category_id']);
+});
+
+it('rejects a non-root category on upload', function () {
+    Sanctum::actingAs($this->user);
+
+    $this->post('/api/v1/videos', videoPayload(['category_id' => $this->childCategory->id]), ['Accept' => 'application/json'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['category_id']);
+
+    expect(Video::count())->toBe(0);
+});
+
+it('filters the public feed by root category', function () {
+    $other = Category::create([
+        'name_ru' => 'Авто', 'name_tk' => 'Awto', 'slug' => 'auto', 'level' => 1, 'is_active' => true,
+    ]);
+
+    makeVideo(['category_id' => $this->rootCategory->id, 'title' => 'В нужной']);
+    makeVideo(['category_id' => $other->id, 'title' => 'В другой']);
+
+    $this->getJson("/api/v1/videos?category_id={$this->rootCategory->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'В нужной')
+        ->assertJsonPath('data.0.category.id', $this->rootCategory->id);
+});
+
+it('searches the public feed by title', function () {
+    makeVideo(['title' => 'Сдаётся квартира']);
+    makeVideo(['title' => 'Продаю машину']);
+
+    $this->getJson('/api/v1/videos?search=квартира')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Сдаётся квартира');
+});
+
+it('combines title search with category filter', function () {
+    $other = Category::create([
+        'name_ru' => 'Авто', 'name_tk' => 'Awto', 'slug' => 'auto-combo', 'level' => 1, 'is_active' => true,
+    ]);
+
+    makeVideo(['category_id' => $this->rootCategory->id, 'title' => 'Квартира в центре']);
+    makeVideo(['category_id' => $this->rootCategory->id, 'title' => 'Дом у моря']);
+    makeVideo(['category_id' => $other->id, 'title' => 'Квартира на колёсах']);
+
+    $this->getJson("/api/v1/videos?search=Квартира&category_id={$this->rootCategory->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Квартира в центре')
+        ->assertJsonPath('data.0.category.id', $this->rootCategory->id);
 });
 
 it('enforces the tariff videos limit with 403', function () {

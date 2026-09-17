@@ -45,7 +45,7 @@ function makeAdminListing(array $overrides = []): Listing
 it('rejects an empty listing title with 422 instead of a database error', function () {
     $listing = makeAdminListing();
 
-    $this->put(route('listings.update', $listing), ['title' => '', 'description' => 'x', 'price' => 10])
+    $this->patch(route('listings.update', $listing), ['title' => '', 'description' => 'x', 'price' => 10])
         ->assertSessionHasErrors('title');
 
     expect($listing->fresh()->title)->toBe('Исходный заголовок');
@@ -54,7 +54,7 @@ it('rejects an empty listing title with 422 instead of a database error', functi
 it('rejects a non-numeric listing price', function () {
     $listing = makeAdminListing();
 
-    $this->put(route('listings.update', $listing), ['title' => 'Ок', 'price' => 'не-число'])
+    $this->patch(route('listings.update', $listing), ['title' => 'Ок', 'price' => 'не-число'])
         ->assertSessionHasErrors('price');
 
     expect((float) $listing->fresh()->price)->toBe(100.0);
@@ -63,24 +63,71 @@ it('rejects a non-numeric listing price', function () {
 it('saves a valid listing edit', function () {
     $listing = makeAdminListing();
 
-    $this->put(route('listings.update', $listing), [
+    $this->patch(route('listings.update', $listing), [
         'title' => 'Новый заголовок', 'description' => 'Новое описание', 'price' => 250,
     ])->assertRedirect();
 
     expect($listing->fresh()->title)->toBe('Новый заголовок')
         ->and((float) $listing->fresh()->price)->toBe(250.0)
-        // Правка модератором не отправляет объявление на повторную модерацию
         ->and($listing->fresh()->status)->toBe('approved');
+});
+
+it('patches only the sent listing fields', function () {
+    $listing = makeAdminListing();
+
+    $this->patch(route('listings.update', $listing), ['title' => 'Только заголовок'])
+        ->assertRedirect();
+
+    $fresh = $listing->fresh();
+
+    expect($fresh->title)->toBe('Только заголовок')
+        ->and($fresh->description)->toBe('Описание')
+        ->and((float) $fresh->price)->toBe(100.0);
+});
+
+it('allows the moderator to change listing category', function () {
+    $listing = makeAdminListing();
+    $leaf = Category::create([
+        'parent_id' => $listing->category_id,
+        'name_ru'   => 'Легковые',
+        'name_tk'   => 'Ýeňil',
+        'slug'      => 'cars-'.uniqid(),
+        'level'     => 2,
+    ]);
+
+    $this->patch(route('listings.update', $listing), ['category_id' => $leaf->id])
+        ->assertRedirect();
+
+    expect($listing->fresh()->category_id)->toBe($leaf->id);
+});
+
+it('rejects a non-leaf listing category', function () {
+    $listing = makeAdminListing();
+    $parent = $listing->category;
+    Category::create([
+        'parent_id' => $parent->id,
+        'name_ru'   => 'Подк',
+        'name_tk'   => 'Sub',
+        'slug'      => 'sub-'.uniqid(),
+        'level'     => 2,
+    ]);
+
+    $this->patch(route('listings.update', $listing), ['category_id' => $parent->id])
+        ->assertSessionHasErrors('category_id');
 });
 
 // ─── Ролики ─────────────────────────────────────────────────────────────────
 
 it('rejects an empty video title', function () {
+    $category = Category::create([
+        'name_ru' => 'Транспорт', 'name_tk' => 'Ulag', 'slug' => 'vid-'.uniqid(), 'level' => 1,
+    ]);
     $video = Video::create([
-        'user_id' => User::factory()->create()->id,
-        'title'   => 'Исходный',
-        'path'    => 'videos/x/original.mp4',
-        'status'  => 'pending',
+        'user_id'     => User::factory()->create()->id,
+        'category_id' => $category->id,
+        'title'       => 'Исходный',
+        'path'        => 'videos/x/original.mp4',
+        'status'      => 'pending',
     ]);
 
     $this->put(route('videos.update', $video), ['title' => ''])

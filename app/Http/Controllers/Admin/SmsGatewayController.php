@@ -15,12 +15,19 @@ class SmsGatewayController extends Controller
         return response()->json($smsStatus->resolve());
     }
 
+    /**
+     * Отправить тестовый OTP через текущий SMS-драйвер.
+     */
     public function test(SendTestSmsRequest $request)
     {
         $phone = $request->validated('phone') ?: $request->user()->phone;
+        $length = (int) config('sms.code_length', 6);
+        $min = 10 ** ($length - 1);
+        $max = (10 ** $length) - 1;
+        $code = (string) random_int($min, $max);
 
         try {
-            app(SmsSenderInterface::class)->send($phone, 'Тестовое сообщение с панели администратора');
+            app(SmsSenderInterface::class)->sendOtp($phone, $code);
 
             return back()->with('toast', ['type' => 'success', 'message' => __('messages.sms_test_sent')]);
         } catch (\Throwable $e) {

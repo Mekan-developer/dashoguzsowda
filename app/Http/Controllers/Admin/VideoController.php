@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectVideoRequest;
 use App\Http\Requests\Admin\UpdateVideoRequest;
 use App\Models\Video;
+use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
 use App\Services\NotificationService;
 use App\Services\VideoService;
@@ -21,6 +22,7 @@ class VideoController extends Controller
         private readonly ApproveVideoAction $approveAction,
         private readonly RejectVideoAction $rejectAction,
         private readonly ReasonRepositoryInterface $reasons,
+        private readonly CategoryRepositoryInterface $categories,
         private readonly NotificationService $notificationService,
     ) {}
 
@@ -29,9 +31,10 @@ class VideoController extends Controller
         $this->notificationService->markSectionSeen($request->user(), 'videos');
 
         return Inertia::render('Videos/Index', [
-            'videos'           => $this->videoService->list($request->only('status', 'search')),
+            'videos'           => $this->videoService->list($request->only('status', 'search', 'category_id')),
+            'categories'       => $this->categories->roots(),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('video'),
-            'filters'          => $request->only('status', 'search'),
+            'filters'          => $request->only('status', 'search', 'category_id'),
             'counts'           => $this->videoService->counts(),
         ]);
     }
@@ -40,6 +43,7 @@ class VideoController extends Controller
     {
         return Inertia::render('Videos/Show', [
             'video'            => $this->videoService->forAdmin($video),
+            'categories'       => $this->categories->roots(),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('video'),
         ]);
     }

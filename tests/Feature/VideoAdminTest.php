@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Category;
 use App\Models\RejectionReason;
 use App\Models\Tariff;
 use App\Models\User;
@@ -15,12 +16,17 @@ beforeEach(function () {
     ]);
 
     $this->owner = User::factory()->create();
+
+    $this->rootCategory = Category::create([
+        'name_ru' => 'Недвижимость', 'name_tk' => 'Emlak', 'slug' => 'realty', 'level' => 1, 'is_active' => true,
+    ]);
 });
 
 function makeAdminVideo(array $overrides = []): Video
 {
     return Video::create(array_merge([
         'user_id'          => test()->owner->id,
+        'category_id'      => test()->rootCategory->id,
         'title'            => 'Ролик',
         'path'             => 'videos/'.uniqid().'/original.mp4',
         'duration_seconds' => 48,
@@ -44,7 +50,25 @@ it('renders the videos index with counts and tariff usage per author', function 
             ->where('videos.data.0.tariff_usage.limit', 2)
             ->where('counts.pending', 1)
             ->where('counts.approved', 1)
-            ->has('rejectionReasons'));
+            ->has('rejectionReasons')
+            ->has('categories', 1));
+});
+
+it('filters the index by category on the server', function () {
+    $other = Category::create([
+        'name_ru' => 'Авто', 'name_tk' => 'Awto', 'slug' => 'auto', 'level' => 1, 'is_active' => true,
+    ]);
+
+    makeAdminVideo(['title' => 'В нужной']);
+    makeAdminVideo(['category_id' => $other->id, 'title' => 'В другой']);
+
+    $this->actingAs(User::factory()->manager()->create());
+
+    $this->get(route('videos.index', ['category_id' => $this->rootCategory->id]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('videos.data', 1)
+            ->where('videos.data.0.title', 'В нужной'));
 });
 
 it('filters the index by status on the server', function () {
@@ -92,6 +116,28 @@ it('lets a manager rename a video from the moderation card', function () {
 
     // Пустой заголовок упирался бы в NOT NULL-колонку
     $this->put(route('videos.update', $video), ['title' => ''])->assertSessionHasErrors('title');
+});
+
+it('lets a manager change the root category of a video', function () {
+    $other = Category::create([
+        'name_ru' => 'Авто', 'name_tk' => 'Awto', 'slug' => 'auto', 'level' => 1, 'is_active' => true,
+    ]);
+    $child = Category::create([
+        'parent_id' => $other->id,
+        'name_ru' => 'Легковые', 'name_tk' => 'Ýeňil', 'slug' => 'cars', 'level' => 2, 'is_active' => true,
+    ]);
+    $video = makeAdminVideo();
+
+    $this->actingAs(User::factory()->manager()->create());
+
+    $this->put(route('videos.update', $video), [
+        'title' => $video->title, 'category_id' => $other->id,
+    ])->assertRedirect();
+    expect($video->fresh()->category_id)->toBe($other->id);
+
+    $this->put(route('videos.update', $video), [
+        'title' => $video->title, 'category_id' => $child->id,
+    ])->assertSessionHasErrors('category_id');
 });
 
 it('lets a manager approve a pending video', function () {

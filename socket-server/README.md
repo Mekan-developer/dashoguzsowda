@@ -36,10 +36,10 @@ Content-Type: application/json
 подойдёт любой, какой удобнее клиенту:
 
 ```dart
-// Flutter, socket_io_client
+// Flutter OTP Listener (domains/otp) — auth.token
 final socket = IO.io('http://<IP_СЕРВЕРА>:3000', <String, dynamic>{
   'transports': ['websocket'],
-  'auth': {'secret': '<OTP_SECRET>'},
+  'auth': {'token': '<OTP_SECRET>'},
 });
 
 socket.on('otp', (data) {
@@ -49,7 +49,9 @@ socket.on('otp', (data) {
 });
 ```
 
-Альтернативы: `?secret=<OTP_SECRET>` в query или заголовок `X-Otp-Secret`.
+Шлюз принимает секрет как `auth.secret` / `auth.token`, `?secret=` / `?token=`
+или заголовок `X-Otp-Secret`. В событии `otp` уходит и `token` (тот же секрет),
+чтобы телефон с включённым Auth Token не отбрасывал payload.
 
 Имя события задаётся `OTP_EVENT_NAME` (по умолчанию `otp`) и должно совпадать
 с тем, что слушает телефон.

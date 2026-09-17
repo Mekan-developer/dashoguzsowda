@@ -5,8 +5,16 @@ meta {
 }
 
 get {
-  url: {{base_url}}/v1/videos?limit=20
+  url: {{base_url}}/v1/videos
   body: none
+}
+
+params:query {
+  limit: 20
+  ~search: 
+  ~category_id: 
+  ~tag: 
+  ~page: 1
 }
 
 headers {
@@ -16,8 +24,15 @@ headers {
 
 docs {
   Вертикальная лента (ТЗ §7, экран 9): только approved-ролики,
-  сортировка от новых к старым. Фильтры: search (по названию), tag.
+  сортировка от новых к старым.
+  Фильтры (все необязательные, комбинируются):
+  - search — поиск по названию
+  - category_id — категория 1-го уровня
+  - tag — тег
+  - limit / page — пагинация
+  Пример с заполненными фильтрами — Feed_Search.bru.
   С Bearer-токеном у каждого ролика появляется is_liked.
+  В ответе у ролика есть category: { id, name_tk, name_ru }.
   Пока processing=true — video указывает на несжатый оригинал, preview=null.
 }
 

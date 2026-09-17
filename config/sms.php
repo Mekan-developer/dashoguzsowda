@@ -27,7 +27,8 @@ return [
 
     /*
     | Общий секрет между backend, socket-server и телефоном-отправителем.
-    | Backend шлёт его в заголовке X-Otp-Secret, телефон — в socket.handshake.auth.
+    | Backend шлёт его в заголовке X-Otp-Secret, телефон (domains/otp) —
+    | в socket.handshake.auth.token (шлюз также принимает auth.secret).
     | Одно и то же значение должно стоять в .env сервера и в настройках телефона.
     */
     'otp_secret' => env('OTP_SECRET'),

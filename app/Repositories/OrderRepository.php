@@ -231,9 +231,8 @@ class OrderRepository implements OrderRepositoryInterface
     {
         // Заказ приходит владельцу сразу после оформления: решение по нему
         // принимает он, поэтому видит его с первой минуты
-        return Suborder::with(self::OWNER_RELATIONS)
-            ->where('user_id', $ownerId)
-            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+        return $this->forOwner($ownerId, $filters)
+            ->with(self::OWNER_RELATIONS)
             ->latest('id')
             ->paginate($perPage)
             ->withQueryString();
@@ -253,12 +252,64 @@ class OrderRepository implements OrderRepositoryInterface
 
     public function countPendingForOwner(int $ownerId): int
     {
-        return Suborder::where('user_id', $ownerId)
-            ->where('status', 'pending')
+        return $this->tabCountsForOwner($ownerId)['pending'];
+    }
+
+    public function tabCountsForOwner(int $ownerId): array
+    {
+        return [
             // Ждут ответа только те, чей заказ ещё не закрыт: покупатель мог
             // отменить его раньше, чем продавец успел ответить
-            ->whereHas('order', fn ($q) => $q->where('status', 'pending'))
-            ->count();
+            'pending' => Suborder::query()
+                ->where('user_id', $ownerId)
+                ->where('status', 'pending')
+                ->whereHas('order', fn ($q) => $q->where('status', 'pending'))
+                ->count(),
+            // Принял, но ещё не отметил доставленным — вкладка «к доставке»
+            'to_deliver' => Suborder::query()
+                ->where('user_id', $ownerId)
+                ->where('status', 'accepted')
+                ->whereHas('order', fn ($q) => $q->where('status', 'approved'))
+                ->count(),
+        ];
+    }
+
+    /**
+     * Базовый запрос частей заказа владельца с фильтрами списка.
+     *
+     * @param  array{status?: string|null, q?: string|null}  $filters
+     */
+    private function forOwner(int $ownerId, array $filters): Builder
+    {
+        return Suborder::query()
+            ->where('user_id', $ownerId)
+            ->when($filters['status'] ?? null, function ($q, $status) {
+                match ($status) {
+                    'to_deliver' => $q->where('status', 'accepted')
+                        ->whereHas('order', fn ($o) => $o->where('status', 'approved')),
+                    'completed' => $q->whereHas('order', fn ($o) => $o->where('status', 'completed')),
+                    default => $q->where('status', $status),
+                };
+            })
+            ->when($filters['q'] ?? null, function ($q, $search) {
+                $term = '%'.addcslashes($search, '%_\\').'%';
+                // Номер заказа — id с ведущими нулями («000123»)
+                $number = ltrim(trim($search), '#0');
+
+                $q->whereHas('order', function ($o) use ($term, $number) {
+                    $o->where(function ($w) use ($term, $number) {
+                        $w->where('phone', 'like', $term)
+                            ->orWhere('contact_name', 'like', $term)
+                            ->orWhereHas('user', fn ($u) => $u
+                                ->where('name', 'like', $term)
+                                ->orWhere('phone', 'like', $term));
+
+                        if (is_numeric($number)) {
+                            $w->orWhere('id', (int) $number);
+                        }
+                    });
+                });
+            });
     }
 
     public function updateStatus(Order $order, string $status, ?int $deciderId = null, ?string $comment = null): Order

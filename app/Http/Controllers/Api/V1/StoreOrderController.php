@@ -30,7 +30,7 @@ class StoreOrderController extends Controller
 
     /**
      * Заказы магазина.
-     * GET /api/v1/my/store/orders?status=pending&limit=20
+     * GET /api/v1/my/store/orders?status=to_deliver&q=65000&limit=20
      *
      * @authenticated
      */
@@ -128,6 +128,8 @@ class StoreOrderController extends Controller
 
     private function paginated(LengthAwarePaginator $suborders, Request $request)
     {
+        $tabs = $this->orderService->tabCountsForOwner($request->user());
+
         return response()->json([
             'data' => StoreOrderResource::collection($suborders->items()),
             'meta' => [
@@ -135,8 +137,9 @@ class StoreOrderController extends Controller
                 'last_page'    => $suborders->lastPage(),
                 'per_page'     => $suborders->perPage(),
                 'total'        => $suborders->total(),
-                // Сколько заказов ждёт ответа — бейдж на вкладке магазина
-                'pending'      => $this->orderService->countPendingForOwner($request->user()),
+                // Бейджи вкладок: ждут ответа и приняты, но ещё не доставлены
+                'pending'      => $tabs['pending'],
+                'to_deliver'   => $tabs['to_deliver'],
             ],
             'links' => [
                 'first' => $suborders->url(1),

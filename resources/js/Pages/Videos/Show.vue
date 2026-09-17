@@ -10,7 +10,7 @@ import Icon from '@/Components/Icon.vue'
 const { t, locale } = useI18n()
 const page = usePage()
 
-const props = defineProps({ video: Object, rejectionReasons: Array })
+const props = defineProps({ video: Object, categories: Array, rejectionReasons: Array })
 
 const isAdmin = computed(() => page.props.auth?.user?.role === 'admin')
 
@@ -36,13 +36,17 @@ const tariffLine = computed(() => {
     }
 })
 
-// ── Правка заголовка (единственное поле, которое модератору можно менять) ────
-const editing = ref(false)
-const title   = ref(props.video.title)
+// ── Правка заголовка и категории ─────────────────────────────────────────────
+const editing    = ref(false)
+const title      = ref(props.video.title)
+const categoryId = ref(props.video.category_id ?? props.video.category?.id ?? '')
 
-function saveTitle() {
-    if (!title.value.trim()) return
-    router.put(route('videos.update', props.video.id), { title: title.value }, {
+function saveEdit() {
+    if (!title.value.trim() || !categoryId.value) return
+    router.put(route('videos.update', props.video.id), {
+        title: title.value,
+        category_id: categoryId.value,
+    }, {
         preserveScroll: true,
         onSuccess: () => { editing.value = false },
     })
@@ -50,6 +54,7 @@ function saveTitle() {
 
 function cancelEdit() {
     title.value = props.video.title
+    categoryId.value = props.video.category_id ?? props.video.category?.id ?? ''
     editing.value = false
 }
 
@@ -118,37 +123,57 @@ function doDelete() {
           <div>
             <h3 class="text-[15px] font-extrabold text-ink dark:text-slate-100 mb-4">{{ t('videos.info') }}</h3>
 
-            <!-- Заголовок — единственное, что правит модератор (UpdateVideoRequest) -->
+            <!-- Заголовок и категория — правит модератор (UpdateVideoRequest) -->
             <div class="mb-4">
               <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.title') }}:</p>
-              <div v-if="editing" class="flex gap-2">
+              <div v-if="editing" class="space-y-3">
                 <input
                   v-model="title"
                   type="text"
                   maxlength="255"
-                  class="flex-1 rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
-                  @keyup.enter="saveTitle"
+                  class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
+                  @keyup.enter="saveEdit"
                   @keyup.esc="cancelEdit"
                 />
-                <button
-                  @click="saveTitle"
-                  :disabled="!title.trim()"
-                  class="rounded-btn bg-blue px-4 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40"
-                >{{ t('actions.save') }}</button>
-                <button
-                  @click="cancelEdit"
-                  class="rounded-btn border-2 border-line px-4 text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline"
-                >{{ t('actions.cancel') }}</button>
+                <div>
+                  <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.category') }}:</p>
+                  <select
+                    v-model="categoryId"
+                    class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-semibold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
+                  >
+                    <option value="">{{ t('common.category') }}</option>
+                    <option v-for="c in categories" :key="c.id" :value="c.id">{{ nameOf(c) }}</option>
+                  </select>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    @click="saveEdit"
+                    :disabled="!title.trim() || !categoryId"
+                    class="rounded-btn bg-blue px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40"
+                  >{{ t('actions.save') }}</button>
+                  <button
+                    @click="cancelEdit"
+                    class="rounded-btn border-2 border-line px-4 py-2 text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline"
+                  >{{ t('actions.cancel') }}</button>
+                </div>
               </div>
-              <div v-else class="flex items-start gap-2">
-                <span class="flex-1 text-[15px] font-bold text-ink dark:text-slate-200">{{ video.title }}</span>
-                <button
-                  @click="editing = true"
-                  class="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[7px] text-muted transition hover:bg-blue hover:text-white"
-                  :title="t('actions.edit')" :aria-label="t('actions.edit')"
-                >
-                  <Icon kind="pencil" :size="14" />
-                </button>
+              <div v-else class="space-y-3">
+                <div class="flex items-start gap-2">
+                  <span class="flex-1 text-[15px] font-bold text-ink dark:text-slate-200">{{ video.title }}</span>
+                  <button
+                    @click="editing = true"
+                    class="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[7px] text-muted transition hover:bg-blue hover:text-white"
+                    :title="t('actions.edit')" :aria-label="t('actions.edit')"
+                  >
+                    <Icon kind="pencil" :size="14" />
+                  </button>
+                </div>
+                <div>
+                  <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.category') }}:</p>
+                  <span class="text-[13px] font-bold text-ink dark:text-slate-200">
+                    {{ nameOf(video.category) }}
+                  </span>
+                </div>
               </div>
             </div>
 

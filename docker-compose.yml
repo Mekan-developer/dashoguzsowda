@@ -68,8 +68,9 @@ services:
     restart: unless-stopped
     env_file: [./socket-server/.env]
     environment:
-      OTP_SECRET: ${OTP_SECRET:-dev-otp-secret}
-      ENABLE_TEST_PAGE: ${SMS_GATEWAY_TEST_PAGE:-true}
+      HOST: ${SMS_GATEWAY_HOST:-0.0.0.0}
+      OTP_SECRET: ${OTP_SECRET:?OTP_SECRET is required}
+      ENABLE_TEST_PAGE: ${SMS_GATEWAY_TEST_PAGE:-false}
 
   db:
     image: mysql:8.0

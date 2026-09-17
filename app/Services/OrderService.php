@@ -97,6 +97,16 @@ class OrderService
         return $this->orderRepository->countPendingForOwner($owner->id);
     }
 
+    /**
+     * Счётчики вкладок магазина для бейджей в мобилке.
+     *
+     * @return array{pending: int, to_deliver: int}
+     */
+    public function tabCountsForOwner(User $owner): array
+    {
+        return $this->orderRepository->tabCountsForOwner($owner->id);
+    }
+
     /** $decider — владелец магазина; при отмене покупателем решает никто. */
     public function changeStatus(Order $order, string $status, ?User $decider = null, ?string $comment = null): Order
     {

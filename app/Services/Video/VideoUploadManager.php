@@ -16,17 +16,18 @@ class VideoUploadManager
     private const CACHE_PREFIX = 'video-upload:';
 
     /** Заводит новую сессию и пустой temp-файл. Возвращает upload_id. */
-    public function create(int $userId, string $title, array $tags, string $extension): string
+    public function create(int $userId, string $title, array $tags, string $extension, int $categoryId): string
     {
         $uploadId = (string) Str::uuid();
 
         Cache::put($this->key($uploadId), [
-            'user_id'   => $userId,
-            'title'     => $title,
-            'tags'      => array_values($tags),
-            'extension' => $extension,
-            'bytes'     => 0,
-            'chunks'    => 0,
+            'user_id'     => $userId,
+            'title'       => $title,
+            'tags'        => array_values($tags),
+            'category_id' => $categoryId,
+            'extension'   => $extension,
+            'bytes'       => 0,
+            'chunks'      => 0,
         ], $this->ttl());
 
         // Пустой файл — чтобы append был предсказуем даже для первого чанка

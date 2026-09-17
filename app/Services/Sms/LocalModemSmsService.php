@@ -36,7 +36,7 @@ class LocalModemSmsService implements SmsSenderInterface
         $response = Http::timeout(5)
             ->withHeaders(['X-Otp-Secret' => $secret])
             ->post(rtrim($url, '/') . '/emit-otp', [
-                'phone_number' => $phone,
+                'phone_number' => $this->toLocalFormat($phone),
                 'otp'          => $code,
             ]);
 
@@ -80,5 +80,23 @@ class LocalModemSmsService implements SmsSenderInterface
             'clients'      => $clients,
             'last_sync_at' => \App\Models\Setting::get('sms_gateway_last_sync_at'),
         ];
+    }
+
+    /**
+     * Flutter OTP Listener ждёт локальный 8-значный номер без +993.
+     */
+    private function toLocalFormat(string $phone): string
+    {
+        $compact = preg_replace('/[\s-]/', '', $phone) ?? $phone;
+
+        if (str_starts_with($compact, '+993')) {
+            return substr($compact, 4);
+        }
+
+        if (str_starts_with($compact, '993') && strlen($compact) === 11) {
+            return substr($compact, 3);
+        }
+
+        return $compact;
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\ProcessVideoJob;
+use App\Models\Category;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Models\Video;
@@ -42,13 +43,18 @@ beforeEach(function () {
     ]);
 
     $this->user = User::factory()->create();
+
+    $this->rootCategory = Category::create([
+        'name_ru' => 'Недвижимость', 'name_tk' => 'Emlak', 'slug' => 'realty', 'level' => 1, 'is_active' => true,
+    ]);
 });
 
 function initUpload(array $overrides = []): string
 {
     return test()->postJson('/api/v1/videos/upload/init', array_merge([
-        'title'    => 'Чанковый ролик',
-        'filename' => 'reel.mp4',
+        'title'       => 'Чанковый ролик',
+        'filename'    => 'reel.mp4',
+        'category_id' => test()->rootCategory->id,
     ], $overrides))->json('data.upload_id');
 }
 
@@ -66,6 +72,7 @@ function occupyVideo(array $overrides = []): Video
 {
     return Video::create(array_merge([
         'user_id'          => test()->user->id,
+        'category_id'      => test()->rootCategory->id,
         'title'            => 'Ролик',
         'path'             => 'videos/'.uniqid().'/original.mp4',
         'duration_seconds' => 30,
@@ -76,7 +83,17 @@ function occupyVideo(array $overrides = []): Video
 // ─── Happy path ─────────────────────────────────────────────────────────────
 
 it('requires auth to init a chunked upload', function () {
-    $this->postJson('/api/v1/videos/upload/init', ['title' => 'X'])->assertUnauthorized();
+    $this->postJson('/api/v1/videos/upload/init', [
+        'title' => 'X', 'category_id' => $this->rootCategory->id,
+    ])->assertUnauthorized();
+});
+
+it('requires a root category to init a chunked upload', function () {
+    Sanctum::actingAs($this->user);
+
+    $this->postJson('/api/v1/videos/upload/init', ['title' => 'Без категории', 'filename' => 'reel.mp4'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['category_id']);
 });
 
 it('uploads a video in chunks and finalizes it as pending', function () {
@@ -92,12 +109,14 @@ it('uploads a video in chunks and finalizes it as pending', function () {
         ->assertCreated()
         ->assertJsonPath('data.status', 'pending')
         ->assertJsonPath('data.title', 'Чанковый ролик')
+        ->assertJsonPath('data.category.id', $this->rootCategory->id)
         ->assertJsonPath('data.duration_seconds', 30)
         ->assertJsonPath('data.processing', true);
 
     $video = Video::first();
     expect($video)->not->toBeNull()
         ->and($video->tags)->toBe(['Тест'])
+        ->and($video->category_id)->toBe($this->rootCategory->id)
         ->and($video->status)->toBe('pending');
 
     Storage::disk('public')->assertExists($video->path);

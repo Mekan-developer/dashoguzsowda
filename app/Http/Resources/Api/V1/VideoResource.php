@@ -15,6 +15,11 @@ class VideoResource extends JsonResource
             'title'            => $this->title,
             'tags'             => $this->tags ?? [],
             'status'           => $this->status,
+            'category'         => $this->whenLoaded('category', fn () => $this->category ? [
+                'id'      => $this->category->id,
+                'name_tk' => $this->category->name_tk,
+                'name_ru' => $this->category->name_ru,
+            ] : null),
             'rejection_reason' => $this->when(
                 $this->status === 'rejected' && $this->relationLoaded('rejectionReason') && $this->rejectionReason,
                 fn () => [

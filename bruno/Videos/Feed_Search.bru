@@ -1,0 +1,41 @@
+meta {
+  name: Лента — поиск и категория
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/v1/videos
+  body: none
+}
+
+params:query {
+  search: квартира
+  category_id: 1
+  limit: 20
+  page: 1
+}
+
+headers {
+  Accept: application/json
+  Accept-Language: ru
+}
+
+docs {
+  Поиск и фильтр публичной ленты шортсов (approved).
+  Query:
+  - search — подстрока в названии (без учёта регистра, через LIKE)
+  - category_id — только категория 1-го уровня (parent_id = null)
+  - tag — точное совпадение тега
+  - limit / page — пагинация
+  Параметры комбинируются: search + category_id вернёт ролики
+  выбранной категории, у которых в title есть search.
+  Ответ: data[] + meta (current_page, last_page, per_page, total).
+  У каждого ролика: category { id, name_tk, name_ru }.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

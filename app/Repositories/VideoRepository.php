@@ -18,7 +18,7 @@ class VideoRepository implements VideoRepositoryInterface
 
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
     {
-        $page = Video::with('user.tariff', 'rejectionReason')
+        $page = Video::with('user.tariff', 'rejectionReason', 'category')
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->when($filters['search'] ?? null, function ($q, $s) {
                 $term = self::likeTerm($s);
@@ -29,6 +29,7 @@ class VideoRepository implements VideoRepositoryInterface
                             ->where('name', 'like', $term)
                             ->orWhere('phone', 'like', $term))));
             })
+            ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
             ->latest()
             ->paginate($perPage)
             ->withQueryString();
@@ -41,13 +42,14 @@ class VideoRepository implements VideoRepositoryInterface
     /** Публичная лента для мобильного приложения — только одобренные ролики */
     public function paginateForApi(array $filters, int $perPage = 20, ?int $viewerId = null): LengthAwarePaginator
     {
-        return Video::with('user')
+        return Video::with('user', 'category')
             ->where('status', 'approved')
             ->when($viewerId, fn ($q, $id) => $q->withExists([
                 'likes as is_liked' => fn ($l) => $l->where('user_id', $id),
             ]))
             ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('title', 'like', self::likeTerm($s)))
             ->when($filters['tag'] ?? null, fn ($q, $tag) => $q->whereJsonContains('tags', $tag))
+            ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
             ->latest()
             ->paginate($perPage)
             ->withQueryString();
@@ -55,7 +57,7 @@ class VideoRepository implements VideoRepositoryInterface
 
     public function paginateByUser(int $userId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        return Video::with('rejectionReason')
+        return Video::with('rejectionReason', 'category')
             ->where('user_id', $userId)
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             ->latest()
@@ -65,7 +67,7 @@ class VideoRepository implements VideoRepositoryInterface
 
     public function find(int $id): Video
     {
-        return Video::with('user', 'rejectionReason')->findOrFail($id);
+        return Video::with('user', 'rejectionReason', 'category')->findOrFail($id);
     }
 
     /**
@@ -74,7 +76,7 @@ class VideoRepository implements VideoRepositoryInterface
      */
     public function findForAdmin(Video $video): Video
     {
-        $video->load('user.tariff', 'rejectionReason');
+        $video->load('user.tariff', 'rejectionReason', 'category');
 
         $this->attachAdminMeta([$video]);
 

@@ -227,7 +227,79 @@ it('sends the order to the store owner right after it is placed', function () {
         ->assertJsonPath('data.0.order_status', 'pending')
         ->assertJsonPath('data.0.status', 'pending')
         ->assertJsonPath('data.0.can_respond', true)
-        ->assertJsonPath('meta.pending', 1);
+        ->assertJsonPath('meta.pending', 1)
+        ->assertJsonPath('meta.to_deliver', 0);
+});
+
+it('filters store orders by to_deliver and completed tabs', function () {
+    Sanctum::actingAs($this->buyer);
+    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))
+        ->assertCreated();
+
+    $waiting = Order::first()->suborders()->first();
+
+    $second = orderListing($this->store, ['title' => 'Мука', 'price' => 40, 'stock_qty' => 5]);
+    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $second->id, 'qty' => 1]]))
+        ->assertCreated();
+    $toDeliver = Order::latest('id')->first()->suborders()->first();
+
+    $third = orderListing($this->store, ['title' => 'Масло', 'price' => 30, 'stock_qty' => 5]);
+    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $third->id, 'qty' => 1]]))
+        ->assertCreated();
+    $done = Order::latest('id')->first()->suborders()->first();
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/my/store/orders/{$toDeliver->id}/accept")->assertOk();
+    $this->postJson("/api/v1/my/store/orders/{$done->id}/accept")->assertOk();
+    $this->postJson("/api/v1/my/store/orders/{$done->id}/complete")->assertOk();
+
+    $this->getJson('/api/v1/my/store/orders?status=to_deliver')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $toDeliver->id)
+        ->assertJsonPath('meta.pending', 1)
+        ->assertJsonPath('meta.to_deliver', 1);
+
+    $this->getJson('/api/v1/my/store/orders?status=completed')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $done->id);
+
+    $this->getJson('/api/v1/my/store/orders?status=pending')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $waiting->id);
+});
+
+it('searches store orders by phone, name and order number', function () {
+    Sanctum::actingAs($this->buyer);
+    $this->postJson('/api/v1/orders', orderPayload(
+        [['listing_id' => $this->listing->id, 'qty' => 1]],
+        ['contact_name' => 'Merdan', 'phone' => '+99365000099'],
+    ))->assertCreated();
+
+    $order = Order::first();
+    $suborder = $order->suborders()->first();
+
+    Sanctum::actingAs($this->owner);
+
+    $this->getJson('/api/v1/my/store/orders?q=65000099')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $suborder->id);
+
+    $this->getJson('/api/v1/my/store/orders?q=Merdan')
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+
+    $this->getJson('/api/v1/my/store/orders?q='.$order->number)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $suborder->id);
+
+    $this->getJson('/api/v1/my/store/orders?q=неттакого')
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
 });
 
 it('confirms the order and takes the stock when the owner accepts it', function () {

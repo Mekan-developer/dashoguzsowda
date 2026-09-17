@@ -13,13 +13,14 @@ const { t, locale } = useI18n()
 const page = usePage()
 
 const props = defineProps({
-    videos: Object, rejectionReasons: Array, filters: Object, counts: Object,
+    videos: Object, categories: Array, rejectionReasons: Array, filters: Object, counts: Object,
 })
 
 const isAdmin = computed(() => page.props.auth?.user?.role === 'admin')
 
 const search    = ref(props.filters?.search || '')
 const statusFil = ref(props.filters?.status || '')
+const catId     = ref(props.filters?.category_id || '')
 
 const totalCount = computed(() =>
     (props.counts?.pending ?? 0) + (props.counts?.approved ?? 0) + (props.counts?.rejected ?? 0))
@@ -39,6 +40,7 @@ function applyFilters() {
     router.get(route('videos.index'), {
         search: search.value || undefined,
         status: statusFil.value || undefined,
+        category_id: catId.value || undefined,
     }, { preserveState: true, replace: true })
 }
 function onSearchInput(value) {
@@ -111,7 +113,7 @@ function doDelete() {
       {{ t('videos.hint') }}
     </div>
 
-    <!-- Поиск + чипы-фильтры по статусу -->
+    <!-- Поиск + категория + чипы-фильтры по статусу -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <div class="w-full sm:w-72">
         <SearchInput
@@ -121,6 +123,14 @@ function doDelete() {
           @submit="applyFilters"
         />
       </div>
+      <select
+        v-model="catId"
+        @change="applyFilters"
+        class="rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-semibold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dcard dark:text-slate-200"
+      >
+        <option value="">{{ t('listings.allCategories') }}</option>
+        <option v-for="c in categories" :key="c.id" :value="c.id">{{ nameOf(c) }}</option>
+      </select>
       <div class="flex gap-2 flex-wrap">
         <button
           v-for="chip in chips"
@@ -148,6 +158,7 @@ function doDelete() {
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-[54px]"></th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('videos.colVideo') }}</th>
+            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.category') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('videos.colAuthor') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.status') }}</th>
             <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('videos.likes') }}</th>
@@ -194,6 +205,10 @@ function doDelete() {
                 <Icon kind="clock" :size="10" />
                 {{ t('videos.processing') }}
               </span>
+            </td>
+
+            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-semibold text-ink dark:text-slate-200">
+              {{ nameOf(video.category) }}
             </td>
 
             <!-- Автор · Тариф (использовано/лимит) -->

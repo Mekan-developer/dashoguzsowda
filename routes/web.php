@@ -69,7 +69,7 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
     // Объявления — модерация
     Route::get('listings',                     [ListingController::class, 'index'])->name('listings.index');
     Route::get('listings/{listing}',           [ListingController::class, 'show'])->name('listings.show');
-    Route::put('listings/{listing}',           [ListingController::class, 'update'])->name('listings.update');
+    Route::patch('listings/{listing}',         [ListingController::class, 'update'])->name('listings.update');
     Route::patch('listings/{listing}/approve', [ListingController::class, 'approve'])->name('listings.approve');
     Route::patch('listings/{listing}/reject',  [ListingController::class, 'reject'])->name('listings.reject');
     Route::patch('listings/{listing}/boost',   [ListingController::class, 'boost'])->name('listings.boost');

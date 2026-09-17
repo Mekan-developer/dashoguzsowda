@@ -12,7 +12,7 @@ class VerifyCodeRequest extends FormRequest
     {
         return [
             'phone'     => ['required', 'string', 'regex:/^\+?\d{8,15}$/'],
-            'code'      => ['required', 'string'],
+            'code'      => ['required', 'string', 'digits:' . (int) config('sms.code_length', 6)],
             'fcm_token' => ['nullable', 'string', 'max:255'],
         ];
     }

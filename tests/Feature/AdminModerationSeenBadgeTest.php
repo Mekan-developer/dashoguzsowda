@@ -64,9 +64,11 @@ it('shows a "new" dot on Listings until opened, without touching the pending que
 it('shows a "new" dot on Videos until opened, without touching the pending queue count', function () {
     $admin = User::factory()->admin()->create();
     $author = User::factory()->create();
+    $category = Category::create(['name_ru' => 'Транспорт', 'name_tk' => 'Ulag', 'slug' => 'mod-vid', 'level' => 1]);
 
     $makeVideo = fn (string $title) => Video::create([
-        'user_id' => $author->id, 'title' => $title, 'path' => 'videos/a/'.Str::random(8).'.mp4', 'status' => 'pending',
+        'user_id' => $author->id, 'category_id' => $category->id,
+        'title' => $title, 'path' => 'videos/a/'.Str::random(8).'.mp4', 'status' => 'pending',
     ]);
 
     $makeVideo('Ролик 1');

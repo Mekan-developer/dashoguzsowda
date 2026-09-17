@@ -245,6 +245,13 @@
 - Подсчёт: считать активные (не удалённые) объявления пользователя за текущий период тарифа.
 - `TariffService::getRemainingLimits(User $user): array`
 
+## Ролики (shorts)
+
+- Сущность — `videos`, отдельного Short нет.
+- Категория **обязательна** и только **1-го уровня** (`parent_id IS NULL`), в отличие от объявлений (там leaf).
+- API: `category_id` при create / chunked init; лента `GET /v1/videos` — `search` (title) + `category_id`.
+- Индекс ленты с фильтром: `videos_category_feed_index` (`category_id`, `status`, `created_at`).
+
 ## Поднятие объявлений (boost)
 
 - `listings.is_boosted`, `listings.boosted_at`

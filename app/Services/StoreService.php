@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Store;
 use App\Models\StorePhoto;
 use App\Models\User;
+use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ListingRepositoryInterface;
 use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
 use App\Repositories\Interfaces\StoreRepositoryInterface;
@@ -28,6 +29,7 @@ class StoreService
     public function __construct(
         private readonly StoreRepositoryInterface $storeRepository,
         private readonly ListingRepositoryInterface $listingRepository,
+        private readonly CategoryRepositoryInterface $categoryRepository,
         private readonly PaymentMethodRepositoryInterface $paymentMethods,
         private readonly ImageConversionService $imageConversion,
     ) {}
@@ -54,10 +56,21 @@ class StoreService
     /**
      * GET /v1/stores/{id}/listings — переиспользует общую выдачу объявлений
      * (те же фильтры/сортировка/approved-only, что и /v1/listings).
+     * Фильтр category_id включает поддерево, как в ListingService::searchForApi.
      * Оптовые позиции — владельцу витрины и тем, кто видит опт.
+     *
+     * @param  array<string, mixed>  $filters
      */
     public function listingsForStore(Store $store, array $filters, int $perPage = 20, ?User $viewer = null): LengthAwarePaginator
     {
+        if (! empty($filters['category_id'])) {
+            $category = $this->categoryRepository->find((int) $filters['category_id']);
+            $filters['category_ids'] = [
+                $category->id,
+                ...$this->categoryRepository->descendants($category)->pluck('id')->all(),
+            ];
+        }
+
         return $this->listingRepository->paginateForApi(
             [...$filters, 'store_id' => $store->id],
             $perPage,

@@ -60,7 +60,7 @@ class VideoService
         ]);
     }
 
-    /** Правка ролика модератором из админки: доступен только заголовок. */
+    /** Правка ролика модератором из админки: заголовок и категория. */
     public function updateFromAdmin(Video $video, array $data): Video
     {
         return $this->videoRepository->update($video, $data);
@@ -127,7 +127,13 @@ class VideoService
 
         $extension = $this->resolveExtension($data['filename'] ?? null, $data['extension'] ?? null);
 
-        $uploadId = $this->uploads->create($user->id, $data['title'], $data['tags'] ?? [], $extension);
+        $uploadId = $this->uploads->create(
+            $user->id,
+            $data['title'],
+            $data['tags'] ?? [],
+            $extension,
+            (int) $data['category_id'],
+        );
 
         return [
             'upload_id'  => $uploadId,
@@ -209,8 +215,9 @@ class VideoService
         $this->uploads->discard($uploadId);
 
         return $this->persistVideo($user, $relPath, [
-            'title' => $meta['title'],
-            'tags'  => $meta['tags'] ?? [],
+            'title'       => $meta['title'],
+            'tags'        => $meta['tags'] ?? [],
+            'category_id' => $meta['category_id'],
         ], (int) round($duration));
     }
 
@@ -226,6 +233,7 @@ class VideoService
     {
         $video = $this->videoRepository->create([
             'user_id'          => $user->id,
+            'category_id'      => $data['category_id'],
             'title'            => $data['title'],
             'tags'             => $data['tags'] ?? [],
             'path'             => $path,

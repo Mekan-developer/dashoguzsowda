@@ -3,12 +3,12 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-
 const path = require('path');
 
-const PORT = process.env.PORT || 3000;
-// Общий секрет: тот же, что в OTP_SECRET на сервере Laravel и в настройках
-// телефона-отправителя SMS.
+const PORT = Number(process.env.PORT || 3000);
+// 0.0.0.0 — телефон в LAN достучится до моста; секрет обязателен всегда.
+const HOST = process.env.HOST || '0.0.0.0';
+// Общий секрет: Laravel OTP_SECRET = шлюз = Auth Token в Flutter OTP Listener.
 const OTP_SECRET = process.env.OTP_SECRET || '';
 const OTP_EVENT_NAME = process.env.OTP_EVENT_NAME || 'otp';
 // Страница-тестер на GET /test. По умолчанию выключена: она позволяет с любого
@@ -24,17 +24,29 @@ const app = express();
 app.use(express.json());
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: { origin: false },
+});
 
-// Подключение по socket.io требует секрета: без этой проверки любой, кто
-// дотянулся до порта, получал бы OTP всех пользователей через io.emit.
+/**
+ * Shared secret from the Flutter OTP Listener (auth.token) or HTTP header.
+ * Query string не принимаем — секрет не должен попадать в access logs / Referer.
+ */
+function extractSecret(source) {
+  if (!source) {
+    return '';
+  }
+
+  return String(
+    source.auth?.token
+      || source.auth?.secret
+      || source.headers?.['x-otp-secret']
+      || '',
+  );
+}
+
 io.use((socket, next) => {
-  const provided =
-    socket.handshake.auth?.secret ||
-    socket.handshake.query?.secret ||
-    (socket.handshake.headers?.['x-otp-secret'] ?? '');
-
-  if (provided !== OTP_SECRET) {
+  if (extractSecret(socket.handshake) !== OTP_SECRET) {
     const ip = socket.handshake.address;
     console.warn(`[gateway] отклонено подключение с неверным секретом: ${ip}`);
 
@@ -77,7 +89,12 @@ app.post('/emit-otp', (req, res) => {
     return res.status(503).json({ message: 'No gateway client connected' });
   }
 
-  io.emit(OTP_EVENT_NAME, { phone_number: phoneNumber, otp });
+  // token в payload — Flutter AuthTokenValidation.matches() требует совпадения.
+  io.emit(OTP_EVENT_NAME, {
+    phone_number: phoneNumber,
+    otp,
+    token: OTP_SECRET,
+  });
   console.log(`[gateway] OTP emitted for ${phoneNumber}`);
 
   return res.json({ message: 'OTP event emitted' });
@@ -100,6 +117,6 @@ if (ENABLE_TEST_PAGE) {
   console.log('[gateway] тестовая страница включена: GET /test');
 }
 
-server.listen(PORT, () => {
-  console.log(`[gateway] socket.io server listening on :${PORT}, event="${OTP_EVENT_NAME}"`);
+server.listen(PORT, HOST, () => {
+  console.log(`[gateway] socket.io server listening on ${HOST}:${PORT}, event="${OTP_EVENT_NAME}"`);
 });

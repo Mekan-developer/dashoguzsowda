@@ -35,7 +35,10 @@ it('renders the dashboard with stats, charts and recent items', function () {
     makeDashboardListing(['title' => 'Одобренное']);
     makeDashboardListing(['title' => 'На модерации', 'status' => 'pending']);
 
-    Video::create(['user_id' => $this->author->id, 'title' => 'Ролик', 'path' => 'videos/a/o.mp4', 'status' => 'pending']);
+    Video::create([
+        'user_id' => $this->author->id, 'category_id' => $this->category->id,
+        'title' => 'Ролик', 'path' => 'videos/a/o.mp4', 'status' => 'pending',
+    ]);
 
     $reason = ComplaintReason::create(['name_ru' => 'Спам', 'name_tk' => 'Spam', 'is_active' => true]);
     Complaint::create([

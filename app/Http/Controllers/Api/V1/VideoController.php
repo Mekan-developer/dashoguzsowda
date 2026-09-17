@@ -22,7 +22,7 @@ class VideoController extends Controller
      * Публичная вертикальная лента одобренных роликов (ТЗ §7, экран 9).
      * GET /api/v1/videos
      *
-     * Фильтры: search (по названию), tag, page, limit.
+     * Фильтры: search (по названию), category_id (корень), tag, page, limit.
      * С Bearer-токеном у каждого ролика появляется is_liked.
      */
     public function index(SearchVideosRequest $request)
@@ -66,7 +66,7 @@ class VideoController extends Controller
         $this->videoService->loadLikeFlag($video, $viewer);
 
         return response()->json([
-            'data'    => new VideoResource($video->load('user', 'rejectionReason')),
+            'data'    => new VideoResource($video->load('user', 'rejectionReason', 'category')),
             'message' => 'Success',
         ]);
     }

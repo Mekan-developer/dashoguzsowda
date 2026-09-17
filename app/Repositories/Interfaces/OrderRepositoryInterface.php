@@ -59,7 +59,10 @@ interface OrderRepositoryInterface
      */
     public function storesWithOrders(): \Illuminate\Support\Collection;
 
-    /** Заказы магазина для владельца — с первой минуты, решение принимает он. */
+    /**
+     * Заказы магазина для владельца — с первой минуты, решение принимает он.
+     * Фильтры: status (в т.ч. to_deliver / completed), q (номер / телефон / имя).
+     */
     public function paginateForOwner(int $ownerId, array $filters, int $perPage = 20): LengthAwarePaginator;
 
     /** Заказ магазина; null — чужой или несуществующий. */
@@ -70,6 +73,13 @@ interface OrderRepositoryInterface
 
     /** Сколько заказов ждёт ответа владельца — бейдж в мобилке. */
     public function countPendingForOwner(int $ownerId): int;
+
+    /**
+     * Счётчики вкладок магазина: ждут ответа и приняты, но ещё не доставлены.
+     *
+     * @return array{pending: int, to_deliver: int}
+     */
+    public function tabCountsForOwner(int $ownerId): array;
 
     /** $deciderId — владелец магазина; при отмене покупателем решает никто. */
     public function updateStatus(Order $order, string $status, ?int $deciderId = null, ?string $comment = null): Order;

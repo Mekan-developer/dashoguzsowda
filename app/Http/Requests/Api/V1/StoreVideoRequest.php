@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Http\Requests\Concerns\ValidatesRootCategory;
 use App\Services\Video\VideoProbeInterface;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
 class StoreVideoRequest extends FormRequest
 {
+    use ValidatesRootCategory;
+
     /** Максимальная длительность ролика (ТЗ §7.1) */
     public const MAX_DURATION_SECONDS = 60;
 
@@ -17,12 +20,17 @@ class StoreVideoRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge([
             'video'  => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-matroska,video/3gpp', 'max:102400'],
             'title'  => ['required', 'string', 'max:255'],
             'tags'   => ['nullable', 'array', 'max:10'],
             'tags.*' => ['string', 'max:30'],
-        ];
+        ], $this->rootCategoryRules());
+    }
+
+    public function messages(): array
+    {
+        return $this->rootCategoryMessages();
     }
 
     /** Файл длиннее минуты отклоняется ещё до постановки в очередь на сжатие */

@@ -34,7 +34,10 @@ it('shares sidebar counters computed in a single query', function () {
         'title' => 'Одобрено', 'type' => 'goods', 'phone' => '+99361110000', 'status' => 'approved',
     ]);
 
-    Video::create(['user_id' => $author->id, 'title' => 'Ролик', 'path' => 'videos/a/o.mp4', 'status' => 'pending']);
+    Video::create([
+        'user_id' => $author->id, 'category_id' => $category->id,
+        'title' => 'Ролик', 'path' => 'videos/a/o.mp4', 'status' => 'pending',
+    ]);
 
     $reason = ComplaintReason::create(['name_ru' => 'Спам', 'name_tk' => 'Spam', 'is_active' => true]);
     Complaint::create([
