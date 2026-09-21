@@ -4,6 +4,7 @@
 node_modules
 vendor
 public/storage
+public/hot
 
 # Секреты и локальная конфигурация — .env монтируется в контейнер,
 # а не копируется в образ.

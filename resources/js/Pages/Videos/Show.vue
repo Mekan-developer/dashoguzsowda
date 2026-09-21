@@ -40,12 +40,19 @@ const tariffLine = computed(() => {
 const editing    = ref(false)
 const title      = ref(props.video.title)
 const categoryId = ref(props.video.category_id ?? props.video.category?.id ?? '')
+const tagsInput  = ref((props.video.tags || []).join(', '))
 
 function saveEdit() {
     if (!title.value.trim() || !categoryId.value) return
+    const tags = tagsInput.value
+        .split(/[,，]/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .slice(0, 10)
     router.put(route('videos.update', props.video.id), {
         title: title.value,
         category_id: categoryId.value,
+        tags,
     }, {
         preserveScroll: true,
         onSuccess: () => { editing.value = false },
@@ -55,6 +62,7 @@ function saveEdit() {
 function cancelEdit() {
     title.value = props.video.title
     categoryId.value = props.video.category_id ?? props.video.category?.id ?? ''
+    tagsInput.value = (props.video.tags || []).join(', ')
     editing.value = false
 }
 
@@ -145,6 +153,15 @@ function doDelete() {
                     <option v-for="c in categories" :key="c.id" :value="c.id">{{ nameOf(c) }}</option>
                   </select>
                 </div>
+                <div>
+                  <p class="text-[12px] font-semibold text-muted mb-1">{{ t('videos.tags') }}:</p>
+                  <input
+                    v-model="tagsInput"
+                    type="text"
+                    class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
+                    :placeholder="t('listings.tagsPlaceholder')"
+                  />
+                </div>
                 <div class="flex gap-2">
                   <button
                     @click="saveEdit"
@@ -161,7 +178,7 @@ function doDelete() {
                 <div class="flex items-start gap-2">
                   <span class="flex-1 text-[15px] font-bold text-ink dark:text-slate-200">{{ video.title }}</span>
                   <button
-                    @click="editing = true"
+                    @click="editing = true; tagsInput = (video.tags || []).join(', ')"
                     class="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[7px] text-muted transition hover:bg-blue hover:text-white"
                     :title="t('actions.edit')" :aria-label="t('actions.edit')"
                   >

@@ -34,6 +34,16 @@ class UserService
     }
 
     /**
+     * Поиск пользователей для селекта владельца в формах create админки.
+     *
+     * @return \Illuminate\Support\Collection<int, array{id:int, name:string|null, phone:string}>
+     */
+    public function searchForSelect(string $query, int $limit = 20): \Illuminate\Support\Collection
+    {
+        return $this->userRepository->searchForSelect($query, $limit);
+    }
+
+    /**
      * Создание пользователя из админки: только по телефону, без пароля.
      * activation: active — активен сразу; sms — код через локальный модем,
      * активация при первом входе в приложение.

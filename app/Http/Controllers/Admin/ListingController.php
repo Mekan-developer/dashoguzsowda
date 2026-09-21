@@ -7,10 +7,13 @@ use App\Actions\BoostListingAction;
 use App\Actions\RejectListingAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectListingRequest;
+use App\Http\Requests\Admin\StoreListingRequest;
 use App\Http\Requests\Admin\UpdateListingRequest;
 use App\Models\Listing;
+use App\Models\User;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
+use App\Repositories\Interfaces\RegionRepositoryInterface;
 use App\Services\ListingService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
@@ -25,6 +28,7 @@ class ListingController extends Controller
         private readonly BoostListingAction $boostAction,
         private readonly ReasonRepositoryInterface $reasons,
         private readonly CategoryRepositoryInterface $categories,
+        private readonly RegionRepositoryInterface $regions,
         private readonly NotificationService $notificationService,
     ) {}
 
@@ -41,19 +45,48 @@ class ListingController extends Controller
         ]);
     }
 
+    public function create()
+    {
+        return Inertia::render('Listings/Create', [
+            'categories' => $this->categories->activeTree(),
+            'regions'    => $this->regions->activeListWithDistricts(),
+        ]);
+    }
+
+    /**
+     * Создание объявления от имени выбранного пользователя (сразу approved).
+     */
+    public function store(StoreListingRequest $request)
+    {
+        $owner = User::query()->findOrFail($request->validated('user_id'));
+
+        $data = $request->safe()->except('user_id');
+        $data['photos'] = $request->file('photos', []);
+
+        $listing = $this->listingService->createFromAdmin($owner, $data);
+
+        return redirect()->route('listings.show', $listing)
+            ->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
+    }
+
     public function show(Listing $listing)
     {
         return Inertia::render('Listings/Show', [
-            'listing'          => $listing->load('user', 'category.parent.parent', 'region', 'city', 'media', 'rejectionReason'),
+            'listing'          => $listing->load('user.store', 'category.parent.parent', 'region', 'city', 'district', 'media', 'rejectionReason'),
             'categories'       => $this->categories->activeTree(),
+            'regions'          => $this->regions->activeListWithDistricts(),
             'rejectionReasons' => $this->reasons->activeRejectionReasons('listing'),
         ]);
     }
 
-    /** Частичная правка текста, цены и категории модератором. */
     public function update(UpdateListingRequest $request, Listing $listing)
     {
-        $this->listingService->updateFromAdmin($listing, $request->validated());
+        $data = $request->safe()->except('photos');
+        if ($request->hasFile('photos')) {
+            $data['photos'] = $request->file('photos', []);
+        }
+
+        $this->listingService->updateFromAdmin($listing, $data);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }

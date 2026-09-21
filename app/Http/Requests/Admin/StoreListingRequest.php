@@ -4,11 +4,12 @@ namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\Api\V1\Concerns\ValidatesTradeFields;
 use App\Models\Category;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class UpdateListingRequest extends FormRequest
+class StoreListingRequest extends FormRequest
 {
     use ValidatesTradeFields;
 
@@ -34,24 +35,20 @@ class UpdateListingRequest extends FormRequest
     {
         return [
             ...$this->tradeFieldRules(),
-            'title'        => ['sometimes', 'required', 'string', 'max:255'],
-            'description'  => ['sometimes', 'nullable', 'string', 'max:5000'],
-            'type'         => ['sometimes', 'required', 'in:goods,services'],
-            'category_id'  => ['sometimes', 'required', Rule::exists('categories', 'id')->where('is_active', 1)],
-            'region_id'    => ['sometimes', 'required', Rule::exists('regions', 'id')->where('is_hidden', 0)],
-            'city_id'      => ['required_with:region_id', Rule::exists('cities', 'id')->where('is_hidden', 0)->where('region_id', $this->input('region_id'))],
+            'user_id'      => ['required', Rule::exists('users', 'id')->where('role', 'user')],
+            'title'        => ['required', 'string', 'max:255'],
+            'description'  => ['required', 'string', 'max:5000'],
+            'type'         => ['required', 'in:goods,services'],
+            'category_id'  => ['required', Rule::exists('categories', 'id')->where('is_active', 1)],
+            'region_id'    => ['required', Rule::exists('regions', 'id')->where('is_hidden', 0)],
+            'city_id'      => ['required', Rule::exists('cities', 'id')->where('is_hidden', 0)->where('region_id', $this->input('region_id'))],
             'district_id'  => ['nullable', Rule::exists('districts', 'id')->where('city_id', $this->input('city_id'))],
-            'price'        => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999'],
+            'price'        => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
             'phone'        => ['nullable', 'string', 'regex:/^\+993\d{8}$/'],
             'tags'         => ['nullable', 'array', 'max:10'],
             'tags.*'       => ['string', 'max:30'],
-            'photos'       => ['sometimes', 'array', 'max:8'],
+            'photos'       => ['required', 'array', 'min:1', 'max:8'],
             'photos.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:15360'],
-            'remove_media_ids'   => ['sometimes', 'array'],
-            'remove_media_ids.*' => [
-                'integer',
-                Rule::exists('listing_media', 'id')->where('listing_id', $this->route('listing')?->id),
-            ],
         ];
     }
 
@@ -72,30 +69,12 @@ class UpdateListingRequest extends FormRequest
                 }
             }
 
-            if ($this->filled('wholesale_price')) {
-                $store = $this->route('listing')?->user?->store;
+            if ($this->filled('wholesale_price') && ! $v->errors()->has('user_id')) {
+                $owner = User::query()->find((int) $this->input('user_id'));
+                $store = $owner?->store;
                 if (! $store || ! $store->sells_wholesale) {
                     $v->errors()->add('wholesale_price', __('messages.wholesale_requires_wholesale_store'));
                 }
-            }
-
-            if ($v->errors()->has('photos') || $v->errors()->has('remove_media_ids')) {
-                return;
-            }
-
-            if (! $this->has('photos') && ! $this->has('remove_media_ids')) {
-                return;
-            }
-
-            $current = $this->route('listing')?->media()->count() ?? 0;
-            $total   = $current
-                - count($this->input('remove_media_ids', []))
-                + count($this->file('photos', []));
-
-            if ($total < 1) {
-                $v->errors()->add('photos', __('messages.listing_photos_required'));
-            } elseif ($total > 8) {
-                $v->errors()->add('photos', __('messages.listing_photos_limit'));
             }
         });
     }

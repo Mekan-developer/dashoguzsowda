@@ -54,6 +54,18 @@ class UserController extends Controller
         return response()->json($this->userService->phoneStatus($request->validated('phone')));
     }
 
+    /**
+     * Живой поиск владельца для create-форм (магазин / объявление / видео).
+     */
+    public function search(\Illuminate\Http\Request $request)
+    {
+        $query = (string) $request->query('q', '');
+
+        return response()->json([
+            'data' => $this->userService->searchForSelect($query),
+        ]);
+    }
+
     public function show(User $user)
     {
         $overview = $this->userService->profileOverview($user);

@@ -31,6 +31,30 @@ class UserRepository implements UserRepositoryInterface
             ->withQueryString();
     }
 
+    public function searchForSelect(string $query, int $limit = 20): Collection
+    {
+        $term = trim($query);
+
+        if ($term === '') {
+            return collect();
+        }
+
+        return User::query()
+            ->where('role', 'user')
+            ->where('status', 'active')
+            ->where(fn ($w) => $w
+                ->where('phone', 'like', self::likeTerm($term))
+                ->orWhere('name', 'like', self::likeTerm($term)))
+            ->orderBy('name')
+            ->limit($limit)
+            ->get(['id', 'name', 'phone'])
+            ->map(fn (User $user) => [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'phone' => $user->phone,
+            ]);
+    }
+
     public function countUsers(): int
     {
         return User::where('role', 'user')->count();

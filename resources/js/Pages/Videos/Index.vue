@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import CreateButton from '@/Components/CreateButton.vue'
 import Pagination from '@/Components/Pagination.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import SearchInput from '@/Components/SearchInput.vue'
@@ -105,6 +106,10 @@ function doDelete() {
           {{ t('videos.countPill', totalCount) }}
         </span>
       </div>
+    </template>
+
+    <template #actions>
+      <CreateButton :label="t('actions.create')" @click="router.visit(route('videos.create'))" />
     </template>
 
     <!-- Подсказка: ограничение длительности + автосжатие -->

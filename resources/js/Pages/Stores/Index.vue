@@ -4,11 +4,13 @@ import { router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import AppDrawer from '@/Components/AppDrawer.vue'
+import CreateButton from '@/Components/CreateButton.vue'
 import DrawerField from '@/Components/DrawerField.vue'
 import Icon from '@/Components/Icon.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import DataTable from '@/Components/DataTable.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
+import UserSearchSelect from '@/Components/UserSearchSelect.vue'
 
 const { t } = useI18n()
 const page = usePage()
@@ -35,7 +37,9 @@ const categoryOptions = computed(() => flattenCategories(props.categories))
 
 const drawer   = ref(false)
 const editItem = ref(null)
+const isCreate = computed(() => !editItem.value)
 const emptyForm = () => ({
+    user_id: null,
     name: '', description: '', phone: '', address: '', category_id: null,
     region_id: null, city_id: null, district_id: null,
     sells_retail: true, sells_wholesale: false, has_delivery: false,
@@ -47,7 +51,6 @@ const form   = ref(emptyForm())
 const errors = ref({})
 const newPhotoPreviews = ref([])
 
-// Города и районы — от выбранного региона: справочник приходит деревом
 const cityOptions = computed(() =>
     (props.regions || []).find(r => r.id === form.value.region_id)?.cities || [])
 const districtOptions = computed(() =>
@@ -96,9 +99,21 @@ function isLastPopular(s) {
     return popular[popular.length - 1]?.id === s.id
 }
 
+function openCreate() {
+    editItem.value = null
+    form.value = emptyForm()
+    if (props.paymentMethods?.length) {
+        form.value.payment_method_ids = [props.paymentMethods[0].id]
+    }
+    newPhotoPreviews.value = []
+    errors.value = {}
+    drawer.value = true
+}
+
 function openEdit(s) {
     editItem.value = s
     form.value = {
+        user_id: s.user_id ?? null,
         name: s.name ?? '', description: s.description ?? '', phone: s.phone ?? '',
         address: s.address ?? '', category_id: s.category_id ?? null,
         region_id: s.region_id ?? null, city_id: s.city_id ?? null, district_id: s.district_id ?? null,
@@ -138,15 +153,20 @@ function removeExistingPhoto(photo) {
 }
 
 function save() {
-    // Хотя бы один способ оплаты обязателен: иначе покупателю при оформлении
-    // заказа не из чего выбрать. Пустой набор до сервера не доезжает вовсе —
-    // multipart просто не передаёт пустой массив, поэтому ловим здесь
-    // Если админ выключил весь справочник, выбирать не из чего — тогда набор
-    // магазина просто не трогаем, иначе правка магазина стала бы невозможна
     if (props.paymentMethods?.length && !form.value.payment_method_ids.length) {
         errors.value = { payment_method_ids: t('stores.paymentRequired') }
         return
     }
+
+    if (isCreate.value) {
+        router.post(route('stores.store'), { ...form.value }, {
+            forceFormData: true,
+            onSuccess: () => { closeDrawer() },
+            onError: e => { errors.value = e },
+        })
+        return
+    }
+
     router.post(route('stores.update', editItem.value.id), { ...form.value, _method: 'put' }, {
         forceFormData: true,
         onSuccess: () => { closeDrawer() },
@@ -159,7 +179,6 @@ function destroy(s) {
     if (confirm(t('actions.confirmDelete', { name: s.name }))) router.delete(route('stores.destroy', s.id))
 }
 
-// Модерация: магазин попадает в мобильную витрину только после одобрения
 function approve(s) { router.patch(route('stores.approve', s.id), {}, { preserveScroll: true }) }
 
 const rejectTarget = ref(null)
@@ -181,6 +200,10 @@ function reasonName(reason) {
 <template>
   <AppLayout>
     <template #header>{{ t('nav.stores') }}</template>
+
+    <template #actions>
+      <CreateButton v-if="isAdmin" :label="t('actions.create')" @click="openCreate" />
+    </template>
 
     <!-- Фильтр по статусу модерации: магазин виден в мобилке только после одобрения -->
     <div class="mb-4 flex flex-wrap gap-2">
@@ -292,7 +315,11 @@ function reasonName(reason) {
       </template>
     </DataTable>
 
-    <AppDrawer :open="drawer" :title="t('stores.editTitle')" @close="closeDrawer">
+    <AppDrawer :open="drawer" :title="isCreate ? t('stores.createTitle') : t('stores.editTitle')" @close="closeDrawer">
+      <DrawerField v-if="isCreate" :label="t('users.ownerLabel')" :required="true" :error="errors.user_id">
+        <UserSearchSelect v-model="form.user_id" :error="errors.user_id" />
+      </DrawerField>
+
       <DrawerField :label="t('common.title')" :required="true" :error="errors.name">
         <input v-model="form.name" class="input" />
       </DrawerField>

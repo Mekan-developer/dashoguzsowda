@@ -113,6 +113,21 @@ class VideoService
         return $this->persistVideo($user, $path, $data, $durationSeconds);
     }
 
+    /**
+     * Создание ролика из админки от имени выбранного пользователя.
+     * Сразу approved; лимит тарифа не проверяется. Сжатие — через ProcessVideoJob.
+     */
+    public function createFromAdmin(User $user, array $data, int $durationSeconds): Video
+    {
+        /** @var UploadedFile $file */
+        $file = $data['video'];
+
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'mp4');
+        $path      = $file->storeAs('videos/'.Str::uuid(), 'original.'.$extension, 'public');
+
+        return $this->persistVideo($user, $path, $data, $durationSeconds, 'approved');
+    }
+
     // ─── Chunked / streaming загрузка (файл любого размера) ──────────────────
 
     /**
@@ -229,7 +244,7 @@ class VideoService
     }
 
     /** Общая финализация записи ролика (для single-shot и chunked путей) */
-    private function persistVideo(User $user, string $path, array $data, int $durationSeconds): Video
+    private function persistVideo(User $user, string $path, array $data, int $durationSeconds, string $status = 'pending'): Video
     {
         $video = $this->videoRepository->create([
             'user_id'          => $user->id,
@@ -238,7 +253,7 @@ class VideoService
             'tags'             => $data['tags'] ?? [],
             'path'             => $path,
             'duration_seconds' => $durationSeconds,
-            'status'           => 'pending',
+            'status'           => $status,
         ]);
 
         ProcessVideoJob::dispatch($video->id);

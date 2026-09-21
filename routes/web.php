@@ -61,21 +61,26 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
 
     // Пользователи: менеджеру — только просмотр (ТЗ: «просматривать пользователей»)
     Route::get('users', [UserController::class, 'index'])->name('users.index');
-    // Объявлен ДО users/{user}, иначе «check-phone» уйдёт в model binding
+    // Объявлены ДО users/{user}, иначе «check-phone» / «search» уйдут в model binding
     Route::get('users/check-phone', [UserController::class, 'checkPhone'])
         ->middleware('role:admin')->name('users.check-phone');
+    Route::get('users/search', [UserController::class, 'search'])->name('users.search');
     Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
 
-    // Объявления — модерация
+    // Объявления — модерация + создание
     Route::get('listings',                     [ListingController::class, 'index'])->name('listings.index');
+    Route::get('listings/create',              [ListingController::class, 'create'])->name('listings.create');
+    Route::post('listings',                    [ListingController::class, 'store'])->name('listings.store');
     Route::get('listings/{listing}',           [ListingController::class, 'show'])->name('listings.show');
     Route::patch('listings/{listing}',         [ListingController::class, 'update'])->name('listings.update');
     Route::patch('listings/{listing}/approve', [ListingController::class, 'approve'])->name('listings.approve');
     Route::patch('listings/{listing}/reject',  [ListingController::class, 'reject'])->name('listings.reject');
     Route::patch('listings/{listing}/boost',   [ListingController::class, 'boost'])->name('listings.boost');
 
-    // Ролики — модерация
+    // Ролики — модерация + создание
     Route::get('videos',                   [VideoController::class, 'index'])->name('videos.index');
+    Route::get('videos/create',            [VideoController::class, 'create'])->name('videos.create');
+    Route::post('videos',                  [VideoController::class, 'store'])->name('videos.store');
     Route::get('videos/{video}',           [VideoController::class, 'show'])->name('videos.show');
     Route::put('videos/{video}',           [VideoController::class, 'update'])->name('videos.update');
     Route::patch('videos/{video}/approve', [VideoController::class, 'approve'])->name('videos.approve');
@@ -166,6 +171,7 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         // в список сущностей, модерируемых менеджером.
         Route::patch('stores/{store}/approve', [StoreController::class, 'approve'])->name('stores.approve');
         Route::patch('stores/{store}/reject',  [StoreController::class, 'reject'])->name('stores.reject');
+        Route::post('stores',           [StoreController::class, 'store'])->name('stores.store');
         Route::put('stores/{store}',    [StoreController::class, 'update'])->name('stores.update');
         Route::patch('stores/{store}/toggle', [StoreController::class, 'toggle'])->name('stores.toggle');
         Route::patch('stores/{store}/move',   [StoreController::class, 'move'])->name('stores.move');

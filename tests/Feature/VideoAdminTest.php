@@ -197,3 +197,64 @@ it('lets an admin delete a video and cleans up its files', function () {
     Storage::disk('public')->assertMissing('videos/xyz/processed.mp4');
     Storage::disk('public')->assertMissing('videos/xyz/preview.jpg');
 });
+
+it('lets admin create an approved video for a user', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+
+    $probe = new class implements \App\Services\Video\VideoProbeInterface {
+        public function available(): bool { return true; }
+        public function duration(string $absolutePath): ?float { return 28.0; }
+    };
+    app()->instance(\App\Services\Video\VideoProbeInterface::class, $probe);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('clip.mp4', 1024, 'video/mp4');
+
+    $this->post(route('videos.store'), [
+        'user_id'     => $this->owner->id,
+        'title'       => 'Админский ролик',
+        'category_id' => $this->rootCategory->id,
+        'tags'        => ['тест'],
+        'video'       => $file,
+    ])->assertRedirect();
+
+    $video = Video::where('title', 'Админский ролик')->first();
+    expect($video)->not->toBeNull()
+        ->and($video->status)->toBe('approved')
+        ->and($video->user_id)->toBe($this->owner->id)
+        ->and($video->duration_seconds)->toBe(28);
+
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ProcessVideoJob::class);
+});
+
+it('lets admin update video tags', function () {
+    $video = makeAdminVideo(['tags' => ['старый']]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->put(route('videos.update', $video), [
+        'title' => $video->title,
+        'category_id' => $this->rootCategory->id,
+        'tags' => ['новый', 'тег'],
+    ])->assertRedirect();
+
+    expect($video->fresh()->tags)->toBe(['новый', 'тег']);
+});
+
+it('rejects admin video create when duration exceeds limit', function () {
+    $probe = new class implements \App\Services\Video\VideoProbeInterface {
+        public function available(): bool { return true; }
+        public function duration(string $absolutePath): ?float { return 90.0; }
+    };
+    app()->instance(\App\Services\Video\VideoProbeInterface::class, $probe);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->post(route('videos.store'), [
+        'user_id'     => $this->owner->id,
+        'title'       => 'Длинный',
+        'category_id' => $this->rootCategory->id,
+        'video'       => \Illuminate\Http\UploadedFile::fake()->create('long.mp4', 1024, 'video/mp4'),
+    ])->assertSessionHasErrors('video');
+});

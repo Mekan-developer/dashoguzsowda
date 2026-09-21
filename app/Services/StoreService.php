@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Actions\CheckStoreTariffAction;
 use App\Models\Store;
 use App\Models\StorePhoto;
 use App\Models\User;
@@ -14,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class StoreService
 {
@@ -32,6 +34,7 @@ class StoreService
         private readonly CategoryRepositoryInterface $categoryRepository,
         private readonly PaymentMethodRepositoryInterface $paymentMethods,
         private readonly ImageConversionService $imageConversion,
+        private readonly CheckStoreTariffAction $checkStoreTariff,
     ) {}
 
     /**
@@ -269,6 +272,46 @@ class StoreService
     public function moderationCounts(): array
     {
         return ['pending' => $this->storeRepository->countPending()];
+    }
+
+    /**
+     * Создание магазина из админки от имени выбранного пользователя.
+     * Сразу approved — модерация не нужна. Тариф с can_have_store обязателен.
+     *
+     * @param  UploadedFile[]  $photos
+     */
+    public function createFromAdmin(User $user, array $data, ?UploadedFile $logo = null, array $crop = [], array $photos = []): Store
+    {
+        $this->checkStoreTariff->execute($user);
+
+        if ($this->storeRepository->findByUser($user->id)) {
+            throw ValidationException::withMessages([
+                'user_id' => __('messages.store_already_exists'),
+            ]);
+        }
+
+        $attributes = Arr::only($data, [
+            'name', 'description', 'phone', 'address', 'category_id',
+            'region_id', 'city_id', 'district_id',
+            'sells_retail', 'sells_wholesale', 'has_delivery', 'commission_percent',
+        ]);
+
+        $attributes['status'] = 'approved';
+        $attributes['is_active'] = true;
+
+        $store = $this->storeRepository->upsertForUser($user, $attributes);
+
+        if ($logo) {
+            $store = $this->storeRepository->update($store, ['logo' => $this->storeLogo($store, $logo, $crop)]);
+        }
+
+        $this->syncPaymentMethods($store, $data, isNew: true);
+
+        if ($photos !== []) {
+            $this->addPhotos($store, $photos);
+        }
+
+        return $store->fresh(['photos', 'category', 'user', 'region', 'city', 'district', 'paymentMethods']);
     }
 
     /**

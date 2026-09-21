@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import CreateButton from '@/Components/CreateButton.vue'
 import Pagination from '@/Components/Pagination.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import ConfirmModal from '@/Components/ConfirmModal.vue'
@@ -68,6 +69,10 @@ function categoryPath(category) {
 <template>
   <AppLayout>
     <template #header>{{ t('nav.listings') }}</template>
+
+    <template #actions>
+      <CreateButton :label="t('actions.create')" @click="router.visit(route('listings.create'))" />
+    </template>
 
     <!-- Панель: поиск + сегментированный фильтр статусов + категория + счётчик -->
     <div class="mb-4 flex flex-wrap items-center gap-3">

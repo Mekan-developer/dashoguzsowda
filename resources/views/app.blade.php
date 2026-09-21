@@ -15,6 +15,17 @@
 
         <!-- Scripts -->
         @routes
+        @php
+            $reverbConfig = [
+                'key' => config('broadcasting.connections.reverb.key'),
+                'host' => parse_url((string) config('app.url'), PHP_URL_HOST) ?: request()->getHost(),
+                'port' => (parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https') === 'https' ? 443 : 80,
+                'scheme' => parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https',
+            ];
+        @endphp
+        <script>
+            window.__REVERB__ = @json($reverbConfig);
+выдает         </script>
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
     </head>

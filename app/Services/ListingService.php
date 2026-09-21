@@ -78,12 +78,53 @@ class ListingService
     }
 
     /**
-     * Правка модератором из админки: текст, цена, категория.
+     * Правка модератором из админки: полный набор полей + медиа.
      * В отличие от правки автором, НЕ возвращает объявление на повторную модерацию.
      */
     public function updateFromAdmin(Listing $listing, array $data): Listing
     {
-        return $this->listingRepository->update($listing, $data);
+        $newPhotos      = $data['photos'] ?? [];
+        $removeMediaIds = $data['remove_media_ids'] ?? [];
+        unset($data['photos'], $data['remove_media_ids']);
+
+        foreach ($listing->media as $media) {
+            if (in_array($media->id, $removeMediaIds)) {
+                $this->deleteMediaFiles($media);
+                $this->listingRepository->deleteMedia($media);
+            }
+        }
+
+        if ($data !== []) {
+            $this->listingRepository->update($listing, $data);
+        }
+
+        if ($newPhotos !== []) {
+            $this->attachListingPhotosAction->execute($listing, $newPhotos);
+        }
+
+        return $this->listingRepository->find($listing->id);
+    }
+
+    /**
+     * Создание объявления из админки от имени выбранного пользователя.
+     * Сразу approved; лимит тарифа не проверяется.
+     */
+    public function createFromAdmin(User $user, array $data): Listing
+    {
+        $photos = $data['photos'];
+        unset($data['photos']);
+
+        $listing = $this->listingRepository->create([
+            ...$data,
+            ...$this->storeAttributes($user),
+            'user_id' => $user->id,
+            'phone'   => $data['phone'] ?? $user->phone,
+            'status'  => 'approved',
+        ]);
+
+        $this->attachListingPhotosAction->execute($listing, $photos);
+
+        return $this->listingRepository->find($listing->id);
     }
 
     public function delete(Listing $listing): void

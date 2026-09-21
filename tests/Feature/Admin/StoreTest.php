@@ -43,10 +43,76 @@ it('forbids manager from managing stores', function () {
     $store = makeAdminStore();
     actingAsStoreRole('manager');
 
+    $this->post(route('stores.store'), ['user_id' => $store->user_id, 'name' => 'New'])->assertForbidden();
     $this->put(route('stores.update', $store), ['name' => 'Renamed'])->assertForbidden();
     $this->patch(route('stores.toggle', $store))->assertForbidden();
     $this->patch(route('stores.move', $store), ['direction' => 'up'])->assertForbidden();
     $this->delete(route('stores.destroy', $store))->assertForbidden();
+});
+
+it('lets admin create an approved store for a user with store tariff', function () {
+    $premium = \App\Models\Tariff::create([
+        'name_ru' => 'Premium', 'name_tk' => 'Premium',
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+        'price' => 100, 'listings_limit' => 50, 'videos_limit' => 10,
+    ]);
+    $owner = User::factory()->create([
+        'tariff_id' => $premium->id,
+        'tariff_ends_at' => now()->addDays(30),
+    ]);
+    actingAsStoreRole('admin');
+
+    $this->post(route('stores.store'), [
+        'user_id' => $owner->id,
+        'name' => 'Admin Created',
+        'sells_retail' => true,
+        'sells_wholesale' => false,
+    ])->assertRedirect();
+
+    $store = Store::where('user_id', $owner->id)->first();
+    expect($store)->not->toBeNull()
+        ->and($store->name)->toBe('Admin Created')
+        ->and($store->status)->toBe('approved')
+        ->and($store->is_active)->toBeTrue();
+});
+
+it('rejects admin store create when user already has a store', function () {
+    $premium = \App\Models\Tariff::create([
+        'name_ru' => 'Premium', 'name_tk' => 'Premium',
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+        'price' => 100, 'listings_limit' => 50, 'videos_limit' => 10,
+    ]);
+    $store = makeAdminStore();
+    $store->user->update([
+        'tariff_id' => $premium->id,
+        'tariff_ends_at' => now()->addDays(30),
+    ]);
+    actingAsStoreRole('admin');
+
+    $this->post(route('stores.store'), [
+        'user_id' => $store->user_id,
+        'name' => 'Second',
+        'sells_retail' => true,
+    ])->assertSessionHasErrors('user_id');
+});
+
+it('forbids admin store create when user tariff cannot have store', function () {
+    $free = \App\Models\Tariff::create([
+        'name_ru' => 'Free', 'name_tk' => 'Free',
+        'duration_days' => null, 'is_free' => true, 'is_active' => true, 'can_have_store' => false,
+        'price' => 0, 'listings_limit' => 5, 'videos_limit' => 1,
+    ]);
+    $owner = User::factory()->create([
+        'tariff_id' => $free->id,
+        'tariff_ends_at' => null,
+    ]);
+    actingAsStoreRole('admin');
+
+    $this->post(route('stores.store'), [
+        'user_id' => $owner->id,
+        'name' => 'No Tariff',
+        'sells_retail' => true,
+    ])->assertForbidden();
 });
 
 it('lets admin update store fields and category', function () {

@@ -6,9 +6,11 @@ use App\Actions\ApproveStoreAction;
 use App\Actions\RejectStoreAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectStoreRequest;
+use App\Http\Requests\Admin\StoreStoreRequest;
 use App\Http\Requests\Admin\UpdateStoreRequest;
 use App\Models\Store;
 use App\Models\StorePhoto;
+use App\Models\User;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
@@ -46,6 +48,29 @@ class StoreController extends Controller
             'counts'     => $this->storeService->moderationCounts(),
             'filters'    => $request->only('search', 'is_popular', 'status'),
         ]);
+    }
+
+    /**
+     * Создание магазина от имени выбранного пользователя (сразу approved).
+     */
+    public function store(StoreStoreRequest $request)
+    {
+        $owner = User::query()->findOrFail($request->validated('user_id'));
+
+        $this->storeService->createFromAdmin(
+            $owner,
+            $request->safe()->only(
+                'name', 'description', 'phone', 'address', 'category_id',
+                'region_id', 'city_id', 'district_id',
+                'sells_retail', 'sells_wholesale', 'has_delivery', 'commission_percent',
+                'payment_method_ids',
+            ),
+            $request->file('logo'),
+            $request->safe()->only('crop_x', 'crop_y'),
+            $request->file('photos', []),
+        );
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
     public function update(UpdateStoreRequest $request, Store $store)

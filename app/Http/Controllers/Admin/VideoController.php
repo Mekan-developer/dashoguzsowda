@@ -6,7 +6,9 @@ use App\Actions\ApproveVideoAction;
 use App\Actions\RejectVideoAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectVideoRequest;
+use App\Http\Requests\Admin\StoreVideoRequest;
 use App\Http\Requests\Admin\UpdateVideoRequest;
+use App\Models\User;
 use App\Models\Video;
 use App\Repositories\Interfaces\CategoryRepositoryInterface;
 use App\Repositories\Interfaces\ReasonRepositoryInterface;
@@ -37,6 +39,29 @@ class VideoController extends Controller
             'filters'          => $request->only('status', 'search', 'category_id'),
             'counts'           => $this->videoService->counts(),
         ]);
+    }
+
+    public function create()
+    {
+        return Inertia::render('Videos/Create', [
+            'categories' => $this->categories->roots(),
+        ]);
+    }
+
+    /**
+     * Создание ролика от имени выбранного пользователя (сразу approved).
+     */
+    public function store(StoreVideoRequest $request)
+    {
+        $owner = User::query()->findOrFail($request->validated('user_id'));
+
+        $data = $request->safe()->only('title', 'tags', 'category_id');
+        $data['video'] = $request->file('video');
+
+        $video = $this->videoService->createFromAdmin($owner, $data, $request->durationSeconds());
+
+        return redirect()->route('videos.show', $video)
+            ->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
     public function show(Video $video)

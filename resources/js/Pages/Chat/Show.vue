@@ -15,7 +15,7 @@ const localMessages = ref([...(props.messages ?? [])])
 onMounted(() => {
     scrollToBottom()
 
-    window.Echo.private(`chat.${props.chatUser.id}`)
+    window.Echo?.private(`chat.${props.chatUser.id}`)
         .listen('.new-message', (e) => {
             if (e.sender !== 'user') return
             localMessages.value.push(e)
@@ -33,7 +33,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-    window.Echo.leave(`chat.${props.chatUser.id}`)
+    window.Echo?.leave(`chat.${props.chatUser.id}`)
 })
 
 function scrollToBottom() {

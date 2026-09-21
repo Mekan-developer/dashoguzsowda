@@ -1,18 +1,23 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { Link, router, useForm } from '@inertiajs/vue3'
+import { Link, router, useForm, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import Icon from '@/Components/Icon.vue'
 
 const { t } = useI18n()
+const page = usePage()
+const isAdmin = computed(() => page.props.auth?.user?.role === 'admin')
 
-const props = defineProps({ listing: Object, categories: Array, rejectionReasons: Array })
+const props = defineProps({ listing: Object, categories: Array, regions: Array, rejectionReasons: Array })
 
 const rejectReason = ref('')
 const showRejectModal = ref(false)
 const editing = ref(false)
+const tagsInput = ref('')
+const photoPreviews = ref([])
+const removeMediaIds = ref([])
 
 function flattenLeafCategories(nodes, path = [], acc = []) {
     for (const node of nodes || []) {
@@ -31,16 +36,75 @@ const categoryOptions = computed(() => flattenLeafCategories(props.categories))
 const form = useForm({
     title: props.listing.title ?? '',
     description: props.listing.description ?? '',
+    type: props.listing.type ?? 'goods',
     price: props.listing.price ?? '',
     category_id: props.listing.category_id ?? null,
+    region_id: props.listing.region_id ?? null,
+    city_id: props.listing.city_id ?? null,
+    district_id: props.listing.district_id ?? null,
+    phone: props.listing.phone ?? '',
+    tags: props.listing.tags ?? [],
+    wholesale_price: props.listing.wholesale_price ?? '',
+    min_order_qty: props.listing.min_order_qty ?? '',
+    stock_qty: props.listing.stock_qty ?? '',
+    photos: [],
+    remove_media_ids: [],
 })
 
+const cityOptions = computed(() =>
+    (props.regions || []).find(r => r.id === form.region_id)?.cities || [])
+const districtOptions = computed(() =>
+    cityOptions.value.find(c => c.id === form.city_id)?.districts || [])
+
 watch(() => props.listing, (listing) => {
+    syncForm(listing)
+}, { deep: true })
+
+function syncForm(listing) {
     form.title = listing.title ?? ''
     form.description = listing.description ?? ''
+    form.type = listing.type ?? 'goods'
     form.price = listing.price ?? ''
     form.category_id = listing.category_id ?? null
-}, { deep: true })
+    form.region_id = listing.region_id ?? null
+    form.city_id = listing.city_id ?? null
+    form.district_id = listing.district_id ?? null
+    form.phone = listing.phone ?? ''
+    form.tags = listing.tags ?? []
+    form.wholesale_price = listing.wholesale_price ?? ''
+    form.min_order_qty = listing.min_order_qty ?? ''
+    form.stock_qty = listing.stock_qty ?? ''
+    form.photos = []
+    form.remove_media_ids = []
+    tagsInput.value = (listing.tags || []).join(', ')
+    removeMediaIds.value = []
+    photoPreviews.value.forEach(p => URL.revokeObjectURL(p.url))
+    photoPreviews.value = []
+}
+
+function onRegionChange() { form.city_id = null; form.district_id = null }
+function onCityChange() { form.district_id = null }
+
+function onPhotosPick(e) {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    form.photos.push(...files)
+    photoPreviews.value.push(...files.map(f => ({ url: URL.createObjectURL(f) })))
+}
+
+function removeNewPhoto(index) {
+    URL.revokeObjectURL(photoPreviews.value[index].url)
+    photoPreviews.value.splice(index, 1)
+    form.photos.splice(index, 1)
+}
+
+function markRemoveMedia(id) {
+    if (!removeMediaIds.value.includes(id)) removeMediaIds.value.push(id)
+}
+
+function unmarkRemoveMedia(id) {
+    removeMediaIds.value = removeMediaIds.value.filter(x => x !== id)
+}
 
 function approve() {
     router.patch(route('listings.approve', props.listing.id))
@@ -53,9 +117,25 @@ function doReject() {
     })
 }
 
+function boost() {
+    router.patch(route('listings.boost', props.listing.id), {}, { preserveScroll: true })
+}
+
+function destroy() {
+    if (!confirm(t('listings.deleteConfirm'))) return
+    router.delete(route('listings.destroy', props.listing.id))
+}
+
 function saveEdit() {
     if (!form.title.trim() || !form.category_id) return
-    form.patch(route('listings.update', props.listing.id), {
+    form.tags = tagsInput.value
+        .split(/[,，]/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .slice(0, 10)
+    form.remove_media_ids = [...removeMediaIds.value]
+    form.transform((data) => ({ ...data, _method: 'patch' })).post(route('listings.update', props.listing.id), {
+        forceFormData: true,
         preserveScroll: true,
         onSuccess: () => { editing.value = false },
     })
@@ -63,10 +143,7 @@ function saveEdit() {
 
 function cancelEdit() {
     form.clearErrors()
-    form.title = props.listing.title ?? ''
-    form.description = props.listing.description ?? ''
-    form.price = props.listing.price ?? ''
-    form.category_id = props.listing.category_id ?? null
+    syncForm(props.listing)
     editing.value = false
 }
 
@@ -121,7 +198,7 @@ const activePhoto = ref(0)
             <h3 class="text-[15px] font-extrabold text-ink dark:text-slate-100">{{ t('listings.info') }}</h3>
             <button
               v-if="!editing"
-              @click="editing = true"
+              @click="editing = true; tagsInput = (listing.tags || []).join(', ')"
               class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] text-muted transition hover:bg-blue hover:text-white"
               :title="t('actions.edit')" :aria-label="t('actions.edit')"
             >
@@ -132,60 +209,114 @@ const activePhoto = ref(0)
           <div v-if="editing" class="space-y-4">
             <div>
               <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.title') }}</label>
-              <input
-                v-model="form.title"
-                type="text"
-                maxlength="255"
-                class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
-                :class="{ 'border-red': form.errors.title }"
-              />
+              <input v-model="form.title" type="text" maxlength="255" class="input" :class="{ 'border-red': form.errors.title }" />
               <p v-if="form.errors.title" class="mt-1 text-[12px] font-semibold text-red">{{ form.errors.title }}</p>
             </div>
-            <div>
-              <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.price') }}</label>
-              <input
-                v-model="form.price"
-                type="number"
-                min="0"
-                step="0.01"
-                class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-data font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
-                :class="{ 'border-red': form.errors.price }"
-                :placeholder="t('listings.negotiable')"
-              />
-              <p v-if="form.errors.price" class="mt-1 text-[12px] font-semibold text-red">{{ form.errors.price }}</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.type') }}</label>
+                <select v-model="form.type" class="input">
+                  <option value="goods">{{ t('listings.product') }}</option>
+                  <option value="services">{{ t('listings.service') }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.price') }}</label>
+                <input v-model="form.price" type="number" min="0" step="0.01" class="input" :placeholder="t('listings.negotiable')" />
+              </div>
             </div>
             <div>
               <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.category') }}</label>
-              <select
-                v-model="form.category_id"
-                class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
-                :class="{ 'border-red': form.errors.category_id }"
-              >
+              <select v-model="form.category_id" class="input" :class="{ 'border-red': form.errors.category_id }">
                 <option v-for="c in categoryOptions" :key="c.id" :value="c.id">{{ c.label }}</option>
               </select>
-              <p v-if="form.errors.category_id" class="mt-1 text-[12px] font-semibold text-red">{{ form.errors.category_id }}</p>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.region') }}</label>
+                <select v-model="form.region_id" class="input" @change="onRegionChange">
+                  <option v-for="r in regions || []" :key="r.id" :value="r.id">{{ r.name_ru || r.name_tk }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.city') }}</label>
+                <select v-model="form.city_id" class="input" @change="onCityChange">
+                  <option v-for="c in cityOptions" :key="c.id" :value="c.id">{{ c.name_ru || c.name_tk }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.district') }}</label>
+                <select v-model="form.district_id" class="input">
+                  <option :value="null">—</option>
+                  <option v-for="d in districtOptions" :key="d.id" :value="d.id">{{ d.name_ru || d.name_tk }}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.phone') }}</label>
+              <input v-model="form.phone" type="text" class="input" :class="{ 'border-red': form.errors.phone }" />
+              <p v-if="form.errors.phone" class="mt-1 text-[12px] font-semibold text-red">{{ form.errors.phone }}</p>
             </div>
             <div>
               <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('common.description') }}</label>
-              <textarea
-                v-model="form.description"
-                rows="5"
-                maxlength="5000"
-                class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
-                :class="{ 'border-red': form.errors.description }"
-              ></textarea>
-              <p v-if="form.errors.description" class="mt-1 text-[12px] font-semibold text-red">{{ form.errors.description }}</p>
+              <textarea v-model="form.description" rows="4" maxlength="5000" class="input"></textarea>
+            </div>
+            <div>
+              <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('listings.tagsLabel') }}</label>
+              <input v-model="tagsInput" type="text" class="input" :placeholder="t('listings.tagsPlaceholder')" />
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('listings.wholesalePrice') }}</label>
+                <input v-model="form.wholesale_price" type="number" min="0" step="0.01" class="input" :class="{ 'border-red': form.errors.wholesale_price }" />
+                <p v-if="form.errors.wholesale_price" class="mt-1 text-[12px] font-semibold text-red">{{ form.errors.wholesale_price }}</p>
+              </div>
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('listings.minOrderQty') }}</label>
+                <input v-model="form.min_order_qty" type="number" min="1" class="input" />
+              </div>
+              <div>
+                <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('listings.stockQty') }}</label>
+                <input v-model="form.stock_qty" type="number" min="0" class="input" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1 block text-[12px] font-semibold text-muted">{{ t('listings.photosLabel') }}</label>
+              <div class="mb-2 flex flex-wrap gap-2">
+                <div
+                  v-for="m in listing.media || []"
+                  :key="m.id"
+                  class="relative h-16 w-16 overflow-hidden rounded-[9px] border"
+                  :class="removeMediaIds.includes(m.id) ? 'border-red opacity-40' : 'border-line dark:border-dline'"
+                >
+                  <img :src="`/storage/${m.path}`" class="h-full w-full object-cover" />
+                  <button
+                    v-if="!removeMediaIds.includes(m.id)"
+                    type="button"
+                    class="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white text-[10px]"
+                    @click="markRemoveMedia(m.id)"
+                  >×</button>
+                  <button
+                    v-else
+                    type="button"
+                    class="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] font-bold text-white"
+                    @click="unmarkRemoveMedia(m.id)"
+                  >↩</button>
+                </div>
+                <div v-for="(preview, i) in photoPreviews" :key="'new-'+i" class="relative h-16 w-16 overflow-hidden rounded-[9px] border border-line dark:border-dline">
+                  <img :src="preview.url" class="h-full w-full object-cover" />
+                  <button type="button" class="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white text-[10px]" @click="removeNewPhoto(i)">×</button>
+                </div>
+              </div>
+              <label class="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-[var(--field-border)] px-3.5 py-2 text-[12px] font-semibold text-[var(--text-secondary)]">
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden" @change="onPhotosPick" />
+                {{ t('listings.addPhotos') }}
+              </label>
+              <p v-if="form.errors.photos" class="mt-1 text-[12px] font-semibold text-red">{{ form.errors.photos }}</p>
             </div>
             <div class="flex gap-2.5">
-              <button
-                @click="cancelEdit"
-                class="flex-1 rounded-btn border-2 border-line py-[9px] text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline"
-              >{{ t('actions.cancel') }}</button>
-              <button
-                @click="saveEdit"
-                :disabled="!form.title.trim() || !form.category_id || form.processing"
-                class="flex-1 rounded-btn bg-blue py-[9px] text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40"
-              >{{ t('actions.save') }}</button>
+              <button @click="cancelEdit" class="flex-1 rounded-btn border-2 border-line py-[9px] text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline">{{ t('actions.cancel') }}</button>
+              <button @click="saveEdit" :disabled="!form.title.trim() || !form.category_id || form.processing" class="flex-1 rounded-btn bg-blue py-[9px] text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40">{{ t('actions.save') }}</button>
             </div>
           </div>
 
@@ -242,6 +373,14 @@ const activePhoto = ref(0)
             <button @click="showRejectModal = true"
               class="w-full rounded-btn bg-red/10 border-2 border-red/20 py-[9px] text-[13px] font-bold text-red hover:bg-red hover:text-white transition">
               {{ t('listings.rejectBtn') }}
+            </button>
+            <button @click="boost"
+              class="w-full rounded-btn bg-blue/10 border-2 border-blue/20 py-[9px] text-[13px] font-bold text-blue hover:bg-blue hover:text-white transition">
+              {{ t('listings.boostBtn') }}
+            </button>
+            <button v-if="isAdmin" @click="destroy"
+              class="w-full rounded-btn bg-red/10 border-2 border-red/20 py-[9px] text-[13px] font-bold text-red hover:bg-red hover:text-white transition">
+              {{ t('listings.deleteBtn') }}
             </button>
           </div>
         </div>

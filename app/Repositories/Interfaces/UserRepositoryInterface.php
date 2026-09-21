@@ -9,6 +9,14 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 interface UserRepositoryInterface
 {
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator;
+
+    /**
+     * Лёгкий поиск владельца для селектов в админке (create магазина/объявления/видео).
+     *
+     * @return \Illuminate\Support\Collection<int, array{id:int, name:string|null, phone:string}>
+     */
+    public function searchForSelect(string $query, int $limit = 20): \Illuminate\Support\Collection;
+
     public function countUsers(): int;
     public function countBlocked(): int;
     public function countRegisteredBetween(CarbonInterface $from, CarbonInterface $to): int;

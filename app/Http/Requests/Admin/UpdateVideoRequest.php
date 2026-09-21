@@ -18,7 +18,9 @@ class UpdateVideoRequest extends FormRequest
     public function rules(): array
     {
         return array_merge([
-            'title' => ['required', 'string', 'max:255'],
+            'title'  => ['required', 'string', 'max:255'],
+            'tags'   => ['nullable', 'array', 'max:10'],
+            'tags.*' => ['string', 'max:30'],
         ], $this->rootCategoryRules('sometimes'));
     }
 
