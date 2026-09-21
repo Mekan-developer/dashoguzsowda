@@ -154,3 +154,62 @@ it('reports phone availability for the live check', function () {
         ->assertOk()
         ->assertJson(['available' => false, 'user_id' => $existing->id]);
 });
+
+it('creates an admin with email and password for panel login', function () {
+    Event::fake([SmsCodeRequested::class]);
+    actingAsUsersAdmin();
+
+    $this->post(route('users.store'), [
+        'role'                  => 'admin',
+        'phone'                 => '+99361000010',
+        'email'                 => 'newadmin@example.com',
+        'password'              => 'secret123',
+        'password_confirmation' => 'secret123',
+        'name'                  => 'Новый админ',
+    ])->assertRedirect();
+
+    $user = User::where('phone', '+99361000010')->first();
+    expect($user)->not->toBeNull()
+        ->and($user->role)->toBe('admin')
+        ->and($user->email)->toBe('newadmin@example.com')
+        ->and($user->phone_verified_at)->not->toBeNull()
+        ->and(\Illuminate\Support\Facades\Hash::check('secret123', $user->password))->toBeTrue();
+
+    Event::assertNotDispatched(SmsCodeRequested::class);
+});
+
+it('creates a manager with email and password', function () {
+    actingAsUsersAdmin();
+
+    $this->post(route('users.store'), [
+        'role'                  => 'manager',
+        'phone'                 => '+99361000011',
+        'email'                 => 'manager2@example.com',
+        'password'              => 'secret123',
+        'password_confirmation' => 'secret123',
+    ])->assertRedirect();
+
+    expect(User::where('phone', '+99361000011')->value('role'))->toBe('manager');
+});
+
+it('requires email and password when creating staff', function () {
+    actingAsUsersAdmin();
+
+    $this->from(route('users.index'))->post(route('users.store'), [
+        'role'  => 'admin',
+        'phone' => '+99361000012',
+    ])->assertSessionHasErrors(['email', 'password']);
+});
+
+it('forbids managers from creating users', function () {
+    $manager = User::factory()->manager()->create();
+    $this->actingAs($manager);
+    [$region] = usersGeo();
+
+    $this->post(route('users.store'), [
+        'role'       => 'user',
+        'phone'      => '+99361000013',
+        'activation' => 'active',
+        'region_id'  => $region->id,
+    ])->assertForbidden();
+});

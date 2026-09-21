@@ -44,13 +44,17 @@ class UserService
     }
 
     /**
-     * Создание пользователя из админки: только по телефону, без пароля.
-     * activation: active — активен сразу; sms — код через локальный модем,
-     * активация при первом входе в приложение.
+     * Создание пользователя из админки.
+     * role=user — клиент приложения (SMS / активация); admin|manager —
+     * вход в панель по email+пароль, всегда сразу активны.
      */
     public function store(array $data): User
     {
-        $activation = $data['activation'] ?? 'active';
+        $role = $data['role'] ?? 'user';
+        unset($data['role'], $data['password_confirmation']);
+
+        $isStaff = in_array($role, ['admin', 'manager'], true);
+        $activation = $isStaff ? 'active' : ($data['activation'] ?? 'active');
         unset($data['activation']);
 
         if (($data['avatar'] ?? null) instanceof UploadedFile) {
@@ -63,15 +67,18 @@ class UserService
             );
         }
 
-        // Пароль пользователем не используется (вход только по SMS) — колонка NOT NULL
-        $data['password'] = Hash::make(Str::random(40));
+        if ($isStaff) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['email']);
+            // Клиент входит только по SMS — колонка password NOT NULL
+            $data['password'] = Hash::make(Str::random(40));
+        }
 
         try {
-            // Роль и подтверждение номера передаются аргументами, а не в массиве:
-            // их нельзя подмешать к валидированным данным формы.
-            $user = $this->userRepository->createWithRole($data, 'user', $activation === 'active');
+            // Роль выставляется аргументом, не из массива формы.
+            $user = $this->userRepository->createWithRole($data, $role, $activation === 'active');
         } catch (UniqueConstraintViolationException) {
-            // Гонка: номер заняли между живой проверкой и submit-ом
             if (! empty($data['avatar'])) {
                 Storage::disk('public')->delete($data['avatar']);
             }
@@ -80,12 +87,11 @@ class UserService
             ]);
         }
 
-        if ($activation === 'sms') {
+        if (! $isStaff && $activation === 'sms') {
             try {
-                $this->sendSmsCode->execute($user->phone); // → SmsCodeRequested → SendSmsCode → локальный модем
+                $this->sendSmsCode->execute($user->phone);
             } catch (ValidationException) {
-                // Кулдаун повторной отправки на этот номер — пользователь уже
-                // создан, код запросится заново при первом входе. Не откатываем.
+                // Кулдаун — пользователь уже создан, код запросится при входе.
             }
         }
 

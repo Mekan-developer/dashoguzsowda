@@ -5,6 +5,10 @@ services:
   scheduler: { volumes: !override [ storage_app:/var/www/dzsowda/storage/app ] }
   artisan:   { volumes: !override [ storage_app:/var/www/dzsowda/storage/app ] }
 
+  sms-gateway:
+    ports:
+      - "3000:3000"
+
   nginx:
     image: dzsowda-nginx:local
     build:

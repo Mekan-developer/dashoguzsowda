@@ -15,8 +15,12 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const form = useForm({
+    role: 'user',
     phone: '',
     activation: 'active',
+    email: '',
+    password: '',
+    password_confirmation: '',
     region_id: '',
     city_id: '',
     district_id: '',
@@ -25,6 +29,8 @@ const form = useForm({
     birth_date: '',
     avatar: null,
 })
+
+const isStaff = computed(() => form.role === 'admin' || form.role === 'manager')
 
 // ---- Телефон: +993 фиксирован, 8 цифр маской «61 00 00 00» ----
 const phoneDigits = ref('')
@@ -74,6 +80,11 @@ const districts = computed(() => cities.value.find(c => c.id === form.city_id)?.
 
 watch(() => form.region_id, () => { form.city_id = ''; form.district_id = '' })
 watch(() => form.city_id,   () => { form.district_id = '' })
+watch(() => form.role, (role) => {
+    if (role === 'admin' || role === 'manager') {
+        form.activation = 'active'
+    }
+})
 
 // ---- Аватар ----
 const avatarPreview = ref(null)
@@ -91,7 +102,13 @@ function pickAvatar(file) {
 }
 
 // ---- Submit ----
-const canSubmit = computed(() => phoneCheck.value === 'free' && !!form.region_id && !form.processing)
+const canSubmit = computed(() => {
+    if (phoneCheck.value !== 'free' || form.processing) return false
+    if (isStaff.value) {
+        return !!form.email && !!form.password && !!form.password_confirmation
+    }
+    return !!form.region_id
+})
 
 function submit() {
     if (!canSubmit.value) return
@@ -118,8 +135,29 @@ watch(() => props.open, (open) => {
 
 <template>
   <AppDrawer :open="open" :title="t('userModal.title')" width="560px" @close="$emit('close')">
-            <!-- 1. Телефон -->
+            <!-- Роль -->
             <label class="mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">
+              {{ t('userModal.role') }}<span class="ml-0.5 text-red">*</span>
+            </label>
+            <div class="grid grid-cols-3 gap-2.5">
+              <button
+                v-for="opt in [
+                  { value: 'user', title: t('role.user') },
+                  { value: 'manager', title: t('role.manager') },
+                  { value: 'admin', title: t('role.admin') },
+                ]"
+                :key="opt.value" type="button"
+                class="rounded-[12px] px-3 py-3 text-center text-[13px] font-bold transition"
+                :style="form.role === opt.value
+                  ? { border: '1px solid var(--accent)', background: 'var(--accent-tint)', color: 'var(--accent)' }
+                  : { border: '1px solid var(--field-border)', background: 'var(--field-bg)', color: 'var(--text)' }"
+                @click="form.role = opt.value"
+              >{{ opt.title }}</button>
+            </div>
+            <p v-if="form.errors.role" class="mt-1.5 text-[12px] font-semibold" :style="{ color: 'var(--status-bad)' }">{{ form.errors.role }}</p>
+
+            <!-- 1. Телефон -->
+            <label class="mt-5 mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">
               {{ t('common.phone') }}<span class="ml-0.5 text-red">*</span>
             </label>
             <div
@@ -152,7 +190,8 @@ watch(() => props.open, (open) => {
             </p>
             <p v-else-if="form.errors.phone" class="mt-1.5 text-[12px] font-semibold" :style="{ color: 'var(--status-bad)' }">{{ form.errors.phone }}</p>
 
-            <!-- 2. Активация -->
+            <!-- 2. Активация — только клиент -->
+            <template v-if="!isStaff">
             <label class="mt-5 mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">{{ t('userModal.activation') }}</label>
             <div class="grid grid-cols-2 gap-2.5">
               <button
@@ -177,14 +216,41 @@ watch(() => props.open, (open) => {
                 <span class="mt-1 block text-[11.5px] leading-snug" :style="{ color: 'var(--text-secondary)' }">{{ opt.hint }}</span>
               </button>
             </div>
+            </template>
 
-            <!-- 3. Локация -->
+            <!-- Вход в админку — admin / manager -->
+            <template v-else>
             <label class="mt-5 mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">
-              {{ t('userModal.location') }}<span class="ml-0.5 text-red">*</span>
+              {{ t('userModal.email') }}<span class="ml-0.5 text-red">*</span>
+            </label>
+            <input v-model="form.email" type="email" autocomplete="off" :placeholder="t('userModal.emailPlaceholder')" class="input" />
+            <p v-if="form.errors.email" class="mt-1.5 text-[12px] font-semibold" :style="{ color: 'var(--status-bad)' }">{{ form.errors.email }}</p>
+
+            <div class="mt-4 grid grid-cols-2 gap-3.5">
+              <div>
+                <label class="mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">
+                  {{ t('userModal.password') }}<span class="ml-0.5 text-red">*</span>
+                </label>
+                <input v-model="form.password" type="password" autocomplete="new-password" class="input" />
+                <p v-if="form.errors.password" class="mt-1.5 text-[12px] font-semibold" :style="{ color: 'var(--status-bad)' }">{{ form.errors.password }}</p>
+              </div>
+              <div>
+                <label class="mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">
+                  {{ t('userModal.passwordConfirm') }}<span class="ml-0.5 text-red">*</span>
+                </label>
+                <input v-model="form.password_confirmation" type="password" autocomplete="new-password" class="input" />
+              </div>
+            </div>
+            <p class="mt-1.5 text-[11.5px]" :style="{ color: 'var(--text-muted)' }">{{ t('userModal.staffHint') }}</p>
+            </template>
+
+            <!-- 3. Локация — обязательна для клиента -->
+            <label class="mt-5 mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">
+              {{ t('userModal.location') }}<span v-if="!isStaff" class="ml-0.5 text-red">*</span>
             </label>
             <div class="grid grid-cols-3 gap-2.5">
               <select v-model="form.region_id" class="input">
-                <option value="">{{ t('userModal.velayat') }}</option>
+                <option value="">{{ isStaff ? t('userModal.velayatOptional') : t('userModal.velayat') }}</option>
                 <option v-for="r in regions" :key="r.id" :value="r.id">{{ r.name_ru }}</option>
               </select>
               <select v-model="form.city_id" :disabled="!form.region_id" class="input disabled:cursor-not-allowed disabled:opacity-50">
@@ -197,7 +263,7 @@ watch(() => props.open, (open) => {
               </select>
             </div>
             <p class="mt-1.5 text-[11.5px]" :style="{ color: 'var(--text-muted)' }">
-              {{ t('userModal.locationHint') }}
+              {{ isStaff ? t('userModal.locationHintStaff') : t('userModal.locationHint') }}
             </p>
             <p v-if="form.errors.region_id || form.errors.city_id || form.errors.district_id" class="mt-1 text-[12px] font-semibold" :style="{ color: 'var(--status-bad)' }">
               {{ form.errors.region_id || form.errors.city_id || form.errors.district_id }}
