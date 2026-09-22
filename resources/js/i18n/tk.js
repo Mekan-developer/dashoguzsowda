@@ -300,6 +300,7 @@ export default {
         freeLabel: 'Mugt tarif',
         freeUnlimitedHint: 'Mugt tarif möhletsiz hereket edýär — oňa günlerde möhlet bellenmeýär.',
         canHaveStoreLabel: 'Dükan açmaga hukuk berýär',
+        canSeeWholesaleLabel: 'Opt bahalaryny görýär',
         priceLabel: 'Bahasy',
         priceHint: 'Ulanyjynyň administratora nagt tölemeli möçberi. Mugt tarif — 0',
         change: 'Üýtget',

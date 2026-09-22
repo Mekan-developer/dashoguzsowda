@@ -28,7 +28,8 @@ beforeEach(function () {
     $this->premium = Tariff::create([
         'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium', 'price' => 250,
         'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
-        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true,
+        'can_have_store' => true, 'can_see_wholesale' => true,
     ]);
 
     $this->admin = User::factory()->create(['role' => 'admin']);
@@ -125,13 +126,14 @@ it('считает комиссию и от оптовой цены', function (
         'title' => 'Сахар', 'price' => 100, 'wholesale_price' => 80, 'min_order_qty' => 10, 'stock_qty' => 100,
     ]);
 
-    // Оптовую цену получает только розничный продавец
-    commissionStore($this->buyer, ['name' => 'Bereket']);
+    $this->buyer->update([
+        'tariff_id' => $this->premium->id,
+        'tariff_ends_at' => now()->addDays(30),
+    ]);
 
     $order = placeCommissionOrder([['listing_id' => $wholesale->id, 'qty' => 10]]);
     $item  = $order->items->first();
 
-    // 80 × 10 = 800 по оптовой цене, комиссия 5% = 40
     expect((bool) $item->is_wholesale)->toBeTrue()
         ->and((float) $item->total)->toBe(800.0)
         ->and((float) $item->commission_amount)->toBe(40.0);

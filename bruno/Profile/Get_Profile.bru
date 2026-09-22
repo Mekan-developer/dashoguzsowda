@@ -27,9 +27,9 @@ docs {
 
   Сводка в том же ответе:
   - tariff (он же subscription — алиас того же объекта): name, price,
-    can_have_store, ads_limit/ads_used, videos_limit/videos_used,
-    boosts_limit, days_left. Право на магазин проверять по can_have_store,
-    а НЕ сравнивая name с «Premium»: набор тарифов меняется из админки.
+    can_have_store, can_see_wholesale, ads_limit/ads_used, videos_limit/
+    videos_used, boosts_limit, days_left. Право на магазин — can_have_store,
+    вкладка «Опт» — can_see_wholesale; НЕ сравнивать name с «Premium».
     days_left = 0 у бесплатного тарифа — он бессрочный.
   - tariff_request — незакрытая заявка на платный тариф или null. Пока
     status=pending, вместо кнопки смены тарифа показываем статус заявки.

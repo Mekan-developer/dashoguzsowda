@@ -13,7 +13,8 @@ beforeEach(function () {
     Tariff::create([
         'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium',
         'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
-        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true,
+        'can_have_store' => true, 'can_see_wholesale' => true,
     ]);
     // Неактивный, со slug — не должен попадать в каталог и не принимается PUT /subscription
     Tariff::create([
@@ -46,8 +47,10 @@ it('lists only active tariffs with a mobile slug, with zeroed usage', function (
     $response->assertJsonPath('data.0.name', 'Basic')
         ->assertJsonPath('data.0.ads_limit', 5)
         ->assertJsonPath('data.0.ads_used', 0)
+        ->assertJsonPath('data.0.can_see_wholesale', false)
         ->assertJsonPath('data.1.name', 'Premium')
-        ->assertJsonPath('data.1.ads_used', 0);
+        ->assertJsonPath('data.1.ads_used', 0)
+        ->assertJsonPath('data.1.can_see_wholesale', true);
 });
 
 it('creates a request instead of granting a paid tariff', function () {

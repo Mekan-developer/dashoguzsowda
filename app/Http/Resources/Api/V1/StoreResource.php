@@ -32,9 +32,16 @@ class StoreResource extends JsonResource
                 ? $this->category?->name_tk
                 : $this->category?->name_ru),
             'category_id' => $this->category_id,
+            'category_ids' => $this->whenLoaded('categories', fn () => $this->categories->pluck('id')->values()->all()),
+            'categories' => $this->whenLoaded('categories', fn () => $this->categories
+                ->map(fn ($category) => [
+                    'id'      => $category->id,
+                    'name_tk' => $category->name_tk,
+                    'name_ru' => $category->name_ru,
+                ])->values()),
 
             // Вид торговли: флаги независимы, оба true = «оптом и в розницу».
-            // Опт видит только розничный продавец: клиенту флаг приходит false
+            // Опт видит только тариф с can_see_wholesale: без флага — false
             'sells_retail'    => (bool) $this->sells_retail,
             'sells_wholesale' => (bool) $this->sells_wholesale && $this->resource->showsWholesaleTo($request->user('sanctum')),
             // false → покупатель забирает сам и платит на месте; цену и сроки

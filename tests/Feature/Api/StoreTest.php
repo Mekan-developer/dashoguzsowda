@@ -5,6 +5,7 @@ use App\Models\City;
 use App\Models\Region;
 use App\Models\Listing;
 use App\Models\Store;
+use App\Models\Tariff;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
@@ -97,13 +98,25 @@ it('hides a store whose owner tariff expired', function () {
 });
 
 it('filters the public store list by trade type and delivery', function () {
+    $wholesaleTariff = Tariff::create([
+        'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium', 'price' => 250,
+        'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true,
+        'can_have_store' => true, 'can_see_wholesale' => true,
+    ]);
+    Tariff::create([
+        'name' => 'Basic', 'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'price' => 0,
+        'listings_limit' => 5, 'videos_limit' => 2, 'boost_limit' => 3,
+        'duration_days' => null, 'is_free' => true, 'is_active' => true,
+        'can_have_store' => false, 'can_see_wholesale' => false,
+    ]);
+
     makeStore(['name' => 'Розница', 'sells_retail' => true, 'sells_wholesale' => false, 'has_delivery' => false]);
     makeStore([
         'name' => 'Опт', 'sells_retail' => false, 'sells_wholesale' => true, 'has_delivery' => true,
         'user_id' => User::factory()->create()->id,
     ]);
 
-    // Гость опта не видит: оптовика нет ни в каталоге, ни во вкладке «Опт»
     $this->getJson('/api/v1/stores?type=wholesale')
         ->assertOk()
         ->assertJsonCount(0, 'data');
@@ -113,8 +126,11 @@ it('filters the public store list by trade type and delivery', function () {
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.name', 'Розница');
 
-    // Владелец одобренного розничного магазина видит опт
-    Sanctum::actingAs($this->owner);
+    $this->owner->update([
+        'tariff_id' => $wholesaleTariff->id,
+        'tariff_ends_at' => now()->addDays(30),
+    ]);
+    Sanctum::actingAs($this->owner->fresh());
 
     $this->getJson('/api/v1/stores?type=wholesale')
         ->assertOk()

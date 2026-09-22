@@ -44,6 +44,13 @@ interface StoreRepositoryInterface
      */
     public function syncPaymentMethods(Store $store, array $paymentMethodIds): void;
 
+    /**
+     * Категории магазина. Набор заменяется целиком.
+     *
+     * @param  array<int, int>  $categoryIds
+     */
+    public function syncCategories(Store $store, array $categoryIds): void;
+
     /** Сколько способов оплаты уже отмечено у магазина. */
     public function countPaymentMethods(Store $store): int;
 

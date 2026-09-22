@@ -150,6 +150,7 @@ it('reports is_premium false and no store on the free tariff', function () {
         // По can_have_store мобилка решает, показывать ли раздел «Мой магазин»:
         // сравнивать имя тарифа нельзя, набор тарифов меняется из админки
         ->assertJsonPath('data.tariff.can_have_store', false)
+        ->assertJsonPath('data.tariff.can_see_wholesale', false)
         ->assertJsonPath('data.subscription.name', 'Basic');
 });
 
@@ -157,7 +158,8 @@ it('reports is_premium true on a paid tariff', function () {
     $premium = Tariff::create([
         'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium', 'price' => 250,
         'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
-        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true,
+        'can_have_store' => true, 'can_see_wholesale' => true,
     ]);
     app(UserRepositoryInterface::class)->assignTariff($this->user, $premium->id, now()->addDays(30));
 
@@ -166,6 +168,7 @@ it('reports is_premium true on a paid tariff', function () {
         ->assertJsonPath('data.is_premium', true)
         ->assertJsonPath('data.tariff.name', 'Premium')
         ->assertJsonPath('data.tariff.can_have_store', true)
+        ->assertJsonPath('data.tariff.can_see_wholesale', true)
         // Сумма к передаче админу — чтобы не запрашивать каталог отдельно
         // (целое число уезжает в JSON как 250, без дробной части)
         ->assertJsonPath('data.tariff.price', 250);

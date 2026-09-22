@@ -62,7 +62,7 @@ class StoreController extends Controller
         abort_unless($store->isVisibleTo($request->user('sanctum')), 404);
 
         return response()->json([
-            'data'    => new StoreResource($store->load('photos', 'category', 'region', 'city', 'district', 'paymentMethods')),
+            'data'    => new StoreResource($store->load('photos', 'category', 'categories', 'region', 'city', 'district', 'paymentMethods')),
             'message' => 'Success',
         ]);
     }

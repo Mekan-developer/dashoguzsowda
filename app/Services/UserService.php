@@ -134,14 +134,15 @@ class UserService
 
         return [
             'is_premium' => $tariff !== null && ! $tariff->is_free,
-            // price и can_have_store — те же поля, что в каталоге /v1/tariffs:
-            // по ним мобилка решает, показывать ли раздел «Мой магазин», и
-            // называет сумму к передаче админу, не запрашивая каталог отдельно
+            // price / can_have_store / can_see_wholesale — те же поля, что в
+            // каталоге /v1/tariffs: по ним мобилка решает, показывать ли
+            // «Мой магазин» и вкладку «Опт», не запрашивая каталог отдельно
             'tariff'     => $tariff ? [
                 ...$usage,
-                'name'           => $tariff->name,
-                'price'          => (float) $tariff->price,
-                'can_have_store' => $tariff->canHaveStore(),
+                'name'              => $tariff->name,
+                'price'             => (float) $tariff->price,
+                'can_have_store'    => $tariff->canHaveStore(),
+                'can_see_wholesale' => $tariff->canSeeWholesale(),
             ] : null,
             // Пока заявка в статусе pending, мобилка показывает «На рассмотрении»
             // вместо кнопки смены тарифа, а после отказа — комментарий админа

@@ -150,7 +150,7 @@ class ListingService
             ];
         }
 
-        // Опт — только розничным продавцам (CLAUDE.md → «Магазины»)
+        // Опт — по флагу тарифа can_see_wholesale (CLAUDE.md → «Магазины»)
         return $this->listingRepository->paginateForApi($filters, $perPage, $viewer?->id, $viewer?->seesWholesale() ?? false);
     }
 

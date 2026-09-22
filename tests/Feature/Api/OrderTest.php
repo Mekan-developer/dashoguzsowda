@@ -38,7 +38,8 @@ beforeEach(function () {
     $premium = Tariff::create([
         'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium', 'price' => 250,
         'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,
-        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true,
+        'can_have_store' => true, 'can_see_wholesale' => true,
     ]);
 
     $this->buyer = User::factory()->create(['tariff_id' => $basic->id]);
@@ -180,18 +181,18 @@ it('applies the wholesale price from the minimum order quantity', function () {
         'price' => 100, 'wholesale_price' => 80, 'min_order_qty' => 5, 'stock_qty' => 50,
     ]);
 
-    // Опт видит только розничный продавец — покупает он как владелец магазина
-    orderStore($this->buyer, ['name' => 'Bereket', 'sells_wholesale' => false]);
-    Sanctum::actingAs($this->buyer);
+    $this->buyer->update([
+        'tariff_id' => Tariff::where('can_see_wholesale', true)->value('id'),
+        'tariff_ends_at' => now()->addDays(30),
+    ]);
+    Sanctum::actingAs($this->buyer->fresh());
 
-    // 5 × 80 — оптовая цена применилась сама, как только набралась партия
     $wholesale = $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $listing->id, 'qty' => 5]]))
         ->assertCreated()
         ->assertJsonPath('data.stores.0.items.0.is_wholesale', true);
 
     expect((float) $wholesale->json('data.total'))->toBe(400.0);
 
-    // Меньше минимальной партии — цена розничная
     $retail = $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $listing->id, 'qty' => 2]]))
         ->assertCreated()
         ->assertJsonPath('data.stores.0.items.0.is_wholesale', false);
@@ -204,8 +205,11 @@ it('refuses a wholesale-only listing below its minimum order', function () {
         'price' => null, 'wholesale_price' => 80, 'min_order_qty' => 10, 'stock_qty' => 50,
     ]);
 
-    orderStore($this->buyer, ['name' => 'Bereket', 'sells_wholesale' => false]);
-    Sanctum::actingAs($this->buyer);
+    $this->buyer->update([
+        'tariff_id' => Tariff::where('can_see_wholesale', true)->value('id'),
+        'tariff_ends_at' => now()->addDays(30),
+    ]);
+    Sanctum::actingAs($this->buyer->fresh());
 
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $listing->id, 'qty' => 3]]))
         ->assertStatus(422)

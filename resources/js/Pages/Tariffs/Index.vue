@@ -16,7 +16,7 @@ const props = defineProps({ tariffs: Array })
 const drawer    = ref(false)
 const editItem  = ref(null)
 // duration_days у бесплатного тарифа не существует: он бессрочный
-const emptyForm = () => ({ name: '', name_ru: '', name_tk: '', price: 0, listings_limit: 10, videos_limit: 5, boost_limit: 3, duration_days: 30, is_active: true, is_free: false, can_have_store: false })
+const emptyForm = () => ({ name: '', name_ru: '', name_tk: '', price: 0, listings_limit: 10, videos_limit: 5, boost_limit: 3, duration_days: 30, is_active: true, is_free: false, can_have_store: false, can_see_wholesale: false })
 const form      = ref(emptyForm())
 const errors    = ref({})
 
@@ -28,7 +28,7 @@ function openCreate() {
 }
 function openEdit(item) {
     editItem.value = item
-    form.value = { name: item.name ?? '', name_ru: item.name_ru, name_tk: item.name_tk, price: Number(item.price ?? 0), listings_limit: item.listings_limit, videos_limit: item.videos_limit, boost_limit: item.boost_limit, duration_days: item.duration_days ?? 30, is_active: item.is_active, is_free: item.is_free, can_have_store: item.can_have_store ?? false }
+    form.value = { name: item.name ?? '', name_ru: item.name_ru, name_tk: item.name_tk, price: Number(item.price ?? 0), listings_limit: item.listings_limit, videos_limit: item.videos_limit, boost_limit: item.boost_limit, duration_days: item.duration_days ?? 30, is_active: item.is_active, is_free: item.is_free, can_have_store: item.can_have_store ?? false, can_see_wholesale: item.can_see_wholesale ?? false }
     errors.value = {}
     drawer.value = true
 }
@@ -136,7 +136,7 @@ function destroy(item) {
           <input v-model.number="form.duration_days" type="number" min="1" class="input" />
         </DrawerField>
       </div>
-      <div class="flex items-center gap-6 pt-1">
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
         <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
           <ToggleSwitch v-model="form.is_active" /> {{ t('tariffs.activeLabel') }}
         </label>
@@ -145,6 +145,9 @@ function destroy(item) {
         </label>
         <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
           <ToggleSwitch v-model="form.can_have_store" /> {{ t('tariffs.canHaveStoreLabel') }}
+        </label>
+        <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
+          <ToggleSwitch v-model="form.can_see_wholesale" /> {{ t('tariffs.canSeeWholesaleLabel') }}
         </label>
       </div>
       <p v-if="form.is_free" class="text-[11px] text-[var(--text-muted)]">{{ t('tariffs.freeUnlimitedHint') }}</p>

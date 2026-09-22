@@ -15,8 +15,9 @@ class TariffResource extends JsonResource
             'name_ru'        => $this->name_ru,
             // Сумма, которую нужно передать админу наличными
             'price'          => (float) $this->price,
-            'can_have_store' => (bool) $this->can_have_store,
-            'listings_limit' => (int) $this->listings_limit,
+            'can_have_store'    => (bool) $this->can_have_store,
+            'can_see_wholesale' => (bool) $this->can_see_wholesale,
+            'listings_limit'    => (int) $this->listings_limit,
             'videos_limit'   => (int) $this->videos_limit,
             'boost_limit'    => (int) $this->boost_limit,
             // null — бессрочный (бесплатный) тариф

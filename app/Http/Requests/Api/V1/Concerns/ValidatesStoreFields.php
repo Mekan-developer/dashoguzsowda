@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Concerns;
 
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Illuminate\Support\Arr;
 
 /**
  * Общие правила магазина для создания (POST /v1/my/store) и правки
@@ -14,6 +15,24 @@ trait ValidatesStoreFields
 {
     /** Суммарно (существующие + новые) фото галереи на один магазин. */
     protected const MAX_PHOTOS = 6;
+
+    /**
+     * Мобилка шлёт categoryIds (camelCase) или category_ids[] —
+     * нормализуем к category_ids. Одиночный category_id тоже разворачиваем.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('categoryIds') && ! $this->exists('category_ids')) {
+            $this->merge(['category_ids' => array_values(array_filter(
+                Arr::wrap($this->input('categoryIds')),
+                fn ($id) => $id !== null && $id !== '',
+            ))]);
+        }
+
+        if ($this->filled('category_id') && ! $this->exists('category_ids')) {
+            $this->merge(['category_ids' => [(int) $this->input('category_id')]]);
+        }
+    }
 
     /** @param string $presence 'required' при создании, 'sometimes' при правке */
     protected function storeFieldRules(string $presence): array
@@ -35,6 +54,8 @@ trait ValidatesStoreFields
                 ->where('city_id', $this->input('city_id'))],
 
             'category_id' => ['sometimes', 'nullable', Rule::exists('categories', 'id')->where('is_active', 1)],
+            'category_ids'   => ['sometimes', 'nullable', 'array', 'min:1'],
+            'category_ids.*' => [Rule::exists('categories', 'id')->where('is_active', 1)],
 
             'sells_retail'    => ['sometimes', 'boolean'],
             'sells_wholesale' => ['sometimes', 'boolean'],

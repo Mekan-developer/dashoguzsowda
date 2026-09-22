@@ -16,8 +16,9 @@ class TariffSummaryResource extends JsonResource
         return [
             'name'         => $this->resource['name'],
             'price'        => (float) $this->resource['price'],
-            'can_have_store' => (bool) $this->resource['can_have_store'],
-            'ads_limit'    => (int) $this->resource['ads_limit'],
+            'can_have_store'    => (bool) $this->resource['can_have_store'],
+            'can_see_wholesale' => (bool) ($this->resource['can_see_wholesale'] ?? false),
+            'ads_limit'         => (int) $this->resource['ads_limit'],
             'ads_used'     => (int) $this->resource['ads_used'],
             'videos_limit' => (int) $this->resource['videos_limit'],
             'videos_used'  => (int) $this->resource['videos_used'],

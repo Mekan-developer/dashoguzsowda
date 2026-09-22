@@ -47,11 +47,9 @@ docs {
   sells_wholesale, has_delivery } — по нему мобилка рисует условия покупки.
   Способов оплаты в этом блоке нет: их брать из GET /v1/stores/{id}.
 
-  ОПТ ВИДЯТ ТОЛЬКО РОЗНИЧНЫЕ ПРОДАВЦЫ. Клиенту и гостю wholesale_price
-  и min_order_qty приходят null, sells_wholesale — false, товары только
-  с оптовой ценой из выдачи убраны, а trade=wholesale возвращает ПУСТОЙ
-  список. Опт видит владелец одобренного и активного розничного магазина —
-  и всегда сам владелец витрины, на своей странице.
+  ОПТ ВИДЯТ ТАРИФЫ С can_see_wholesale. Без флага wholesale_price и
+  min_order_qty — null, trade=wholesale пустой. Признак:
+  profile.tariff.can_see_wholesale. Владелец витрины опт видит всегда.
 }
 
 tests {

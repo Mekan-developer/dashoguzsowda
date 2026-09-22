@@ -63,6 +63,39 @@ it('creates a store in pending status', function () {
     ]);
 });
 
+it('saves and returns multiple store categories', function () {
+    $food = \App\Models\Category::create(['name_ru' => 'Продукты', 'name_tk' => 'Azyk', 'slug' => 'food', 'level' => 1]);
+    $tech = \App\Models\Category::create(['name_ru' => 'Техника', 'name_tk' => 'Tehnika', 'slug' => 'tech', 'level' => 1]);
+
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson('/api/v1/my/store', storePayload([
+        'category_ids' => [$food->id, $tech->id],
+    ]))
+        ->assertCreated()
+        ->assertJsonPath('data.category_id', $food->id)
+        ->assertJsonPath('data.category_ids', [$food->id, $tech->id])
+        ->assertJsonCount(2, 'data.categories');
+
+    $this->getJson('/api/v1/my/store')
+        ->assertOk()
+        ->assertJsonPath('data.category_ids', [$food->id, $tech->id])
+        ->assertJsonPath('data.categories.0.name_ru', 'Продукты')
+        ->assertJsonPath('data.categories.1.name_ru', 'Техника');
+});
+
+it('accepts camelCase categoryIds from the mobile client', function () {
+    $food = \App\Models\Category::create(['name_ru' => 'Продукты', 'name_tk' => 'Azyk', 'slug' => 'food-2', 'level' => 1]);
+
+    Sanctum::actingAs($this->owner);
+
+    $this->post('/api/v1/my/store', storePayload([
+        'categoryIds' => [$food->id],
+    ]), ['Accept' => 'application/json'])
+        ->assertCreated()
+        ->assertJsonPath('data.category_ids.0', $food->id);
+});
+
 it('forbids a store without the premium tariff', function () {
     $user = User::factory()->create(['tariff_id' => $this->basic->id, 'tariff_ends_at' => now()->addDays(30)]);
     Sanctum::actingAs($user);

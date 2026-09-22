@@ -19,6 +19,7 @@ class Category extends Model
     public function children() { return $this->hasMany(Category::class, 'parent_id')->orderBy('order'); }
     public function listings() { return $this->hasMany(Listing::class); }
     public function videos()   { return $this->hasMany(Video::class); }
+    public function stores()   { return $this->belongsToMany(Store::class); }
 
     public function scopeActive($query)
     {

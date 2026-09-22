@@ -14,7 +14,7 @@ class StoreRepository implements StoreRepositoryInterface
 {
     public function popular(int $limit = 20, bool $withWholesale = false): Collection
     {
-        return Store::with('photos', 'category', 'region', 'city', 'district', 'paymentMethods')
+        return Store::with('photos', 'category', 'categories', 'region', 'city', 'district', 'paymentMethods')
             ->where('is_popular', true)
             ->tap(fn ($q) => $this->publicScope($q, $withWholesale))
             ->orderBy('sort_order')
@@ -24,12 +24,15 @@ class StoreRepository implements StoreRepositoryInterface
 
     public function paginatePublic(array $filters, int $perPage = 20, bool $withWholesale = false): LengthAwarePaginator
     {
-        return Store::with('photos', 'category', 'region', 'city', 'district', 'paymentMethods')
+        return Store::with('photos', 'category', 'categories', 'region', 'city', 'district', 'paymentMethods')
             ->tap(fn ($q) => $this->publicScope($q, $withWholesale))
             ->when($filters['region_id'] ?? null, fn ($q, $id) => $q->where('region_id', $id))
             ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
             ->when($filters['district_id'] ?? null, fn ($q, $id) => $q->where('district_id', $id))
-            ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
+            ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where(function ($q) use ($id) {
+                $q->where('category_id', $id)
+                    ->orWhereHas('categories', fn ($c) => $c->where('categories.id', $id));
+            }))
             // type=retail показывает и «оптом и в розницу» — флаги независимы
             ->when(($filters['type'] ?? null) === 'retail', fn ($q) => $q->where('sells_retail', true))
             // Оптовиков клиенту не показываем вовсе — «только опт» для него пуст
@@ -49,7 +52,7 @@ class StoreRepository implements StoreRepositoryInterface
 
     public function findByUser(int $userId): ?Store
     {
-        return Store::with('category', 'region', 'city', 'district', 'photos', 'rejectionReason', 'paymentMethods')
+        return Store::with('category', 'categories', 'region', 'city', 'district', 'photos', 'rejectionReason', 'paymentMethods')
             ->where('user_id', $userId)
             ->first();
     }
@@ -86,6 +89,17 @@ class StoreRepository implements StoreRepositoryInterface
     public function syncPaymentMethods(Store $store, array $paymentMethodIds): void
     {
         $store->paymentMethods()->sync($paymentMethodIds);
+    }
+
+    /**
+     * Категории магазина. Набор заменяется целиком; stores.category_id
+     * обновляет вызывающий сервис (первая из списка).
+     *
+     * @param  array<int, int>  $categoryIds
+     */
+    public function syncCategories(Store $store, array $categoryIds): void
+    {
+        $store->categories()->sync($categoryIds);
     }
 
     public function countPaymentMethods(Store $store): int

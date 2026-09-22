@@ -107,6 +107,11 @@ class StoreService
             'sells_retail', 'sells_wholesale', 'has_delivery',
         ]);
 
+        if (array_key_exists('category_ids', $data)) {
+            $categoryIds = array_values(array_unique(array_map('intval', $data['category_ids'] ?? [])));
+            $attributes['category_id'] = $categoryIds[0] ?? null;
+        }
+
         if ($this->needsModeration($existing, $attributes, $logo)) {
             $attributes['status'] = 'pending';
             $attributes['rejection_reason_id'] = null;
@@ -118,6 +123,13 @@ class StoreService
 
         $store = $this->storeRepository->upsertForUser($user, $attributes);
 
+        if (array_key_exists('category_ids', $data)) {
+            $this->storeRepository->syncCategories(
+                $store,
+                array_values(array_unique(array_map('intval', $data['category_ids'] ?? []))),
+            );
+        }
+
         if ($logo) {
             $store = $this->storeRepository->update($store, ['logo' => $this->storeLogo($store, $logo, $crop)]);
         }
@@ -128,7 +140,7 @@ class StoreService
             $this->addPhotos($store, $photos);
         }
 
-        return $store->fresh(['photos', 'category', 'region', 'city', 'district', 'rejectionReason', 'paymentMethods']);
+        return $store->fresh(['photos', 'category', 'categories', 'region', 'city', 'district', 'rejectionReason', 'paymentMethods']);
     }
 
     /**
@@ -196,6 +208,12 @@ class StoreService
             ] : null,
             'logo_url'         => $store->logo ? Storage::disk('public')->url($store->logo) : null,
             'category_id'      => $store->category_id,
+            'category_ids'     => $store->categories->pluck('id')->values()->all(),
+            'categories'       => $store->categories->map(fn ($category) => [
+                'id'      => $category->id,
+                'name_tk' => $category->name_tk,
+                'name_ru' => $category->name_ru,
+            ])->values()->all(),
             'category_name_tk' => $store->category?->name_tk,
             'category_name_ru' => $store->category?->name_ru,
         ];
@@ -301,6 +319,10 @@ class StoreService
 
         $store = $this->storeRepository->upsertForUser($user, $attributes);
 
+        if (! empty($attributes['category_id'])) {
+            $this->storeRepository->syncCategories($store, [(int) $attributes['category_id']]);
+        }
+
         if ($logo) {
             $store = $this->storeRepository->update($store, ['logo' => $this->storeLogo($store, $logo, $crop)]);
         }
@@ -311,7 +333,7 @@ class StoreService
             $this->addPhotos($store, $photos);
         }
 
-        return $store->fresh(['photos', 'category', 'user', 'region', 'city', 'district', 'paymentMethods']);
+        return $store->fresh(['photos', 'category', 'categories', 'user', 'region', 'city', 'district', 'paymentMethods']);
     }
 
     /**
@@ -332,6 +354,13 @@ class StoreService
 
         $store = $this->storeRepository->update($store, $data);
 
+        if (array_key_exists('category_id', $data)) {
+            $this->storeRepository->syncCategories(
+                $store,
+                $data['category_id'] !== null ? [(int) $data['category_id']] : [],
+            );
+        }
+
         if ($paymentMethodIds !== null) {
             $this->storeRepository->syncPaymentMethods($store, array_map('intval', $paymentMethodIds));
         }
@@ -340,7 +369,7 @@ class StoreService
             $this->addPhotos($store, $newPhotos);
         }
 
-        return $store->fresh(['photos', 'category', 'user', 'region', 'city', 'district', 'paymentMethods']);
+        return $store->fresh(['photos', 'category', 'categories', 'user', 'region', 'city', 'district', 'paymentMethods']);
     }
 
     public function togglePopular(Store $store): Store

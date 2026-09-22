@@ -110,16 +110,17 @@ class TariffService
     public function catalogEntries(): SupportCollection
     {
         return $this->tariffRepository->catalogActive()->map(fn (Tariff $tariff) => [
-            'name'         => $tariff->name,
-            'price'        => $tariff->price,
-            'can_have_store' => $tariff->can_have_store,
-            'ads_limit'    => $tariff->listings_limit,
-            'ads_used'     => 0,
-            'videos_limit' => $tariff->videos_limit,
-            'videos_used'  => 0,
-            'boosts_limit' => $tariff->boost_limit,
+            'name'              => $tariff->name,
+            'price'             => $tariff->price,
+            'can_have_store'    => $tariff->can_have_store,
+            'can_see_wholesale' => $tariff->can_see_wholesale,
+            'ads_limit'         => $tariff->listings_limit,
+            'ads_used'          => 0,
+            'videos_limit'      => $tariff->videos_limit,
+            'videos_used'       => 0,
+            'boosts_limit'      => $tariff->boost_limit,
             // Бессрочный (бесплатный) тариф отдаёт 0 — так же, как usageSummary()
-            'days_left'    => (int) $tariff->duration_days,
+            'days_left'         => (int) $tariff->duration_days,
         ]);
     }
 

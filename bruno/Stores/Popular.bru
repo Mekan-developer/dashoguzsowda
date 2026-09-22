@@ -29,8 +29,8 @@ docs {
   region/city/district, subtitle_tk/subtitle_ru/subtitle (категория магазина),
   logo_url, photos[] (они же photo_urls[] — ссылки на фото галереи).
 
-  Чисто оптовый магазин (sells_retail=0) в эту витрину клиенту и гостю
-  не попадает: опт видит только владелец одобренного розничного магазина.
+  Чисто оптовый магазин (sells_retail=0) в эту витрину без
+  can_see_wholesale не попадает. Признак: profile.tariff.can_see_wholesale.
 }
 
 tests {

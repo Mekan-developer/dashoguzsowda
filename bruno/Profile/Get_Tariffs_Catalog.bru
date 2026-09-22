@@ -22,9 +22,10 @@ docs {
   (мобильный slug: Basic, Premium, …) — архивные и созданные «под клиента»
   в каталоге не показываются и не принимаются сменой подписки.
 
-  Поля: name, ads_limit, videos_limit, boosts_limit, days_left, а также
-  ads_used / videos_used — в каталоге они всегда 0: это описание плана,
-  а не остаток. Фактический расход — GET /v1/profile/tariff.
+  Поля: name, price, can_have_store, can_see_wholesale, ads_limit,
+  videos_limit, boosts_limit, days_left, а также ads_used / videos_used —
+  в каталоге они всегда 0: это описание плана, а не остаток. Фактический
+  расход — GET /v1/profile. Вкладку «Опт» показывать по can_see_wholesale.
 }
 
 tests {

@@ -59,16 +59,16 @@ class User extends Authenticatable
     public function isBlocked() { return $this->status === 'blocked'; }
 
     /**
-     * Видит ли пользователь опт. Цепочка «клиент → розничный продавец →
-     * оптовик»: оптовые предложения — только для владельца розничного магазина,
-     * прошедшего модерацию и с горящей витриной. Клиент и гость видят розницу
-     * и обычные объявления (CLAUDE.md → «Магазины»).
+     * Видит ли пользователь опт. Право задаётся флагом тарифа
+     * `can_see_wholesale` (админка → Тарифы), без привязки к имени плана.
+     * Гость и тариф без флага видят только розницу; владелец своего
+     * товара/магазина — через showsWholesaleTo().
      */
     public function seesWholesale(): bool
     {
-        $store = $this->store;
+        $tariff = $this->activeTariff();
 
-        return $store !== null && $store->sells_retail && $store->isPublic();
+        return $tariff !== null && $tariff->canSeeWholesale();
     }
 
     /**

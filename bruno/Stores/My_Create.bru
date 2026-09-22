@@ -22,6 +22,8 @@ body:multipart-form {
   city_id: 1
   ~district_id: 1
   ~category_id: 1
+  ~category_ids[]: 1
+  ~category_ids[]: 3
   ~description: Оптом и в розницу
   ~address: Ориентир: напротив рынка
   sells_retail: 1
@@ -33,6 +35,10 @@ body:multipart-form {
 }
 
 docs {
+  category_ids[] (или categoryIds / одиночный category_id) — категории
+  магазина, минимум одна при передаче. В ответе приходят category_ids и
+  categories[{id,name_tk,name_ru}]; category_id = первая (для subtitle).
+
   payment_method_ids[] — чем у магазина можно расплатиться: id из справочника,
   который админ ведёт в настройках (он же приезжает в payment_methods любого
   магазина). Поле необязательное: не прислали — магазин получит первый способ

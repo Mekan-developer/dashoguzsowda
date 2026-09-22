@@ -19,6 +19,10 @@ docs {
   Свой магазин. Один магазин на пользователя, поэтому в URL нет id.
   404, если магазин ещё не создан.
 
+  Параметры create/update: category_ids[] (или categoryIds / одиночный
+  category_id). В ответе: category_ids, categories[{id,name_tk,name_ru}],
+  category_id = первая из списка (subtitle).
+
   Помимо публичных полей карточки отдаёт то, что видит только владелец:
   - status — pending|approved|rejected. В витрине магазин появляется
     только после approved.
