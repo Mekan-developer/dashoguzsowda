@@ -5,8 +5,14 @@ meta {
 }
 
 get {
-  url: {{base_url}}/v1/videos/my
+  url: {{base_url}}/v1/videos/my?page=1&limit=20
   body: none
+}
+
+params:query {
+  page: 1
+  limit: 20
+  ~status: suspended
 }
 
 headers {
@@ -17,8 +23,12 @@ headers {
 
 docs {
   Ролики текущего пользователя во всех статусах модерации.
-  Фильтр: ?status=pending|approved|rejected.
+  Фильтр: ?status=pending|approved|rejected|suspended, limit до 50.
   У rejected-роликов присутствует rejection_reason (справочник, tk+ru).
+
+  suspended — скрыт по тарифу: платный истёк, и самые старые одобренные
+  ролики сверх лимита бесплатного ушли из ленты. Видны только владельцу,
+  здесь. Продлит тариф — вернутся в approved сами, без повторной модерации.
 }
 
 tests {

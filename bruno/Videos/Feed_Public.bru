@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/v1/videos
+  url: {{base_url}}/v1/videos?limit=20
   body: none
 }
 
@@ -20,6 +20,7 @@ params:query {
 headers {
   Accept: application/json
   Accept-Language: ru
+  Authorization: Bearer {{token}}
 }
 
 docs {

@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/v1/news
+  url: {{base_url}}/v1/news?page=1&limit=20
   body: none
 }
 
@@ -18,10 +18,11 @@ params:query {
 headers {
   Accept: application/json
   Accept-Language: ru
+  Authorization: Bearer {{token}}
 }
 
 docs {
-  Публичная лента новостей — токен не нужен.
+  Лента новостей.
 
   Отдаются только опубликованные и уже наступившие: новость с published_at
   в будущем в ленту не попадает, пока время не подошло.

@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/v1/videos
+  url: {{base_url}}/v1/videos?search=квартира&category_id=1&limit=20&page=1
   body: none
 }
 
@@ -19,6 +19,7 @@ params:query {
 headers {
   Accept: application/json
   Accept-Language: ru
+  Authorization: Bearer {{token}}
 }
 
 docs {

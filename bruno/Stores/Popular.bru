@@ -12,10 +12,11 @@ get {
 headers {
   Accept: application/json
   Accept-Language: ru
+  Authorization: Bearer {{token}}
 }
 
 docs {
-  Витрина на главной (ТЗ §1). Публичный endpoint, токен не нужен.
+  Витрина на главной (ТЗ §1).
 
   Отдаются только прошедшие модерацию (status=approved) и не погашенные
   (is_active=1) магазины с is_popular=true, порядок — по sort_order

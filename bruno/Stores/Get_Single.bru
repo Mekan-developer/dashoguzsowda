@@ -12,10 +12,11 @@ get {
 headers {
   Accept: application/json
   Accept-Language: ru
+  Authorization: Bearer {{token}}
 }
 
 docs {
-  Карточка магазина по id — публично, токен не нужен.
+  Карточка магазина по id.
 
   Открывается и для непопулярного магазина: is_popular влияет только
   на витрину /v1/stores/popular. А вот магазин, не прошедший модерацию

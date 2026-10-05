@@ -18,10 +18,11 @@ params:query {
 headers {
   Accept: application/json
   Accept-Language: ru
+  Authorization: Bearer {{token}}
 }
 
 docs {
-  Публичная лента отзывов объявления — токен не нужен. Отдаёт только
+  Лента отзывов объявления. Отдаёт только
   approved: то, что на модерации или отклонено, сюда не попадает.
   У объявления не в статусе approved эндпоинт вернёт 404 — как и его карточка.
 

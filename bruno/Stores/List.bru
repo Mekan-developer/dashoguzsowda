@@ -24,10 +24,11 @@ params:query {
 headers {
   Accept: application/json
   Accept-Language: ru
+  Authorization: Bearer {{token}}
 }
 
 docs {
-  Публичный список магазинов с фильтрами — токен не нужен.
+  Список магазинов с фильтрами.
 
   Отдаются только магазины, прошедшие модерацию (status=approved) и с горящей
   витриной (is_active=1). Витрина гаснет, когда у владельца истекает тариф

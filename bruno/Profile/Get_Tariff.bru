@@ -15,9 +15,28 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+docs {
+  Активный тариф и сколько ещё можно создать в текущем периоде (remaining:
+  listings, videos, boosts). При исчерпании создание объявления/ролика — 403.
+
+  Новый пользователь получает бесплатный тариф сразу при регистрации, так что
+  tariff приходит уже с первого входа. Бесплатный бессрочный: days_left = 0,
+  expires_at = null.
+
+  Платный истекает раз в сутки (команда tariffs:expire): пользователь
+  переходит на бесплатный, объявления и ролики сверх его лимитов (самые старые
+  одобренные) получают status = suspended, и приходит push
+  { "type": "tariff", "id": "<id бесплатного тарифа>" }. После такого push
+  перезапросить профиль, этот эндпоинт и списки «мои».
+}
+
 tests {
   test("status is 200", function() {
     expect(res.getStatus()).to.equal(200);
+  });
+
+  test("tariff is never empty for a client", function() {
+    expect(res.getBody().data.tariff).to.not.equal(null);
   });
 
   test("has remaining limits", function() {
