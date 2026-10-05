@@ -355,6 +355,44 @@ it('gives the owner the contacts and the address of the buyer', function () {
         ->assertJsonPath('data.delivery.comment', 'Позвонить за час');
 });
 
+it('passes the buyer location to the store owner', function () {
+    Sanctum::actingAs($this->buyer);
+    $this->postJson('/api/v1/orders', orderPayload(
+        [['listing_id' => $this->listing->id, 'qty' => 1]],
+        ['lat' => 37.9601, 'lng' => 58.3261],
+    ))
+        ->assertCreated()
+        ->assertJsonPath('data.location', ['lat' => 37.9601, 'lng' => 58.3261]);
+
+    $suborder = Order::first()->suborders()->first();
+
+    Sanctum::actingAs($this->owner);
+    $this->getJson("/api/v1/my/store/orders/{$suborder->id}")
+        ->assertOk()
+        ->assertJsonPath('data.delivery.location', ['lat' => 37.9601, 'lng' => 58.3261]);
+});
+
+it('places an order without a location', function () {
+    Sanctum::actingAs($this->buyer);
+    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))
+        ->assertCreated()
+        ->assertJsonPath('data.location', null);
+
+    expect(Order::first())->latitude->toBeNull()->longitude->toBeNull();
+});
+
+it('refuses a location with only one coordinate or out of range', function (array $location, string $field) {
+    Sanctum::actingAs($this->buyer);
+    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]], $location))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($field);
+})->with([
+    'lat without lng' => [['lat' => 37.96], 'lng'],
+    'lng without lat' => [['lng' => 58.32], 'lat'],
+    'lat out of range' => [['lat' => 91, 'lng' => 58.32], 'lat'],
+    'lng out of range' => [['lat' => 37.96, 'lng' => 181], 'lng'],
+]);
+
 it('closes the order as delivered when the owner has taken it', function () {
     Sanctum::actingAs($this->buyer);
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))

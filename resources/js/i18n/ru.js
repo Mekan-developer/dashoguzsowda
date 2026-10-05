@@ -491,6 +491,7 @@ export default {
         colProduct: 'Товар',
         colPrice: 'Цена',
         colDelivery: 'Доставка',
+        openOnMap: 'На карте',
         pcs: '{qty} шт.',
         itemsCount: '{count} поз.',
         items: 'Состав заказа',

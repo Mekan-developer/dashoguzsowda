@@ -34,7 +34,7 @@ class PlaceOrderAction
     ) {}
 
     /**
-     * @param  array{items: array<int, array{listing_id: int|string, qty: int|string}>, phone?: string|null, contact_name?: string|null, region_id?: int|null, city_id?: int|null, district_id?: int|null, address: string, comment?: string|null, payment_method_id?: int|null}  $data
+     * @param  array{items: array<int, array{listing_id: int|string, qty: int|string}>, phone?: string|null, contact_name?: string|null, region_id?: int|null, city_id?: int|null, district_id?: int|null, address: string, lat?: float|string|null, lng?: float|string|null, comment?: string|null, payment_method_id?: int|null}  $data
      */
     public function execute(User $buyer, array $data): Order
     {
@@ -118,6 +118,8 @@ class PlaceOrderAction
             'city_id'      => $data['city_id']     ?? $buyer->city_id,
             'district_id'  => $data['district_id'] ?? $buyer->district_id,
             'address'      => $data['address'],
+            'latitude'     => isset($data['lat']) ? (float) $data['lat'] : null,
+            'longitude'    => isset($data['lng']) ? (float) $data['lng'] : null,
             'comment'      => $data['comment'] ?? null,
             'payment_method_id' => $paymentMethodId,
         ], array_values($suborders));

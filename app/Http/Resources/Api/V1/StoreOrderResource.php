@@ -46,6 +46,11 @@ class StoreOrderResource extends JsonResource
             ] : null),
             'delivery' => $this->whenLoaded('order', fn () => $this->order ? [
                 'address'  => $this->order->address,
+                // Точка с телефона покупателя — открыть в картах и ехать.
+                // null — покупатель геолокацию не отправил, только адрес
+                'location' => $this->order->latitude !== null && $this->order->longitude !== null
+                    ? ['lat' => $this->order->latitude, 'lng' => $this->order->longitude]
+                    : null,
                 'region'   => $this->place($this->order->region),
                 'city'     => $this->place($this->order->city),
                 'district' => $this->place($this->order->district),

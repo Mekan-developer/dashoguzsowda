@@ -128,6 +128,12 @@ function deliveryLine(order) {
     return [order.city?.name_ru, order.district?.name_ru, order.address].filter(Boolean).join(', ')
 }
 
+// Точка, которую покупатель отправил с телефона, — ссылкой на карту
+function mapUrl(order) {
+    if (order.latitude == null || order.longitude == null) return null
+    return `https://www.google.com/maps?q=${order.latitude},${order.longitude}`
+}
+
 const th = 'px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[.06em] text-muted whitespace-nowrap'
 const td = 'px-4 py-3 align-top'
 </script>
@@ -385,6 +391,11 @@ const td = 'px-4 py-3 align-top'
                       <div>
                         <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.colDelivery') }}</div>
                         <div class="mt-0.5 text-ink dark:text-slate-200">{{ deliveryLine(order) || '—' }}</div>
+                        <a
+                          v-if="mapUrl(order)"
+                          :href="mapUrl(order)" target="_blank" rel="noopener"
+                          class="mt-0.5 inline-block text-[12px] font-bold text-blue hover:underline"
+                        >{{ t('orders.openOnMap') }}</a>
                       </div>
                       <!-- Чем покупатель обещал рассчитаться: деньги продавец
                            получает на месте, значит должен приехать готовым -->

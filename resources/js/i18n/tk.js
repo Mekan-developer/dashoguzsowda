@@ -491,6 +491,7 @@ export default {
         colProduct: 'Haryt',
         colPrice: 'Bahasy',
         colDelivery: 'Eltip bermek',
+        openOnMap: 'Kartada görkez',
         pcs: '{qty} sany',
         itemsCount: '{count} haryt',
         items: 'Sargydyň düzümi',

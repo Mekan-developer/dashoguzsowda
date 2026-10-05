@@ -12,7 +12,7 @@ class Order extends Model
 {
     protected $fillable = [
         'user_id', 'status', 'total', 'commission_total',
-        'contact_name', 'phone', 'region_id', 'city_id', 'district_id', 'address', 'comment',
+        'contact_name', 'phone', 'region_id', 'city_id', 'district_id', 'address', 'latitude', 'longitude', 'comment',
         'payment_method_id',
         'decision_comment', 'decided_by', 'decided_at',
     ];
@@ -22,6 +22,8 @@ class Order extends Model
         return [
             'total'            => 'decimal:2',
             'commission_total' => 'decimal:2',
+            'latitude'         => 'float',
+            'longitude'        => 'float',
             'decided_at'       => 'datetime',
         ];
     }

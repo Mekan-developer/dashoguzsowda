@@ -31,6 +31,11 @@ class PlaceOrderRequest extends FormRequest
             'district_id'          => ['nullable', 'integer', 'exists:districts,id'],
             // Адрес обязателен всегда: заказ существует только с доставкой
             'address'              => ['required', 'string', 'max:500'],
+            // Геолокация точки доставки с телефона — продавцу, чтобы найти,
+            // куда везти. Необязательна (доступ к GPS могут не дать), но
+            // приходит только парой: одна координата без второй бесполезна
+            'lat'                  => ['nullable', 'numeric', 'between:-90,90', 'required_with:lng'],
+            'lng'                  => ['nullable', 'numeric', 'between:-180,180', 'required_with:lat'],
             'comment'              => ['nullable', 'string', 'max:1000'],
 
             // Чем покупатель рассчитается. Необязательно: пусто — договорятся

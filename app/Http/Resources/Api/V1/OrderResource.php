@@ -26,6 +26,10 @@ class OrderResource extends JsonResource
             'contact_name' => $this->contact_name,
             'phone'        => $this->phone,
             'address'      => $this->address,
+            // Точка доставки, отправленная при оформлении; null — не отправляли
+            'location'     => $this->latitude !== null && $this->longitude !== null
+                ? ['lat' => $this->latitude, 'lng' => $this->longitude]
+                : null,
             'region'       => $this->whenLoaded('region', fn () => $this->region ? [
                 'id'      => $this->region->id,
                 'name_tk' => $this->region->name_tk,
