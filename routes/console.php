@@ -11,5 +11,9 @@ Artisan::command('inspire', function () {
 // Чистка брошенных временных файлов chunked-загрузки видео
 Schedule::command('videos:prune-uploads')->hourly();
 
+// Истёкший платный тариф → бесплатный, контент сверх лимитов скрывается.
+// До sync-visibility: витрину переводимых гасит уже сам перевод.
+Schedule::command('tariffs:expire')->dailyAt('03:00');
+
 // Витрины магазинов гаснут, когда у владельца истекает тариф с can_have_store
 Schedule::command('stores:sync-visibility')->dailyAt('03:10');

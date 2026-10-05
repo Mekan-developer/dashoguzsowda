@@ -137,6 +137,9 @@ return [
     'push_tariff_approved_body'   => 'Оплата получена, тариф «:tariff» активирован',
     'push_tariff_rejected_title'  => 'Заявка на тариф отклонена',
     'push_tariff_rejected_body'   => 'Заявка на тариф «:tariff» отклонена',
+    'push_tariff_expired_title'   => 'Срок тарифа истёк',
+    'push_tariff_expired_body'    => 'Тариф «:tariff» закончился, вы переведены на бесплатный',
+    'push_tariff_expired_body_hidden' => 'Тариф «:tariff» закончился, вы переведены на бесплатный. Скрыто сверх лимита: объявлений — :listings, роликов — :videos. Продлите тариф, чтобы вернуть их',
     // :number — номер заказа (id с ведущими нулями), по нему покупатель и
     // админ находят заказ в разговоре
     'push_order_approved_title'   => 'Заказ подтверждён',

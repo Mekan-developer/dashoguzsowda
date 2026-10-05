@@ -197,6 +197,12 @@ class ListingService
      */
     public function updateFromApi(Listing $listing, array $data): Listing
     {
+        // Скрытое по тарифу после правки ушло бы в pending и обошло квоту:
+        // вернуть его в выдачу можно, только если место есть
+        if ($listing->status === 'suspended') {
+            $this->checkTariffLimitAction->execute($listing->user);
+        }
+
         $newPhotos      = $data['photos'] ?? [];
         $removeMediaIds = $data['remove_media_ids'] ?? [];
         unset($data['photos'], $data['remove_media_ids']);

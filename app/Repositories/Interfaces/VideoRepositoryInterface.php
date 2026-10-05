@@ -20,6 +20,12 @@ interface VideoRepositoryInterface
     public function countAll(): int;
     public function countByStatus(string $status): int;
     public function countByUserAndStatuses(int $userId, array $statuses): int;
+
+    /** Скрывает самые старые одобренные ролики пользователя (истёк тариф) */
+    public function suspendOldestApproved(int $userId, int $count): int;
+
+    /** Возвращает в ленту самые свежие скрытые по тарифу ролики */
+    public function restoreNewestSuspended(int $userId, int $count): int;
     public function sumLikes(): int;
 
     /** @return array{is_liked: bool, likes_count: int} */

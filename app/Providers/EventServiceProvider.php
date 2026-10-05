@@ -13,6 +13,7 @@ use App\Events\OrderStatusChanged;
 use App\Events\SmsCodeRequested;
 use App\Events\StoreApproved;
 use App\Events\StoreRejected;
+use App\Events\TariffExpired;
 use App\Events\TariffRequestApproved;
 use App\Events\TariffRequestRejected;
 use App\Listeners\LogSearchQuery;
@@ -27,6 +28,7 @@ use App\Listeners\SendOrderToStoreOwnerPush;
 use App\Listeners\SendSmsCode;
 use App\Listeners\SendStoreApprovedPush;
 use App\Listeners\SendStoreRejectedPush;
+use App\Listeners\SendTariffExpiredPush;
 use App\Listeners\SendTariffRequestApprovedPush;
 use App\Listeners\SendTariffRequestRejectedPush;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -51,6 +53,10 @@ class EventServiceProvider extends ServiceProvider
         ],
         TariffRequestRejected::class => [
             SendTariffRequestRejectedPush::class,
+        ],
+        // Истёк платный тариф: что перешёл на бесплатный и сколько скрыто
+        TariffExpired::class => [
+            SendTariffExpiredPush::class,
         ],
         // Оформленный заказ сразу уходит владельцу магазина: решение по
         // заказу принимает он, доставляет тоже он

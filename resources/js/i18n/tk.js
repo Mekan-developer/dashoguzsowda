@@ -23,6 +23,7 @@ export default {
         pending: 'Barlanýar',
         approved: 'Tassyklandy',
         rejected: 'Ret edildi',
+        suspended: 'Tarif boýunça gizlendi',
         active: 'Işjeň',
         blocked: 'Bloklanan',
         new: 'Täze',

@@ -23,6 +23,7 @@ export default {
         pending: 'На проверке',
         approved: 'Одобрено',
         rejected: 'Отклонено',
+        suspended: 'Скрыто по тарифу',
         active: 'Активен',
         blocked: 'Заблокирован',
         new: 'Новая',

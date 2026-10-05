@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\Listing;
+use App\Models\User;
 use App\Observers\ListingObserver;
+use App\Observers\UserObserver;
 use App\Repositories\BannerRepository;
 use App\Repositories\CategoryIconRepository;
 use App\Repositories\CategoryRepository;
@@ -116,6 +118,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
         Listing::observe(ListingObserver::class);
+        User::observe(UserObserver::class);
         Auth::guard('web')->setRememberDuration(60 * 24 * 30);
     }
 }

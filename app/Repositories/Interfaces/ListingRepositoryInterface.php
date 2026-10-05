@@ -41,6 +41,12 @@ interface ListingRepositoryInterface
     /** Занятая квота тарифа: объявления в перечисленных статусах */
     public function countByUserAndStatuses(int $userId, array $statuses): int;
 
+    /** Скрывает самые старые одобренные объявления пользователя (истёк тариф) */
+    public function suspendOldestApproved(int $userId, int $count): int;
+
+    /** Возвращает в выдачу самые свежие скрытые по тарифу объявления */
+    public function restoreNewestSuspended(int $userId, int $count): int;
+
     /** Занятая квота тарифа: сколько объявлений пользователя сейчас поднято */
     public function countBoostedByUser(int $userId): int;
 

@@ -190,6 +190,19 @@ class UserRepository implements UserRepositoryInterface
     }
 
     /**
+     * chunkById: истечение снимает tariff_ends_at у тех же строк, по которым
+     * идёт выборка, — обычный chunk() со смещением пропускал бы порции.
+     */
+    public function chunkWithExpiredTariff(callable $callback, int $chunkSize = 200): void
+    {
+        User::query()
+            ->with('tariff')
+            ->whereNotNull('tariff_ends_at')
+            ->where('tariff_ends_at', '<=', now())
+            ->chunkById($chunkSize, $callback);
+    }
+
+    /**
      * Карточка пользователя: последние объявления + счётчики.
      * Считается в репозитории, чтобы контроллер не дёргал Eloquent напрямую.
      */

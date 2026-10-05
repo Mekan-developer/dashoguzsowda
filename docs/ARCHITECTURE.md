@@ -246,7 +246,7 @@ erDiagram
 вход по SMS, в колонку кладётся случайная строка. `activeTariff()` возвращает
 платный тариф, если `tariff_ends_at` в будущем, иначе — бесплатный.
 
-**`Listing`** — объявление. `status` = `pending` / `approved` / `rejected`.
+**`Listing`** — объявление. `status` = `pending` / `approved` / `rejected` / `suspended` (скрыто сверх лимита тарифа).
 `tags` и `location` хранятся как JSON (`location` = `{lat, lng}`). `is_boosted` +
 `boosted_at` — поднятие в выдаче.
 

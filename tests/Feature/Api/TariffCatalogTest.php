@@ -63,7 +63,8 @@ it('creates a request instead of granting a paid tariff', function () {
         ->assertJsonPath('data.tariff_request.tariff_name', 'Premium')
         ->assertJsonPath('data.is_premium', false);
 
-    expect($this->user->fresh()->tariff)->toBeNull();
+    // Остаётся на бесплатном, выданном при создании (UserObserver)
+    expect($this->user->fresh()->tariff->is_free)->toBeTrue();
     $this->assertDatabaseHas('tariff_requests', [
         'user_id' => $this->user->id,
         'status'  => 'pending',

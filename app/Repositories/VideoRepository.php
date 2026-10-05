@@ -114,6 +114,37 @@ class VideoRepository implements VideoRepositoryInterface
         return Video::where('user_id', $userId)->whereIn('status', $statuses)->count();
     }
 
+    public function suspendOldestApproved(int $userId, int $count): int
+    {
+        return $this->moveStatus($userId, 'approved', 'suspended', $count, newestFirst: false);
+    }
+
+    public function restoreNewestSuspended(int $userId, int $count): int
+    {
+        return $this->moveStatus($userId, 'suspended', 'approved', $count, newestFirst: true);
+    }
+
+    /** UPDATE ... ORDER BY ... LIMIT есть не во всех СУБД — идём через id */
+    private function moveStatus(int $userId, string $from, string $to, int $count, bool $newestFirst): int
+    {
+        if ($count <= 0) {
+            return 0;
+        }
+
+        $ids = Video::where('user_id', $userId)
+            ->where('status', $from)
+            ->orderBy('created_at', $newestFirst ? 'desc' : 'asc')
+            ->orderBy('id', $newestFirst ? 'desc' : 'asc')
+            ->limit($count)
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        return Video::whereIn('id', $ids)->update(['status' => $to]);
+    }
+
     public function sumLikes(): int
     {
         return (int) Video::sum('likes_count');

@@ -9,6 +9,8 @@ const config = {
     pending:  { cls: 'bg-orange/10 text-orange', dot: 'bg-orange' },
     approved: { cls: 'bg-green/10 text-green',   dot: 'bg-green' },
     rejected: { cls: 'bg-red/10 text-red',       dot: 'bg-red' },
+    // Скрыто сверх лимита тарифа (истёк платный) — не решение модератора
+    suspended: { cls: 'bg-surface text-muted',   dot: 'bg-muted' },
     active:   { cls: 'bg-green/10 text-green',   dot: 'bg-green' },
     blocked:  { cls: 'bg-red/10 text-red',       dot: 'bg-red' },
     new:      { cls: 'bg-blue/10 text-blue',     dot: 'bg-blue' },

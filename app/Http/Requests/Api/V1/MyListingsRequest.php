@@ -11,7 +11,7 @@ class MyListingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['nullable', 'in:pending,approved,rejected'],
+            'status' => ['nullable', 'in:pending,approved,rejected,suspended'],
             'limit'  => ['nullable', 'integer', 'between:1,50'],
             'page'   => ['nullable', 'integer', 'min:1'],
         ];

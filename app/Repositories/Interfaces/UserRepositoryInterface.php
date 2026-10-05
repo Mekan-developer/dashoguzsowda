@@ -57,6 +57,13 @@ interface UserRepositoryInterface
     public function chunkPushTargets(array $criteria, callable $callback, int $chunkSize = 500): void;
 
     /**
+     * Пользователи, у которых срок платного тарифа уже прошёл, — порциями.
+     *
+     * @param  callable(\Illuminate\Support\Collection<int, User>): void  $callback
+     */
+    public function chunkWithExpiredTariff(callable $callback, int $chunkSize = 200): void;
+
+    /**
      * Карточка пользователя в админке: последние объявления и счётчики.
      *
      * @return array{listings: \Illuminate\Database\Eloquent\Collection, stats: array{listings:int, videos:int, complaints:int}}
