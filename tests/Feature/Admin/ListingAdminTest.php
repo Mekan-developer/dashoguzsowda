@@ -189,3 +189,40 @@ it('forbids manager from deleting a listing', function () {
 
     $this->delete(route('listings.destroy', $listing))->assertForbidden();
 });
+
+/**
+ * Создание — панель поверх списка (как у пользователей): старый адрес
+ * /create открывает её, после сохранения админ остаётся в списке.
+ */
+it('opens the create panel on the listings page from the old create url', function () {
+    $this->actingAs($this->admin);
+
+    $this->get(route('listings.create'))
+        ->assertRedirect(route('listings.index', ['create' => 1]));
+});
+
+it('returns to the listings page after creating a listing', function () {
+    $this->actingAs($this->admin);
+
+    $this->from(route('listings.index'))
+        ->post(route('listings.store'), adminListingPayload())
+        ->assertRedirect(route('listings.index'))
+        ->assertSessionHas('toast.type', 'success');
+});
+
+it('loads the create form dictionaries only on request', function () {
+    $this->actingAs($this->admin);
+
+    $this->get(route('listings.index'))
+        ->assertInertia(fn ($page) => $page->component('Listings/Index')->missing('createForm'));
+
+    $this->get(route('listings.index'), [
+        'X-Inertia'                   => 'true',
+        'X-Inertia-Version'           => \Inertia\Inertia::getVersion(),
+        'X-Inertia-Partial-Component' => 'Listings/Index',
+        'X-Inertia-Partial-Data'      => 'createForm',
+    ])
+        ->assertOk()
+        ->assertJsonPath('props.createForm.categories.0.id', $this->leaf->parent_id)
+        ->assertJsonPath('props.createForm.regions.0.id', $this->region->id);
+});

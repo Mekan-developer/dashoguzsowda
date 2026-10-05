@@ -43,15 +43,18 @@ class ListingController extends Controller
             'rejectionReasons' => $this->reasons->activeRejectionReasons('listing'),
             'filters'          => $request->only('status', 'category_id', 'search'),
             'counts'           => $this->listingService->counts(),
+            // Справочники панели создания — грузятся только при её открытии
+            'createForm'       => Inertia::optional(fn () => [
+                'categories' => $this->categories->activeTree(),
+                'regions'    => $this->regions->activeListWithDistricts(),
+            ]),
         ]);
     }
 
+    // Создание — панель поверх списка; старый адрес /create открывает её
     public function create()
     {
-        return Inertia::render('Listings/Create', [
-            'categories' => $this->categories->activeTree(),
-            'regions'    => $this->regions->activeListWithDistricts(),
-        ]);
+        return redirect()->route('listings.index', ['create' => 1]);
     }
 
     /**
@@ -64,10 +67,10 @@ class ListingController extends Controller
         $data = $request->safe()->except('user_id');
         $data['photos'] = $request->file('photos', []);
 
-        $listing = $this->listingService->createFromAdmin($owner, $data);
+        $this->listingService->createFromAdmin($owner, $data);
 
-        return redirect()->route('listings.show', $listing)
-            ->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
+        // Как у пользователей: панель закрывается, новое объявление — первым в списке
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
     public function show(Listing $listing)

@@ -197,6 +197,7 @@ export default {
         photosLabel: 'Suratlar',
         addPhotos: '+ Surat goş',
         photosHint: '1-den 8-e çenli surat',
+        wholesaleDivider: 'Lomaý we galyndy — hökmany däl',
         boostBtn: 'Ýokary galdyr',
         deleteBtn: 'Bildirişi poz',
         deleteConfirm: 'Bildirişi yzyna gaýtarylmaz pozmalymy?',
@@ -234,6 +235,9 @@ export default {
         createTitle: 'Täze wideo',
         fileLabel: 'Wideo faýl',
         pickFile: 'Faýl saýla',
+        wrongFormat: 'Wideo faýl gerek: MP4, MOV, WEBM, MKV ýa-da 3GP',
+        tooBig: 'Faýl 100 MB-dan uly',
+        uploading: 'Wideo ýüklenýär…',
     },
     chat: {
         dialogsWithUsers: 'Ulanyjylar bilen söhbetler',

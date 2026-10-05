@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
@@ -9,6 +9,7 @@ import StatusBadge from '@/Components/StatusBadge.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import { confirmDialog } from '@/confirm'
 import Icon from '@/Components/Icon.vue'
+import VideoCreateModal from '@/Components/VideoCreateModal.vue'
 
 const { t, locale } = useI18n()
 const page = usePage()
@@ -18,6 +19,17 @@ const props = defineProps({
 })
 
 const isAdmin = computed(() => page.props.auth?.user?.role === 'admin')
+
+// ── Создание — панель поверх списка, как у пользователей ─────────────────────
+const createOpen = ref(false)
+// Старый адрес /admin/videos/create ведёт сюда с ?create=1
+onMounted(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('create') !== '1') return
+    url.searchParams.delete('create')
+    window.history.replaceState(window.history.state, '', url)
+    createOpen.value = true
+})
 
 const search    = ref(props.filters?.search || '')
 const statusFil = ref(props.filters?.status || '')
@@ -106,7 +118,7 @@ async function doDelete(video) {
     </template>
 
     <template #actions>
-      <CreateButton :label="t('actions.create')" @click="router.visit(route('videos.create'))" />
+      <CreateButton :label="t('actions.create')" @click="createOpen = true" />
     </template>
 
     <!-- Подсказка: ограничение длительности + автосжатие -->
@@ -300,5 +312,8 @@ async function doDelete(video) {
     </div>
 
     <!-- Подтверждение удаления -->
+
+    <!-- Категории ролика — те же корневые, что и в фильтре списка -->
+    <VideoCreateModal :open="createOpen" :categories="categories" @close="createOpen = false" />
   </AppLayout>
 </template>

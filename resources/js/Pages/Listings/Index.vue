@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
@@ -7,11 +7,29 @@ import CreateButton from '@/Components/CreateButton.vue'
 import Pagination from '@/Components/Pagination.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import SearchInput from '@/Components/SearchInput.vue'
+import ListingCreateModal from '@/Components/ListingCreateModal.vue'
 
 const { t } = useI18n()
 
 const props = defineProps({
     listings: Object, categories: Array, rejectionReasons: Array, filters: Object, counts: Object,
+    // Справочники панели создания — optional-проп, приходит только по запросу
+    createForm: { type: Object, default: null },
+})
+
+// ── Создание — панель поверх списка, как у пользователей ─────────────────────
+const createOpen = ref(false)
+function openCreate() {
+    createOpen.value = true
+    if (!props.createForm) router.reload({ only: ['createForm'] })
+}
+// Старый адрес /admin/listings/create ведёт сюда с ?create=1
+onMounted(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('create') !== '1') return
+    url.searchParams.delete('create')
+    window.history.replaceState(window.history.state, '', url)
+    openCreate()
 })
 
 const search     = ref(props.filters?.search      || '')
@@ -70,7 +88,7 @@ function categoryPath(category) {
     <template #header>{{ t('nav.listings') }}</template>
 
     <template #actions>
-      <CreateButton :label="t('actions.create')" @click="router.visit(route('listings.create'))" />
+      <CreateButton :label="t('actions.create')" @click="openCreate" />
     </template>
 
     <!-- Панель: поиск + сегментированный фильтр статусов + категория + счётчик -->
@@ -176,5 +194,7 @@ function categoryPath(category) {
         </div>
       </div>
     </div>
+
+    <ListingCreateModal :open="createOpen" :data="createForm" @close="createOpen = false" />
   </AppLayout>
 </template>

@@ -258,3 +258,11 @@ it('rejects admin video create when duration exceeds limit', function () {
         'video'       => \Illuminate\Http\UploadedFile::fake()->create('long.mp4', 1024, 'video/mp4'),
     ])->assertSessionHasErrors('video');
 });
+
+/** Создание — панель поверх списка; старый адрес /create открывает её */
+it('opens the create panel on the videos page from the old create url', function () {
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->get(route('videos.create'))
+        ->assertRedirect(route('videos.index', ['create' => 1]));
+});

@@ -197,6 +197,7 @@ export default {
         photosLabel: 'Фото',
         addPhotos: '+ Добавить фото',
         photosHint: 'От 1 до 8 фото',
+        wholesaleDivider: 'Опт и остаток — необязательно',
         boostBtn: 'Поднять',
         deleteBtn: 'Удалить объявление',
         deleteConfirm: 'Удалить объявление безвозвратно?',
@@ -234,6 +235,9 @@ export default {
         createTitle: 'Новый ролик',
         fileLabel: 'Видеофайл',
         pickFile: 'Выбрать файл',
+        wrongFormat: 'Нужен видеофайл: MP4, MOV, WEBM, MKV или 3GP',
+        tooBig: 'Файл больше 100 МБ',
+        uploading: 'Загрузка видео…',
     },
     chat: {
         dialogsWithUsers: 'Диалоги с пользователями',

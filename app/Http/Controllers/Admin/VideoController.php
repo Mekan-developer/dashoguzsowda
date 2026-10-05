@@ -41,11 +41,11 @@ class VideoController extends Controller
         ]);
     }
 
+    // Создание — панель поверх списка (категории — уже отданные roots);
+    // старый адрес /create открывает её
     public function create()
     {
-        return Inertia::render('Videos/Create', [
-            'categories' => $this->categories->roots(),
-        ]);
+        return redirect()->route('videos.index', ['create' => 1]);
     }
 
     /**
@@ -58,10 +58,10 @@ class VideoController extends Controller
         $data = $request->safe()->only('title', 'tags', 'category_id');
         $data['video'] = $request->file('video');
 
-        $video = $this->videoService->createFromAdmin($owner, $data, $request->durationSeconds());
+        $this->videoService->createFromAdmin($owner, $data, $request->durationSeconds());
 
-        return redirect()->route('videos.show', $video)
-            ->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
+        // Как у пользователей: панель закрывается, новый ролик — первым в списке
+        return back()->with('toast', ['type' => 'success', 'message' => __('messages.created')]);
     }
 
     public function show(Video $video)
