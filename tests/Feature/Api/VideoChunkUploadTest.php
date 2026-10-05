@@ -175,8 +175,10 @@ it('refuses to init when the tariff video quota is exhausted', function () {
     occupyVideo(['status' => 'pending']);
     occupyVideo(['status' => 'approved']);
 
-    $this->postJson('/api/v1/videos/upload/init', ['title' => 'X', 'filename' => 'r.mp4'])
-        ->assertForbidden();
+    // Категория обязательна — без неё 422 валидации пришёл бы раньше проверки квоты
+    $this->postJson('/api/v1/videos/upload/init', [
+        'title' => 'X', 'filename' => 'r.mp4', 'category_id' => $this->rootCategory->id,
+    ])->assertForbidden();
 });
 
 // ─── Отмена ──────────────────────────────────────────────────────────────────
