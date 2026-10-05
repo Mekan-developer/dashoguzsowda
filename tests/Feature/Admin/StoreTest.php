@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\Category;
+use App\Models\City;
+use App\Models\Listing;
+use App\Models\Region;
 use App\Models\Store;
 use App\Models\StorePhoto;
 use App\Models\User;
@@ -74,6 +77,37 @@ it('lets admin create an approved store for a user with store tariff', function 
         ->and($store->name)->toBe('Admin Created')
         ->and($store->status)->toBe('approved')
         ->and($store->is_active)->toBeTrue();
+});
+
+it('attaches the owner listings to a store created from admin, keeping their address when the store has none', function () {
+    $premium = \App\Models\Tariff::create([
+        'name_ru' => 'Premium', 'name_tk' => 'Premium',
+        'duration_days' => 30, 'is_free' => false, 'is_active' => true, 'can_have_store' => true,
+        'price' => 100, 'listings_limit' => 50, 'videos_limit' => 10,
+    ]);
+    $owner = User::factory()->create(['tariff_id' => $premium->id, 'tariff_ends_at' => now()->addDays(30)]);
+
+    $region = Region::create(['name_ru' => 'Ахал', 'name_tk' => 'Ahal']);
+    $city   = City::create(['region_id' => $region->id, 'name_ru' => 'Анау', 'name_tk' => 'Änew']);
+    $root   = Category::create(['name_ru' => 'Стройка', 'name_tk' => 'Gurluşyk', 'slug' => 'build-admin-attach', 'level' => 1]);
+    $leaf   = Category::create(['parent_id' => $root->id, 'name_ru' => 'Цемент', 'name_tk' => 'Sement', 'slug' => 'cement-admin-attach', 'level' => 2]);
+
+    $listing = Listing::create([
+        'user_id' => $owner->id, 'category_id' => $leaf->id,
+        'region_id' => $region->id, 'city_id' => $city->id,
+        'title' => 'Цемент М500', 'type' => 'goods', 'phone' => $owner->phone, 'status' => 'approved',
+    ]);
+
+    actingAsStoreRole('admin');
+
+    $this->post(route('stores.store'), [
+        'user_id' => $owner->id, 'name' => 'Admin Created', 'sells_retail' => true,
+    ])->assertRedirect();
+
+    expect($listing->fresh())
+        ->store_id->toBe(Store::where('user_id', $owner->id)->value('id'))
+        ->region_id->toBe($region->id)
+        ->city_id->toBe($city->id);
 });
 
 it('rejects admin store create when user already has a store', function () {

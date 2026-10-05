@@ -218,6 +218,13 @@ class ListingRepository implements ListingRepositoryInterface
         $listing->update(['stock_qty' => max(0, $listing->stock_qty + $delta)]);
     }
 
+    public function attachUserListingsToStore(int $userId, int $storeId, array $attributes = []): int
+    {
+        return Listing::where('user_id', $userId)
+            ->whereNull('store_id')
+            ->update(['store_id' => $storeId, ...$attributes]);
+    }
+
     public function createMedia(Listing $listing, array $attributes): ListingMedia
     {
         return $listing->media()->create($attributes);

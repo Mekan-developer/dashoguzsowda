@@ -123,6 +123,10 @@ class StoreService
 
         $store = $this->storeRepository->upsertForUser($user, $attributes);
 
+        if ($existing === null) {
+            $this->attachExistingListings($store);
+        }
+
         if (array_key_exists('category_ids', $data)) {
             $this->storeRepository->syncCategories(
                 $store,
@@ -141,6 +145,22 @@ class StoreService
         }
 
         return $store->fresh(['photos', 'category', 'categories', 'region', 'city', 'district', 'rejectionReason', 'paymentMethods']);
+    }
+
+    /**
+     * Открыл магазин — все его прежние объявления становятся товарами магазина,
+     * как если бы их подали уже после открытия (ListingService::storeAttributes).
+     * Адрес магазина переносится, только если он задан целиком (регион и город):
+     * у магазина из админки адрес необязателен, и тогда объявление сохраняет свой.
+     * Статус модерации не меняется — текст и фото объявлений те же.
+     */
+    private function attachExistingListings(Store $store): void
+    {
+        $address = $store->region_id && $store->city_id
+            ? ['region_id' => $store->region_id, 'city_id' => $store->city_id, 'district_id' => $store->district_id]
+            : [];
+
+        $this->listingRepository->attachUserListingsToStore($store->user_id, $store->id, $address);
     }
 
     /**
@@ -318,6 +338,8 @@ class StoreService
         $attributes['is_active'] = true;
 
         $store = $this->storeRepository->upsertForUser($user, $attributes);
+
+        $this->attachExistingListings($store);
 
         if (! empty($attributes['category_id'])) {
             $this->storeRepository->syncCategories($store, [(int) $attributes['category_id']]);

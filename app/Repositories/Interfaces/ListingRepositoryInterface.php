@@ -64,6 +64,13 @@ interface ListingRepositoryInterface
      */
     public function adjustStock(int $listingId, int $delta): void;
 
+    /**
+     * Привязывает к магазину все объявления автора, у которых магазина ещё нет
+     * (созданные до открытия магазина). $attributes — адрес магазина, если он
+     * задан. Возвращает число привязанных.
+     */
+    public function attachUserListingsToStore(int $userId, int $storeId, array $attributes = []): int;
+
     public function createMedia(Listing $listing, array $attributes): ListingMedia;
 
     public function deleteMedia(ListingMedia $media): void;

@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Category;
 use App\Models\City;
 use App\Models\District;
+use App\Models\Listing;
 use App\Models\Region;
 use App\Models\Store;
 use App\Models\Tariff;
@@ -101,6 +103,43 @@ it('forbids a store without the premium tariff', function () {
     Sanctum::actingAs($user);
 
     $this->postJson('/api/v1/my/store', storePayload())->assertForbidden();
+});
+
+it('attaches listings created before the store and moves them to the store address', function () {
+    $otherRegion = Region::create(['name_ru' => 'Мары', 'name_tk' => 'Mary']);
+    $otherCity   = City::create(['region_id' => $otherRegion->id, 'name_ru' => 'Байрамали', 'name_tk' => 'Baýramaly']);
+    $root = Category::create(['name_ru' => 'Стройка', 'name_tk' => 'Gurluşyk', 'slug' => 'build-attach', 'level' => 1]);
+    $leaf = Category::create(['parent_id' => $root->id, 'name_ru' => 'Цемент', 'name_tk' => 'Sement', 'slug' => 'cement-attach', 'level' => 2]);
+
+    $make = fn (User $user, array $attrs = []) => Listing::create([
+        'user_id' => $user->id, 'category_id' => $leaf->id,
+        'region_id' => $otherRegion->id, 'city_id' => $otherCity->id,
+        'title' => 'Цемент М500', 'type' => 'goods', 'phone' => $user->phone,
+        'price' => 120, 'status' => 'approved', ...$attrs,
+    ]);
+
+    $approved = $make($this->owner);
+    $pending  = $make($this->owner, ['status' => 'pending']);
+    $foreign  = $make(User::factory()->create());
+
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson('/api/v1/my/store', storePayload(['district_id' => $this->district->id]))->assertCreated();
+
+    $store = Store::where('user_id', $this->owner->id)->sole();
+
+    foreach ([$approved, $pending] as $listing) {
+        expect($listing->fresh())
+            ->store_id->toBe($store->id)
+            ->region_id->toBe($this->region->id)
+            ->city_id->toBe($this->city->id)
+            ->district_id->toBe($this->district->id);
+    }
+
+    // Статус модерации не трогаем, чужое не привязываем
+    expect($approved->fresh()->status)->toBe('approved')
+        ->and($pending->fresh()->status)->toBe('pending')
+        ->and($foreign->fresh()->store_id)->toBeNull();
 });
 
 it('allows only one store per user', function () {
