@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import Toasts from '@/Components/Toasts.vue'
@@ -68,6 +68,29 @@ function openNotification(item) {
     notificationsOpen.value = false
     router.visit(route(item.routeName, item.routeParam ?? undefined))
 }
+
+// ── Realtime: новое объявление на модерацию (канал private-admin) ──────────
+// Колокольчик и счётчики приходят пропами — перезапрашиваем только их, а
+// открытый список объявлений обновляем целиком. Звук браузер может не дать
+// проиграть до первого клика по странице — тогда молча пропускаем.
+const alertSound = typeof Audio !== 'undefined' ? new Audio('/sounds/alert.mp3') : null
+
+function onListingSubmitted() {
+    if (alertSound) {
+        alertSound.currentTime = 0
+        alertSound.play().catch(() => {})
+    }
+    router.reload(page.component === 'Listings/Index'
+        ? { preserveScroll: true }
+        : { only: ['notifications', 'counts'], preserveScroll: true })
+}
+
+onMounted(() => {
+    window.Echo?.private('admin').listen('.listing.submitted', onListingSubmitted)
+})
+onUnmounted(() => {
+    window.Echo?.private('admin').stopListening('.listing.submitted', onListingSubmitted)
+})
 
 // ── Menu ───────────────────────────────────────────────────────────────────
 const sections = computed(() => [

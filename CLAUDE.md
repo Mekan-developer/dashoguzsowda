@@ -287,6 +287,10 @@
 - Один диалог на пользователя (user ↔ support).
 - Reverb channel: `private-chat.{user_id}`
 - Событие: `NewMessageEvent`
+- Канал персонала `private-admin` (admin/manager): `ListingSubmitted`
+  (`.listing.submitted`) — новое объявление на модерацию, шлёт
+  `ListingObserver::created`. `AppLayout` перезапрашивает колокольчик и
+  проигрывает `public/sounds/alert.mp3`.
 - Нет чата между пользователями.
 
 ---

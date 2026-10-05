@@ -14,3 +14,8 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 Broadcast::channel('chat.{userId}', function ($user, $userId) {
     return in_array($user->role, ['admin', 'manager'], true) || (int) $user->id === (int) $userId;
 });
+
+// Канал админки: новые объявления на модерацию и прочие события для персонала.
+Broadcast::channel('admin', function ($user) {
+    return in_array($user->role, ['admin', 'manager'], true);
+});
