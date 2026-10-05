@@ -83,10 +83,11 @@ it('rejects admin store create when user already has a store', function () {
         'price' => 100, 'listings_limit' => 50, 'videos_limit' => 10,
     ]);
     $store = makeAdminStore();
-    $store->user->update([
+    // tariff_* нет в $fillable — update() их молча пропустил бы
+    $store->user->forceFill([
         'tariff_id' => $premium->id,
         'tariff_ends_at' => now()->addDays(30),
-    ]);
+    ])->save();
     actingAsStoreRole('admin');
 
     $this->post(route('stores.store'), [

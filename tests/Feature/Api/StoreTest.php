@@ -126,10 +126,11 @@ it('filters the public store list by trade type and delivery', function () {
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.name', 'Розница');
 
-    $this->owner->update([
+    // tariff_* нет в $fillable — update() их молча пропустил бы
+    $this->owner->forceFill([
         'tariff_id' => $wholesaleTariff->id,
         'tariff_ends_at' => now()->addDays(30),
-    ]);
+    ])->save();
     Sanctum::actingAs($this->owner->fresh());
 
     $this->getJson('/api/v1/stores?type=wholesale')

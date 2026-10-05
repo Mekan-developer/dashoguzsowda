@@ -181,10 +181,11 @@ it('applies the wholesale price from the minimum order quantity', function () {
         'price' => 100, 'wholesale_price' => 80, 'min_order_qty' => 5, 'stock_qty' => 50,
     ]);
 
-    $this->buyer->update([
+    // tariff_* нет в $fillable — update() их молча пропустил бы
+    $this->buyer->forceFill([
         'tariff_id' => Tariff::where('can_see_wholesale', true)->value('id'),
         'tariff_ends_at' => now()->addDays(30),
-    ]);
+    ])->save();
     Sanctum::actingAs($this->buyer->fresh());
 
     $wholesale = $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $listing->id, 'qty' => 5]]))
@@ -205,10 +206,11 @@ it('refuses a wholesale-only listing below its minimum order', function () {
         'price' => null, 'wholesale_price' => 80, 'min_order_qty' => 10, 'stock_qty' => 50,
     ]);
 
-    $this->buyer->update([
+    // tariff_* нет в $fillable — update() их молча пропустил бы
+    $this->buyer->forceFill([
         'tariff_id' => Tariff::where('can_see_wholesale', true)->value('id'),
         'tariff_ends_at' => now()->addDays(30),
-    ]);
+    ])->save();
     Sanctum::actingAs($this->buyer->fresh());
 
     $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $listing->id, 'qty' => 3]]))

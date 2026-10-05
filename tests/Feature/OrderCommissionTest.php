@@ -126,10 +126,11 @@ it('считает комиссию и от оптовой цены', function (
         'title' => 'Сахар', 'price' => 100, 'wholesale_price' => 80, 'min_order_qty' => 10, 'stock_qty' => 100,
     ]);
 
-    $this->buyer->update([
+    // tariff_* нет в $fillable — update() их молча пропустил бы
+    $this->buyer->forceFill([
         'tariff_id' => $this->premium->id,
         'tariff_ends_at' => now()->addDays(30),
-    ]);
+    ])->save();
 
     $order = placeCommissionOrder([['listing_id' => $wholesale->id, 'qty' => 10]]);
     $item  = $order->items->first();
