@@ -25,5 +25,9 @@
       "Bash(git restore *)",
       "Bash(docker exec *)"
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
   }
 }

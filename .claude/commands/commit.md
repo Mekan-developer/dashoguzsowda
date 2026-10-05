@@ -69,7 +69,6 @@ allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git s
 - второй файл — то же самое;
 - третий файл — то же самое.
 
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 ```
 
 Типы: `feat`, `fix`, `refactor`, `docs`, `build`, `chore`, `test`, `perf`, `style`.
