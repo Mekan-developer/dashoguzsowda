@@ -41,7 +41,8 @@ if (serverLocale && ['ru', 'tk'].includes(serverLocale) && serverLocale !== loca
 }
 const user    = computed(() => page.props.auth?.user)
 const isAdmin = computed(() => user.value?.role === 'admin')
-const counts = computed(() => page.props.counts || {})
+// Бейджи меню — общий проп navCounts; `counts` у страниц свой (вкладки фильтра)
+const counts = computed(() => page.props.navCounts || {})
 
 const initials = computed(() => {
     const name = user.value?.name?.trim()
@@ -82,7 +83,7 @@ function onListingSubmitted() {
     }
     router.reload(page.component === 'Listings/Index'
         ? { preserveScroll: true }
-        : { only: ['notifications', 'counts'], preserveScroll: true })
+        : { only: ['notifications', 'navCounts'], preserveScroll: true })
 }
 
 onMounted(() => {

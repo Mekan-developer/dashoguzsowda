@@ -45,20 +45,20 @@ it('shows a "new" dot on Listings until opened, without touching the pending que
     $makeListing('Первое');
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingListings', 1)
-        ->where('counts.hasNewListings', true));
+        ->where('navCounts.pendingListings', 1)
+        ->where('navCounts.hasNewListings', true));
 
     $this->actingAs($admin)->get(route('listings.index'));
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingListings', 1) // всё ещё в очереди — открытие раздела не обработка
-        ->where('counts.hasNewListings', false));
+        ->where('navCounts.pendingListings', 1) // всё ещё в очереди — открытие раздела не обработка
+        ->where('navCounts.hasNewListings', false));
 
     $makeListing('Второе');
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingListings', 2)
-        ->where('counts.hasNewListings', true));
+        ->where('navCounts.pendingListings', 2)
+        ->where('navCounts.hasNewListings', true));
 });
 
 it('shows a "new" dot on Videos until opened, without touching the pending queue count', function () {
@@ -74,20 +74,20 @@ it('shows a "new" dot on Videos until opened, without touching the pending queue
     $makeVideo('Ролик 1');
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingVideos', 1)
-        ->where('counts.hasNewVideos', true));
+        ->where('navCounts.pendingVideos', 1)
+        ->where('navCounts.hasNewVideos', true));
 
     $this->actingAs($admin)->get(route('videos.index'));
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingVideos', 1)
-        ->where('counts.hasNewVideos', false));
+        ->where('navCounts.pendingVideos', 1)
+        ->where('navCounts.hasNewVideos', false));
 
     $makeVideo('Ролик 2');
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingVideos', 2)
-        ->where('counts.hasNewVideos', true));
+        ->where('navCounts.pendingVideos', 2)
+        ->where('navCounts.hasNewVideos', true));
 });
 
 it('shows a "new" dot on Reviews until opened, without touching the pending queue count', function () {
@@ -107,20 +107,20 @@ it('shows a "new" dot on Reviews until opened, without touching the pending queu
     $makeReview('Отзыв 1');
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingReviews', 1)
-        ->where('counts.hasNewReviews', true));
+        ->where('navCounts.pendingReviews', 1)
+        ->where('navCounts.hasNewReviews', true));
 
     $this->actingAs($admin)->get(route('reviews.index'));
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingReviews', 1)
-        ->where('counts.hasNewReviews', false));
+        ->where('navCounts.pendingReviews', 1)
+        ->where('navCounts.hasNewReviews', false));
 
     $makeReview('Отзыв 2');
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingReviews', 2)
-        ->where('counts.hasNewReviews', true));
+        ->where('navCounts.pendingReviews', 2)
+        ->where('navCounts.hasNewReviews', true));
 });
 
 it('shows a "new" dot on Complaints until opened, without touching the pending queue count', function () {
@@ -142,20 +142,20 @@ it('shows a "new" dot on Complaints until opened, without touching the pending q
     $makeComplaint();
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.newComplaints', 1)
-        ->where('counts.hasNewComplaints', true));
+        ->where('navCounts.newComplaints', 1)
+        ->where('navCounts.hasNewComplaints', true));
 
     $this->actingAs($admin)->get(route('complaints.index'));
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.newComplaints', 1)
-        ->where('counts.hasNewComplaints', false));
+        ->where('navCounts.newComplaints', 1)
+        ->where('navCounts.hasNewComplaints', false));
 
     $makeComplaint();
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.newComplaints', 2)
-        ->where('counts.hasNewComplaints', true));
+        ->where('navCounts.newComplaints', 2)
+        ->where('navCounts.hasNewComplaints', true));
 });
 
 it('shows a "new" dot on Stores until opened, without touching the pending queue count', function () {
@@ -168,20 +168,20 @@ it('shows a "new" dot on Stores until opened, without touching the pending queue
     $makeStore();
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingStores', 1)
-        ->where('counts.hasNewStores', true));
+        ->where('navCounts.pendingStores', 1)
+        ->where('navCounts.hasNewStores', true));
 
     $this->actingAs($admin)->get(route('stores.index'));
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingStores', 1)
-        ->where('counts.hasNewStores', false));
+        ->where('navCounts.pendingStores', 1)
+        ->where('navCounts.hasNewStores', false));
 
     $makeStore();
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingStores', 2)
-        ->where('counts.hasNewStores', true));
+        ->where('navCounts.pendingStores', 2)
+        ->where('navCounts.hasNewStores', true));
 });
 
 it('shows a "new" dot on Tariff requests until opened, without touching the pending queue count', function () {
@@ -200,18 +200,18 @@ it('shows a "new" dot on Tariff requests until opened, without touching the pend
     $makeRequest();
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingTariffRequests', 1)
-        ->where('counts.hasNewTariffRequests', true));
+        ->where('navCounts.pendingTariffRequests', 1)
+        ->where('navCounts.hasNewTariffRequests', true));
 
     $this->actingAs($admin)->get(route('tariff-requests.index'));
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingTariffRequests', 1)
-        ->where('counts.hasNewTariffRequests', false));
+        ->where('navCounts.pendingTariffRequests', 1)
+        ->where('navCounts.hasNewTariffRequests', false));
 
     $makeRequest();
 
     $this->actingAs($admin)->get(route('dashboard'))->assertInertia(fn ($page) => $page
-        ->where('counts.pendingTariffRequests', 2)
-        ->where('counts.hasNewTariffRequests', true));
+        ->where('navCounts.pendingTariffRequests', 2)
+        ->where('navCounts.hasNewTariffRequests', true));
 });

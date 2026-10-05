@@ -13,21 +13,21 @@ it('shows the new users badge until the admin opens the users section', function
 
     $this->actingAs($admin)
         ->get(route('dashboard'))
-        ->assertInertia(fn ($page) => $page->where('counts.newUsers', 1));
+        ->assertInertia(fn ($page) => $page->where('navCounts.newUsers', 1));
 
     // Открыл раздел — бейдж гаснет для этого админа
     $this->actingAs($admin)->get(route('users.index'));
 
     $this->actingAs($admin)
         ->get(route('dashboard'))
-        ->assertInertia(fn ($page) => $page->where('counts.newUsers', 0));
+        ->assertInertia(fn ($page) => $page->where('navCounts.newUsers', 0));
 
     // Новая регистрация после просмотра — бейдж снова загорается
     User::factory()->create(['role' => 'user']);
 
     $this->actingAs($admin)
         ->get(route('dashboard'))
-        ->assertInertia(fn ($page) => $page->where('counts.newUsers', 1));
+        ->assertInertia(fn ($page) => $page->where('navCounts.newUsers', 1));
 });
 
 it('scopes the seen state per admin', function () {
@@ -39,9 +39,9 @@ it('scopes the seen state per admin', function () {
 
     $this->actingAs($adminA)
         ->get(route('dashboard'))
-        ->assertInertia(fn ($page) => $page->where('counts.newUsers', 0));
+        ->assertInertia(fn ($page) => $page->where('navCounts.newUsers', 0));
 
     $this->actingAs($adminB)
         ->get(route('dashboard'))
-        ->assertInertia(fn ($page) => $page->where('counts.newUsers', 1));
+        ->assertInertia(fn ($page) => $page->where('navCounts.newUsers', 1));
 });

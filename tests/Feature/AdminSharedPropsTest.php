@@ -56,13 +56,13 @@ it('shares sidebar counters computed in a single query', function () {
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('counts.pendingListings', 1)
-            ->where('counts.pendingVideos', 1)
-            ->where('counts.newComplaints', 1)
-            ->where('counts.pendingReviews', 1)
-            ->where('counts.unreadChats', 1)
+            ->where('navCounts.pendingListings', 1)
+            ->where('navCounts.pendingVideos', 1)
+            ->where('navCounts.newComplaints', 1)
+            ->where('navCounts.pendingReviews', 1)
+            ->where('navCounts.unreadChats', 1)
             // admin в счёт новых пользователей не попадает — только role=user
-            ->where('counts.newUsers', 1)
+            ->where('navCounts.newUsers', 1)
         );
 });
 
