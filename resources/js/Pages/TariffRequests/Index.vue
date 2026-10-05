@@ -7,6 +7,7 @@ import Icon from '@/Components/Icon.vue'
 import Pagination from '@/Components/Pagination.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -35,8 +36,8 @@ function applyFilters() {
 function setStatus(value) { statusFilter.value = value; applyFilters() }
 
 // Подтверждение = «деньги получены», поэтому спрашиваем явно
-function approve(item) {
-    if (!confirm(t('tariffRequests.confirmApprove', { tariff: item.tariff?.name_ru || item.tariff?.name || '' }))) return
+async function approve(item) {
+    if (!(await confirmDialog(t('tariffRequests.confirmApprove', { tariff: item.tariff?.name_ru || item.tariff?.name || '' }), { danger: false }))) return
     router.patch(route('tariff-requests.approve', item.id), {}, { preserveScroll: true })
 }
 

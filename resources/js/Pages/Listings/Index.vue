@@ -6,7 +6,6 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import CreateButton from '@/Components/CreateButton.vue'
 import Pagination from '@/Components/Pagination.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
-import ConfirmModal from '@/Components/ConfirmModal.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 
 const { t } = useI18n()

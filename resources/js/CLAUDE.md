@@ -25,6 +25,24 @@ return back()->with('toast', ['type' => 'success', 'message' => __('messages.upd
 `Toasts.vue` следит за пропом. Отдельного store для уведомлений нет —
 не выдумывать `useNotificationStore`.
 
+## Подтверждения — только `confirmDialog`
+
+Браузерный `confirm()` не используется. Один диалог на всю админку:
+`ConfirmHost.vue` смонтирован в `AppLayout`, вызывается промисом:
+
+```js
+import { confirmDialog } from '@/confirm'
+
+async function destroy(item) {
+    if (!(await confirmDialog(t('news.confirmDelete', { name: item.title_ru })))) return
+    router.delete(route('news.destroy', item.id))
+}
+```
+
+Опции: `title`, `danger` (по умолчанию `true` — красная кнопка; для
+неразрушительных действий `false`), `confirmLabel`, `cancelLabel`. Свой
+`<ConfirmModal>` на странице не заводить.
+
 ## Про Pinia
 
 `pinia` есть в `package.json`, но в коде сейчас не используется: ни одного

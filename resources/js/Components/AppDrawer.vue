@@ -1,7 +1,6 @@
 <script setup>
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import ConfirmModal from '@/Components/ConfirmModal.vue'
+import { confirmDialog } from '@/confirm'
 
 defineProps({
     open:  { type: Boolean, default: false },
@@ -14,10 +13,15 @@ const { t } = useI18n()
 
 // Закрытие по клику вне панели / крестику — не мгновенное, а через подтверждение,
 // чтобы случайный клик мимо не сбрасывал введённые в форму данные.
-const confirmingClose = ref(false)
-function requestClose() { confirmingClose.value = true }
-function confirmClose() { confirmingClose.value = false; emit('close') }
-function cancelClose()  { confirmingClose.value = false }
+async function requestClose() {
+    const ok = await confirmDialog(t('drawer.closeConfirmMessage'), {
+        title: t('drawer.closeConfirmTitle'),
+        confirmLabel: t('drawer.closeConfirmYes'),
+        cancelLabel: t('drawer.closeConfirmNo'),
+        danger: false,
+    })
+    if (ok) emit('close')
+}
 </script>
 
 <template>
@@ -58,17 +62,6 @@ function cancelClose()  { confirmingClose.value = false }
       </div>
     </Transition>
   </Teleport>
-
-  <ConfirmModal
-    :open="confirmingClose"
-    :title="t('drawer.closeConfirmTitle')"
-    :message="t('drawer.closeConfirmMessage')"
-    :confirm-label="t('drawer.closeConfirmYes')"
-    :cancel-label="t('drawer.closeConfirmNo')"
-    :danger="false"
-    @confirm="confirmClose"
-    @cancel="cancelClose"
-  />
 </template>
 
 <style scoped>

@@ -7,7 +7,7 @@ import CreateButton from '@/Components/CreateButton.vue'
 import Pagination from '@/Components/Pagination.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import SearchInput from '@/Components/SearchInput.vue'
-import ConfirmModal from '@/Components/ConfirmModal.vue'
+import { confirmDialog } from '@/confirm'
 import Icon from '@/Components/Icon.vue'
 
 const { t, locale } = useI18n()
@@ -88,12 +88,9 @@ function doReject() {
 }
 
 // ── Удаление (только admin, с подтверждением) ───────────────────────────────
-const deleteTarget = ref(null)
-
-function doDelete() {
-    router.delete(route('videos.destroy', deleteTarget.value.id), {
-        onSuccess: () => { deleteTarget.value = null },
-    })
+async function doDelete(video) {
+    if (!(await confirmDialog(t('videos.deleteConfirm')))) return
+    router.delete(route('videos.destroy', video.id))
 }
 </script>
 
@@ -269,7 +266,7 @@ function doDelete() {
                 </template>
                 <button
                   v-else-if="isAdmin"
-                  @click="deleteTarget = video"
+                  @click="doDelete(video)"
                   class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] text-muted transition hover:bg-red hover:text-white"
                   :title="t('actions.delete')" :aria-label="t('actions.delete')"
                 >
@@ -303,11 +300,5 @@ function doDelete() {
     </div>
 
     <!-- Подтверждение удаления -->
-    <ConfirmModal
-      :open="!!deleteTarget"
-      :message="t('videos.deleteConfirm')"
-      @confirm="doDelete"
-      @cancel="deleteTarget = null"
-    />
   </AppLayout>
 </template>

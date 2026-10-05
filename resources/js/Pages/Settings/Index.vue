@@ -8,6 +8,7 @@ import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import Icon from '@/Components/Icon.vue'
 import RichTextEditor from '@/Components/RichTextEditor.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -345,8 +346,8 @@ function updateRejection(item, form) {
 function toggleRejection(item) {
     router.put(route('rejection-reasons.update', item.id), { is_active: !item.is_active }, opts)
 }
-function destroyRejection(item) {
-    if (!confirm(t('settings.confirmDeleteReason', { name: item.name_ru }))) return
+async function destroyRejection(item) {
+    if (!(await confirmDialog(t('settings.confirmDeleteReason', { name: item.name_ru })))) return
     router.delete(route('rejection-reasons.destroy', item.id), opts)
 }
 
@@ -363,8 +364,8 @@ function updateComplaint(item, form) {
 function toggleComplaint(item) {
     router.put(route('complaint-reasons.update', item.id), { is_active: !item.is_active }, opts)
 }
-function destroyComplaint(item) {
-    if (!confirm(t('settings.confirmDeleteReason', { name: item.name_ru }))) return
+async function destroyComplaint(item) {
+    if (!(await confirmDialog(t('settings.confirmDeleteReason', { name: item.name_ru })))) return
     router.delete(route('complaint-reasons.destroy', item.id), opts)
 }
 
@@ -389,8 +390,8 @@ function updatePayment(item, form) {
 function togglePayment(item) {
     router.put(route('payment-methods.update', item.id), { is_active: !item.is_active }, opts)
 }
-function destroyPayment(item) {
-    if (!confirm(t('settings.confirmDeletePayment', { name: item.name_ru }))) return
+async function destroyPayment(item) {
+    if (!(await confirmDialog(t('settings.confirmDeletePayment', { name: item.name_ru })))) return
     router.delete(route('payment-methods.destroy', item.id), opts)
 }
 

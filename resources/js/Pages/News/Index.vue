@@ -13,6 +13,7 @@ import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import RichTextEditor from '@/Components/RichTextEditor.vue'
 import DataTable from '@/Components/DataTable.vue'
 import SearchInput from '@/Components/SearchInput.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -140,8 +141,8 @@ function save() {
 }
 function publish(n) { router.patch(route('news.publish', n.id)) }
 function unpublish(n) { router.patch(route('news.unpublish', n.id)) }
-function destroy(n) {
-    if (confirm(t('news.confirmDelete', { name: n.title_ru }))) router.delete(route('news.destroy', n.id))
+async function destroy(n) {
+    if (await confirmDialog(t('news.confirmDelete', { name: n.title_ru }))) router.delete(route('news.destroy', n.id))
 }
 </script>
 

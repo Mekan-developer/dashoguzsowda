@@ -4,7 +4,7 @@ import { Link, router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
-import ConfirmModal from '@/Components/ConfirmModal.vue'
+import { confirmDialog } from '@/confirm'
 import Icon from '@/Components/Icon.vue'
 
 const { t, locale } = useI18n()
@@ -83,9 +83,8 @@ function doReject() {
 }
 
 // ── Удаление (только admin) — контроллер уводит обратно в список ─────────────
-const confirmDelete = ref(false)
-
-function doDelete() {
+async function doDelete() {
+    if (!(await confirmDialog(t('videos.deleteConfirm')))) return
     router.delete(route('videos.destroy', props.video.id))
 }
 </script>
@@ -274,7 +273,7 @@ function doDelete() {
             >{{ t('videos.rejectBtn') }}</button>
             <button
               v-if="isAdmin"
-              @click="confirmDelete = true"
+              @click="doDelete"
               class="w-full rounded-btn border-2 border-line py-[9px] text-[13px] font-bold text-muted transition hover:border-red hover:text-red dark:border-dline"
             >{{ t('videos.deleteBtn') }}</button>
           </div>
@@ -298,12 +297,5 @@ function doDelete() {
         </div>
       </div>
     </div>
-
-    <ConfirmModal
-      :open="confirmDelete"
-      :message="t('videos.deleteConfirm')"
-      @confirm="doDelete"
-      @cancel="confirmDelete = false"
-    />
   </AppLayout>
 </template>

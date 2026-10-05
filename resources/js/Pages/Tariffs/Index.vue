@@ -8,6 +8,7 @@ import DrawerField from '@/Components/DrawerField.vue'
 import DrawerFooter from '@/Components/DrawerFooter.vue'
 import CreateButton from '@/Components/CreateButton.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -45,8 +46,8 @@ function save() {
 const canSave = computed(() => form.value.name_ru.trim().length > 0 && form.value.name_tk.trim().length > 0)
 
 function toggle(item) { router.patch(route('tariffs.toggle', item.id)) }
-function destroy(item) {
-    if (confirm(t('tariffs.confirmDelete', { name: item.name_ru }))) router.delete(route('tariffs.destroy', item.id))
+async function destroy(item) {
+    if (await confirmDialog(t('tariffs.confirmDelete', { name: item.name_ru }))) router.delete(route('tariffs.destroy', item.id))
 }
 </script>
 

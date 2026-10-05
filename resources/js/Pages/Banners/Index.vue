@@ -10,6 +10,7 @@ import CreateButton from '@/Components/CreateButton.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import DataTable from '@/Components/DataTable.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -112,8 +113,8 @@ function save() {
 }
 function toggle(b) { router.patch(route('banners.toggle', b.id)) }
 function move(b, direction) { router.patch(route('banners.move', b.id), { direction }) }
-function destroy(b) {
-    if (confirm(t('banners.confirmDelete', { name: b.title_ru }))) router.delete(route('banners.destroy', b.id))
+async function destroy(b) {
+    if (await confirmDialog(t('banners.confirmDelete', { name: b.title_ru }))) router.delete(route('banners.destroy', b.id))
 }
 </script>
 

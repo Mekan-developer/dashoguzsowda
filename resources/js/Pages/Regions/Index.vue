@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import GeoColumn from '@/Components/GeoColumn.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -54,8 +55,8 @@ function updateRegion(item, form) {
     router.put(route('regions.update', item.id), form, { ...opts, onSuccess: () => regionCol.value?.closeEdit(), onError: e => (regionErrors.value = e) })
 }
 function toggleRegion(item) { router.patch(route('regions.toggle', item.id), {}, opts) }
-function destroyRegion(item) {
-    if (!confirm(t('regions.confirmDeleteRegion', { name: item.name_ru }))) return
+async function destroyRegion(item) {
+    if (!(await confirmDialog(t('regions.confirmDeleteRegion', { name: item.name_ru })))) return
     router.delete(route('regions.destroy', item.id), {
         ...opts,
         onSuccess: () => { if (selectedRegionId.value === item.id) { selectedRegionId.value = null; selectedCityId.value = null } },
@@ -72,8 +73,8 @@ function updateCity(item, form) {
     router.put(route('cities.update', item.id), { ...form, region_id: selectedRegionId.value }, { ...opts, onSuccess: () => cityCol.value?.closeEdit(), onError: e => (cityErrors.value = e) })
 }
 function toggleCity(item) { router.patch(route('cities.toggle', item.id), {}, opts) }
-function destroyCity(item) {
-    if (!confirm(t('regions.confirmDeleteCity', { name: item.name_ru }))) return
+async function destroyCity(item) {
+    if (!(await confirmDialog(t('regions.confirmDeleteCity', { name: item.name_ru })))) return
     router.delete(route('cities.destroy', item.id), {
         ...opts,
         onSuccess: () => { if (selectedCityId.value === item.id) selectedCityId.value = null },
@@ -90,8 +91,8 @@ function updateDistrict(item, form) {
     router.put(route('districts.update', item.id), form, { ...opts, onSuccess: () => districtCol.value?.closeEdit(), onError: e => (districtErrors.value = e) })
 }
 function toggleDistrict(item) { router.patch(route('districts.toggle', item.id), {}, opts) }
-function destroyDistrict(item) {
-    if (!confirm(t('regions.confirmDeleteDistrict', { name: item.name_ru }))) return
+async function destroyDistrict(item) {
+    if (!(await confirmDialog(t('regions.confirmDeleteDistrict', { name: item.name_ru })))) return
     router.delete(route('districts.destroy', item.id), opts)
 }
 </script>

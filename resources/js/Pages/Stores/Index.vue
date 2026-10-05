@@ -11,6 +11,7 @@ import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import DataTable from '@/Components/DataTable.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import UserSearchSelect from '@/Components/UserSearchSelect.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 const page = usePage()
@@ -143,8 +144,8 @@ function removeNewPhoto(index) {
     newPhotoPreviews.value.splice(index, 1)
     form.value.photos.splice(index, 1)
 }
-function removeExistingPhoto(photo) {
-    if (confirm(t('stores.confirmDeletePhoto'))) {
+async function removeExistingPhoto(photo) {
+    if (await confirmDialog(t('stores.confirmDeletePhoto'))) {
         router.delete(route('stores.photos.destroy', [editItem.value.id, photo.id]), {
             preserveScroll: true,
             onSuccess: () => { editItem.value.photos = editItem.value.photos.filter(p => p.id !== photo.id) },
@@ -175,8 +176,8 @@ function save() {
 }
 function toggle(s) { router.patch(route('stores.toggle', s.id)) }
 function move(s, direction) { router.patch(route('stores.move', s.id), { direction }) }
-function destroy(s) {
-    if (confirm(t('actions.confirmDelete', { name: s.name }))) router.delete(route('stores.destroy', s.id))
+async function destroy(s) {
+    if (await confirmDialog(t('actions.confirmDelete', { name: s.name }))) router.delete(route('stores.destroy', s.id))
 }
 
 function approve(s) { router.patch(route('stores.approve', s.id), {}, { preserveScroll: true }) }

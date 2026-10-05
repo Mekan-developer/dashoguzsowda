@@ -12,6 +12,7 @@ import IconPicker from '@/Components/IconPicker.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import ImagePreviewModal from '@/Components/ImagePreviewModal.vue'
 import Icon from '@/Components/Icon.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -108,11 +109,11 @@ function save() {
     })
 }
 
-function destroy(cat) {
+async function destroy(cat) {
     const message = cat.children?.length
         ? t('categories.confirmDeleteWithChildren', { name: cat.name_ru })
         : t('categories.confirmDelete', { name: cat.name_ru })
-    if (confirm(message)) {
+    if (await confirmDialog(message)) {
         router.delete(route('categories.destroy', cat.id))
     }
 }

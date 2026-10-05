@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import Toasts from '@/Components/Toasts.vue'
+import ConfirmHost from '@/Components/ConfirmHost.vue'
 import Icon from '@/Components/Icon.vue'
 
 const { t, locale } = useI18n()
@@ -341,6 +342,9 @@ function logout() {
 
     <!-- Global Toasts -->
     <Toasts />
+
+    <!-- Единый диалог подтверждения (confirmDialog из @/confirm) -->
+    <ConfirmHost />
   </div>
 </template>
 

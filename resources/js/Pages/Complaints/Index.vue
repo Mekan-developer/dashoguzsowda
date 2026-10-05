@@ -6,7 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import AppDrawer from '@/Components/AppDrawer.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import Pagination from '@/Components/Pagination.vue'
-import ConfirmModal from '@/Components/ConfirmModal.vue'
+import { confirmDialog } from '@/confirm'
 import SearchInput from '@/Components/SearchInput.vue'
 import Icon from '@/Components/Icon.vue'
 
@@ -72,16 +72,12 @@ function openDetails(complaint) {
 }
 
 // ── Решение жалобы ──────────────────────────────────────────────────────────
-const confirmOpen   = ref(false)
-const confirmTarget = ref(null)
-
-function askResolve(complaint) {
-    confirmTarget.value = complaint
-    confirmOpen.value   = true
-}
-function confirmResolve() {
-    resolve(confirmTarget.value, '')
-    confirmOpen.value = false
+async function askResolve(complaint) {
+    const ok = await confirmDialog(t('complaints.confirmResolve'), {
+        title: t('complaints.resolveBtn'),
+        danger: false,
+    })
+    if (ok) resolve(complaint, '')
 }
 function resolve(complaint, note) {
     router.patch(route('complaints.resolve', complaint.id), {
@@ -281,14 +277,5 @@ function resolve(complaint, note) {
       </template>
     </AppDrawer>
 
-    <!-- Подтверждение быстрого решения из строки -->
-    <ConfirmModal
-      :open="confirmOpen"
-      :title="t('complaints.resolveBtn')"
-      :message="t('complaints.confirmResolve')"
-      :danger="false"
-      @confirm="confirmResolve"
-      @cancel="confirmOpen = false"
-    />
   </AppLayout>
 </template>

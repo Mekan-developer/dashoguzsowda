@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import Icon from '@/Components/Icon.vue'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 const page = usePage()
@@ -121,8 +122,8 @@ function boost() {
     router.patch(route('listings.boost', props.listing.id), {}, { preserveScroll: true })
 }
 
-function destroy() {
-    if (!confirm(t('listings.deleteConfirm'))) return
+async function destroy() {
+    if (!(await confirmDialog(t('listings.deleteConfirm')))) return
     router.delete(route('listings.destroy', props.listing.id))
 }
 
