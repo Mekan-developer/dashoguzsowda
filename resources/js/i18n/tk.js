@@ -300,6 +300,8 @@ export default {
         activeLabel: 'Işjeň',
         freeLabel: 'Mugt tarif',
         freeUnlimitedHint: 'Mugt tarif möhletsiz hereket edýär — oňa günlerde möhlet bellenmeýär.',
+        alwaysActive: 'Hemişe işjeň',
+        freeProtectedHint: 'Mugt tarifi öçürip ýa-da pozup bolmaýar: tölegli tarifi bolmadyk ähli ulanyjylar şonda. Başga tarifi mugt etmek üçin ony belläň — bellik şoňa geçer.',
         canHaveStoreLabel: 'Dükan açmaga hukuk berýär',
         canSeeWholesaleLabel: 'Opt bahalaryny görýär',
         priceLabel: 'Bahasy',

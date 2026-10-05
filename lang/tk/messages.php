@@ -25,6 +25,9 @@ return [
     'boost_interval_not_passed' => 'Ýokary galdyryp bolmaz — aralyk heniz geçmedi',
     'tariff_limit_exceeded' => 'Tarif limiti doldy',
     'tariff_assigned' => 'Tarif bellenildi',
+    'tariff_free_always_active' => 'Mugt tarif hemişe işjeň — tölegli tarifi bolmadyk ähli ulanyjylar şonda',
+    'tariff_free_undeletable'   => 'Mugt tarifi pozup bolmaýar — ony hasaba alnanda we tölegli tarif gutaranda alýarlar',
+    'tariff_free_flag_locked'   => '«Mugt» bellik aýrylyp bilinmeýär: başga tarifi mugt diýip belläň, bellik şoňa geçer',
     'boost_limit_exceeded' => 'Tarif boýunça göteriliş çägi doldy',
 
     'store_requires_premium_tariff' => 'Dükan diňe Premium tarifinde elýeterli',

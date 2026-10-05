@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreTariffRequest;
 use App\Models\Tariff;
 use App\Services\TariffService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class TariffController extends Controller
@@ -36,16 +37,25 @@ class TariffController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }
 
+    // Отказ (бесплатный тариф) не привязан к полю формы — показываем тостом
     public function destroy(Tariff $tariff)
     {
-        $this->tariffService->delete($tariff);
+        try {
+            $this->tariffService->delete($tariff);
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'error', 'message' => collect($e->errors())->flatten()->first()]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.deleted')]);
     }
 
     public function toggle(Tariff $tariff)
     {
-        $this->tariffService->update($tariff, ['is_active' => ! $tariff->is_active]);
+        try {
+            $this->tariffService->toggleActive($tariff);
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'error', 'message' => collect($e->errors())->flatten()->first()]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.updated')]);
     }

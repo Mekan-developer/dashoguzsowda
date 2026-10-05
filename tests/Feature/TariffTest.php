@@ -134,3 +134,62 @@ it('closes tariffs to a manager entirely', function () {
     $this->patch(route('tariffs.toggle', $tariff))->assertForbidden();
     $this->delete(route('tariffs.destroy', $tariff))->assertForbidden();
 });
+
+/**
+ * Бесплатный тариф — тот, на котором каждый клиент с регистрации и после
+ * истечения платного: выключить или удалить его нельзя.
+ */
+it('never turns the free tariff off', function () {
+    actingAsTariffRole('admin');
+    $free = Tariff::create(tariffPayload(['name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'is_free' => true, 'duration_days' => null]));
+
+    $this->patch(route('tariffs.toggle', $free))
+        ->assertRedirect()
+        ->assertSessionHas('toast.type', 'error');
+
+    expect((bool) $free->fresh()->is_active)->toBeTrue();
+});
+
+it('keeps the free tariff active when it is saved from the form', function () {
+    actingAsTariffRole('admin');
+    $free = Tariff::create(tariffPayload(['name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'is_free' => true, 'duration_days' => null]));
+
+    $this->put(route('tariffs.update', $free), tariffPayload([
+        'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'is_free' => true, 'is_active' => false,
+    ]))->assertRedirect();
+
+    expect((bool) $free->fresh()->is_active)->toBeTrue();
+});
+
+it('never deletes the free tariff', function () {
+    actingAsTariffRole('admin');
+    $free = Tariff::create(tariffPayload(['name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'is_free' => true, 'duration_days' => null]));
+
+    $this->delete(route('tariffs.destroy', $free))
+        ->assertRedirect()
+        ->assertSessionHas('toast.type', 'error');
+
+    expect(Tariff::find($free->id))->not->toBeNull();
+});
+
+it('does not let the free flag be taken off the free tariff', function () {
+    actingAsTariffRole('admin');
+    $free = Tariff::create(tariffPayload(['name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'is_free' => true, 'duration_days' => null]));
+
+    $this->put(route('tariffs.update', $free), tariffPayload([
+        'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'is_free' => false,
+    ]))->assertSessionHasErrors('is_free');
+
+    expect((bool) $free->fresh()->is_free)->toBeTrue();
+});
+
+it('still toggles and deletes paid tariffs', function () {
+    actingAsTariffRole('admin');
+    $paid = Tariff::create(tariffPayload(['name_ru' => 'Платный', 'name_tk' => 'Pully']));
+
+    $this->patch(route('tariffs.toggle', $paid))->assertSessionHas('toast.type', 'success');
+    expect((bool) $paid->fresh()->is_active)->toBeFalse();
+
+    $this->delete(route('tariffs.destroy', $paid))->assertSessionHas('toast.type', 'success');
+    expect(Tariff::find($paid->id))->toBeNull();
+});

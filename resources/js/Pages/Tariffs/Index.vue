@@ -70,7 +70,12 @@ async function destroy(item) {
               <div class="font-extrabold text-ink dark:text-slate-100 text-base">{{ item.name_ru }}</div>
               <div class="text-xs text-muted">{{ item.name_tk }}</div>
             </div>
-            <ToggleSwitch :modelValue="item.is_active" @update:modelValue="toggle(item)" />
+            <!-- Бесплатный тариф не выключается: на нём все клиенты без платного -->
+            <span
+              v-if="item.is_free"
+              class="flex-none rounded-[4px] bg-surface px-2 py-1 text-[11px] font-semibold text-muted dark:bg-white/5"
+            >{{ t('tariffs.alwaysActive') }}</span>
+            <ToggleSwitch v-else :modelValue="item.is_active" @update:modelValue="toggle(item)" />
           </div>
 
           <div class="grid grid-cols-3 gap-2 text-center">
@@ -99,7 +104,7 @@ async function destroy(item) {
             <button @click="openEdit(item)" class="flex-1 py-1.5 rounded-btn border border-line dark:border-dline text-xs font-bold text-ink dark:text-slate-200 hover:bg-surface dark:hover:bg-white/5 transition">
               {{ t('tariffs.change') }}
             </button>
-            <button @click="destroy(item)" class="px-3 py-1.5 rounded-btn border border-red/30 text-xs font-bold text-red hover:bg-red/5 transition">
+            <button v-if="!item.is_free" @click="destroy(item)" class="px-3 py-1.5 rounded-btn border border-red/30 text-xs font-bold text-red hover:bg-red/5 transition">
               {{ t('actions.delete') }}
             </button>
           </div>
@@ -138,11 +143,13 @@ async function destroy(item) {
         </DrawerField>
       </div>
       <div class="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
-        <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
+        <!-- Бесплатный всегда активен — переключать нечего, сервер всё равно включит -->
+        <label v-if="!form.is_free" class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
           <ToggleSwitch v-model="form.is_active" /> {{ t('tariffs.activeLabel') }}
         </label>
+        <!-- С бесплатного флаг не снимается, только переносится на другой тариф -->
         <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
-          <ToggleSwitch v-model="form.is_free" /> {{ t('tariffs.freeLabel') }}
+          <ToggleSwitch v-model="form.is_free" :disabled="!!editItem?.is_free" /> {{ t('tariffs.freeLabel') }}
         </label>
         <label class="flex items-center gap-2 text-sm font-semibold text-ink dark:text-slate-200">
           <ToggleSwitch v-model="form.can_have_store" /> {{ t('tariffs.canHaveStoreLabel') }}
@@ -152,6 +159,8 @@ async function destroy(item) {
         </label>
       </div>
       <p v-if="form.is_free" class="text-[11px] text-[var(--text-muted)]">{{ t('tariffs.freeUnlimitedHint') }}</p>
+      <p v-if="editItem?.is_free" class="text-[11px] text-[var(--text-muted)]">{{ t('tariffs.freeProtectedHint') }}</p>
+      <p v-if="errors.is_free" class="text-[11px] text-red">{{ errors.is_free }}</p>
 
       <template #footer>
         <DrawerFooter

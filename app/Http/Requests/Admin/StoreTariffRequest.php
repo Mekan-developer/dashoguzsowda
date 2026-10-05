@@ -12,11 +12,13 @@ class StoreTariffRequest extends FormRequest
     /**
      * Бесплатный тариф бессрочен — срок к нему не применяется, поэтому форма
      * его и не показывает, а пришедшее значение отбрасывается.
+     * Он же всегда активен: на нём каждый клиент с регистрации и после
+     * истечения платного (UserObserver, ExpireTariffsAction).
      */
     protected function prepareForValidation(): void
     {
         if ($this->boolean('is_free')) {
-            $this->merge(['duration_days' => null]);
+            $this->merge(['duration_days' => null, 'is_active' => true]);
         }
     }
 
@@ -37,7 +39,13 @@ class StoreTariffRequest extends FormRequest
             // null = бессрочно; допустимо только для бесплатного тарифа
             'duration_days'     => [Rule::requiredIf(fn () => ! $this->boolean('is_free')), 'nullable', 'integer', 'min:1'],
             'is_active'         => 'boolean',
-            'is_free'           => 'boolean',
+            // Снять флаг с бесплатного нельзя — иначе клиентов некуда переводить.
+            // Перенести можно: отметить бесплатным другой тариф (TariffService::update)
+            'is_free'           => ['boolean', function (string $attribute, mixed $value, \Closure $fail) {
+                if ($this->route('tariff')?->is_free && ! $this->boolean('is_free')) {
+                    $fail(__('messages.tariff_free_flag_locked'));
+                }
+            }],
             'can_see_wholesale' => 'boolean',
         ];
     }

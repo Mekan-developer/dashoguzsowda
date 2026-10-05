@@ -10,6 +10,7 @@ use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Repositories\Interfaces\VideoRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Validation\ValidationException;
 
 class TariffService
 {
@@ -161,8 +162,27 @@ class TariffService
         return $this->tariffRepository->update($tariff, $data);
     }
 
+    /** Бесплатный тариф не выключается: на нём все клиенты без платного */
+    public function toggleActive(Tariff $tariff): Tariff
+    {
+        if ($tariff->is_free) {
+            throw ValidationException::withMessages([
+                'is_active' => __('messages.tariff_free_always_active'),
+            ]);
+        }
+
+        return $this->tariffRepository->update($tariff, ['is_active' => ! $tariff->is_active]);
+    }
+
+    /** Бесплатный тариф не удаляется — его выдают при регистрации и истечении платного */
     public function delete(Tariff $tariff): void
     {
+        if ($tariff->is_free) {
+            throw ValidationException::withMessages([
+                'tariff' => __('messages.tariff_free_undeletable'),
+            ]);
+        }
+
         $this->tariffRepository->delete($tariff);
     }
 
