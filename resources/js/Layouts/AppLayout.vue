@@ -20,7 +20,36 @@ onMounted(() => {
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
 const collapsed = ref(localStorage.getItem('sb') === '1')
-watch(collapsed, v => localStorage.setItem('sb', v ? '1' : '0'))
+watch(collapsed, v => {
+    localStorage.setItem('sb', v ? '1' : '0')
+    hideTip()
+})
+
+// Подсказка у иконки в свёрнутом сайдбаре. Своя, а не title: системная
+// появляется с задержкой ~1 с. position: fixed — иначе её обрезал бы
+// overflow сайдбара и прокрутка меню.
+const tip = ref(null)
+function showTip(event, text) {
+    if (!collapsed.value) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    tip.value = { text, top: rect.top + rect.height / 2, left: rect.right + 10 }
+}
+function hideTip() { tip.value = null }
+
+// Прокрутка меню переживает переход: AppLayout на каждой странице создаётся
+// заново, и без этого меню прыгало бы наверх — нажатые «Настройки» внизу
+// уезжали бы из вида. sessionStorage: у каждой вкладки своя позиция.
+const navEl = ref(null)
+function saveNavScroll() {
+    try { sessionStorage.setItem('sbScroll', String(navEl.value?.scrollTop ?? 0)) } catch {}
+}
+onMounted(() => {
+    const nav = navEl.value
+    if (!nav) return
+    try { nav.scrollTop = Number(sessionStorage.getItem('sbScroll')) || 0 } catch {}
+    // Перешли не из меню (ссылка, уведомление) — активный пункт мог остаться за краем
+    nav.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' })
+})
 
 // ── i18n ───────────────────────────────────────────────────────────────────
 function setLang(l) {
@@ -120,12 +149,14 @@ const sections = computed(() => [
         { label: t('nav.complaints'),  routeName: 'complaints.index',  icon: 'flag',  badge: 'newComplaints',  newFlag: 'hasNewComplaints' },
         { label: t('nav.reviews'),     routeName: 'reviews.index',     icon: 'star',  badge: 'pendingReviews', newFlag: 'hasNewReviews' },
     ]},
-    { title: t('layout.sectionSystem').toUpperCase(), eyebrow: t('layout.sectionSystem'), items: [
+    // system: группа прижата к низу меню и отделена чертой — видно, где
+    // кончается рабочая навигация и начинаются настройки
+    { title: t('layout.sectionSystem').toUpperCase(), eyebrow: t('layout.sectionSystem'), system: true, items: [
         // Тарифы — лимиты и деньги, только admin
         ...(isAdmin.value ? [
             { label: t('nav.tariffs'), routeName: 'tariffs.index', icon: 'coin' },
             // Заявки на тариф — деньги принимает лично админ
-            { label: t('nav.tariffRequests'), routeName: 'tariff-requests.index', icon: 'coin', badge: 'pendingTariffRequests', newFlag: 'hasNewTariffRequests' },
+            { label: t('nav.tariffRequests'), routeName: 'tariff-requests.index', icon: 'receipt', badge: 'pendingTariffRequests', newFlag: 'hasNewTariffRequests' },
         ] : []),
         { label: t('nav.statistics'), routeName: 'statistics.index',  icon: 'chart' },
         ...(isAdmin.value ? [
@@ -153,83 +184,141 @@ function logout() {
   <div class="flex h-screen overflow-hidden font-golos">
 
     <!-- ── SIDEBAR ──────────────────────────────────────────────────────── -->
+    <!--
+      Геометрия подобрана так, чтобы при сворачивании ничего не прыгало:
+      иконки стоят на x = 15 (nav) + 12 (пункт) = 27 — ровно по центру
+      свёрнутых 72px, лого 36px на x = 18 — тоже по центру. Меняется только
+      ширина, подписи гаснут по opacity и обрезаются overflow.
+    -->
     <aside
-      class="flex flex-shrink-0 flex-col bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] transition-all duration-300 overflow-hidden box-border"
-      :style="{ width: collapsed ? '68px' : '252px', padding: collapsed ? '18px 10px 16px' : '18px 14px 16px' }"
+      class="flex flex-shrink-0 flex-col overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] transition-[width] duration-[240ms] ease-in-out motion-reduce:transition-none"
+      :style="{ width: collapsed ? '72px' : '256px' }"
     >
       <!-- Brand -->
-      <div class="flex items-center pt-1 pb-[22px]" :class="collapsed ? 'justify-center' : 'gap-2.5 px-1.5'">
+      <div class="flex h-[72px] flex-none items-center gap-3 border-b border-[var(--sidebar-border)] px-[18px]">
         <!-- Лого круглое: подложка тоже круглая, иначе в тёмной теме торчат углы плашки -->
-        <div
-          class="flex flex-none items-center justify-center rounded-full p-[2px] transition-all duration-300 dark:bg-white/[.06]"
-          :style="{ width: collapsed ? '40px' : '56px', height: collapsed ? '40px' : '56px' }"
-        >
+        <div class="flex h-9 w-9 flex-none items-center justify-center rounded-full p-[2px] dark:bg-white/[.06]">
           <img src="/icons/logo-128.png" :alt="t('layout.brandTitle')" class="h-full w-full object-contain" />
         </div>
-        <div v-if="!collapsed" class="flex min-w-0 flex-col leading-[1.18]">
-          <span class="truncate text-[14.5px] font-bold text-[var(--sidebar-text-strong)]">{{ t('layout.brandTitle') }}</span>
-          <span class="truncate text-[11px] text-[var(--sidebar-muted)]">{{ t('layout.brandSubtitle') }}</span>
+        <div
+          class="flex min-w-0 flex-col whitespace-nowrap leading-tight transition-opacity duration-200 ease-out"
+          :class="collapsed ? 'opacity-0' : 'opacity-100'"
+          :aria-hidden="collapsed"
+        >
+          <span class="truncate text-[15px] font-semibold text-[var(--sidebar-text-strong)]">{{ t('layout.brandTitle') }}</span>
+          <span class="truncate text-[11.5px] text-[var(--sidebar-muted)]">{{ t('layout.brandSubtitle') }}</span>
         </div>
       </div>
 
       <!-- Nav -->
-      <nav class="flex-1 overflow-y-auto overflow-x-hidden">
-        <template v-for="(section, si) in sections" :key="section.title">
-          <div
-            v-if="!collapsed"
-            class="text-[10.5px] font-bold uppercase tracking-[.07em] text-[var(--section-label)] px-2.5"
-            :style="{ padding: (si === 0 ? '8px' : '16px') + ' 10px 6px' }"
-          >{{ section.title }}</div>
-          <!-- Свёрнутый сайдбар: заголовков нет, секции разделяем чертой -->
-          <div v-else-if="si > 0" class="mx-auto my-2 h-px w-5 bg-[var(--sidebar-border)]"></div>
+      <nav ref="navEl" @scroll.passive="saveNavScroll" class="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-[15px] pb-4 pt-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          v-for="(section, si) in sections"
+          :key="section.title"
+          :class="section.system ? 'mt-auto pt-5' : (si > 0 ? 'mt-5' : '')"
+        >
+          <!-- Перед «Системой» — черта: здесь кончается рабочая навигация -->
+          <div v-if="section.system" class="mx-3 mb-4 h-px bg-[var(--sidebar-border)]"></div>
 
-          <Link
-            v-for="item in section.items"
-            :key="item.routeName"
-            :href="route(item.routeName)"
-            :title="collapsed ? item.label : null"
-            class="group flex items-center gap-2.5 rounded-[6px] text-[13.5px] font-medium transition-colors"
-            :class="[
-              isActive(item.routeName)
-                ? 'bg-[var(--accent-tint)] text-[var(--accent)] font-bold dark:bg-[var(--accent)] dark:text-white dark:font-semibold'
-                : 'text-[var(--sidebar-text)] hover:bg-[var(--nav-hover)]',
-              collapsed ? 'justify-center' : '',
-            ]"
-            :style="{ padding: collapsed ? '9px 0' : (isActive(item.routeName) ? '9px 10px' : '8px 10px') }"
-          >
-            <span class="relative flex flex-none items-center justify-center">
-              <Icon :kind="item.icon" :size="17" />
-              <!-- Счётчик не помещается — показываем точку, чтобы не терять сигнал о модерации -->
-              <span
-                v-if="collapsed && item.badge && counts[item.badge] > 0"
-                class="absolute -right-[5px] -top-[3px] h-[7px] w-[7px] rounded-full bg-[var(--badge-bg)]"
-              ></span>
-              <!-- «Новое с последнего открытия» — не счётчик очереди, гаснет от одного захода в раздел -->
-              <span
-                v-if="item.newFlag && counts[item.newFlag]"
-                class="absolute -left-[5px] -top-[3px] h-[7px] w-[7px] rounded-full bg-[#4ADE80] ring-2 ring-[var(--sidebar-bg)]"
-              ></span>
-            </span>
-            <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>
+          <!-- Заголовок группы. Высота остаётся и в свёрнутом виде — иначе
+               пункты съезжали бы по вертикали; вместо текста там короткая черта -->
+          <div class="relative mb-1 flex h-6 items-center px-3">
             <span
-              v-if="item.badge && counts[item.badge] > 0 && !collapsed"
-              class="rounded-[4px] bg-[var(--badge-bg)] px-[5px] py-px text-[9px] font-extrabold text-white"
-            >{{ counts[item.badge] }}</span>
-          </Link>
-        </template>
+              class="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--section-label)] transition-opacity duration-200 ease-out"
+              :class="collapsed ? 'opacity-0' : 'opacity-100'"
+              :aria-hidden="collapsed"
+            >{{ section.title }}</span>
+            <span
+              class="absolute left-3 top-1/2 h-px w-[18px] bg-[var(--sidebar-border)] transition-opacity duration-200 ease-out"
+              :class="collapsed && !section.system ? 'opacity-100' : 'opacity-0'"
+            ></span>
+          </div>
+
+          <div class="flex flex-col gap-0.5">
+            <Link
+              v-for="item in section.items"
+              :key="item.routeName"
+              :href="route(item.routeName)"
+              :aria-current="isActive(item.routeName) ? 'page' : null"
+              @mouseenter="showTip($event, item.label)"
+              @mouseleave="hideTip"
+              @focus="showTip($event, item.label)"
+              @blur="hideTip"
+              class="group relative flex h-[38px] items-center gap-3 overflow-hidden rounded-[6px] px-3 text-[14px] outline-none transition-colors duration-200 ease-out focus-visible:ring-1 focus-visible:ring-[var(--nav-indicator)]"
+              :class="isActive(item.routeName)
+                ? 'bg-[var(--nav-item-active)] font-semibold text-[var(--sidebar-text-strong)]'
+                : 'font-medium text-[var(--sidebar-text)] hover:bg-[var(--nav-item-hover)] hover:text-[var(--sidebar-text-strong)]'"
+            >
+              <!-- Индикатор активного пункта: вырастает по вертикали из центра -->
+              <span
+                class="absolute left-0 top-1/2 h-[18px] w-[3px] -translate-y-1/2 rounded-full bg-[var(--nav-indicator)] transition-transform duration-200 ease-out motion-reduce:transition-none"
+                :class="isActive(item.routeName) ? 'scale-y-100' : 'scale-y-0'"
+              ></span>
+
+              <span
+                class="relative flex flex-none items-center justify-center transition-[color,transform] duration-200 ease-out motion-reduce:transition-none"
+                :class="isActive(item.routeName)
+                  ? 'translate-x-px text-[var(--sidebar-text-strong)]'
+                  : 'text-[var(--nav-icon)] group-hover:translate-x-px group-hover:text-[var(--sidebar-text)]'"
+              >
+                <Icon :kind="item.icon" :size="18" />
+                <!-- Счётчик не помещается — показываем точку, чтобы не терять сигнал о модерации -->
+                <span
+                  v-if="item.badge && counts[item.badge] > 0"
+                  class="absolute -right-[4px] -top-[3px] h-[7px] w-[7px] rounded-full bg-[var(--badge-bg)] ring-2 ring-[var(--sidebar-bg)] transition-opacity duration-200"
+                  :class="collapsed ? 'opacity-100' : 'opacity-0'"
+                ></span>
+                <!-- «Новое с последнего открытия» — не счётчик очереди, гаснет от одного захода в раздел -->
+                <span
+                  v-if="item.newFlag && counts[item.newFlag]"
+                  class="absolute -left-[4px] -top-[3px] h-[7px] w-[7px] rounded-full bg-[#4ADE80] ring-2 ring-[var(--sidebar-bg)]"
+                ></span>
+              </span>
+
+              <span
+                class="min-w-0 flex-1 truncate whitespace-nowrap transition-opacity duration-200 ease-out"
+                :class="collapsed ? 'opacity-0' : 'opacity-100'"
+              >{{ item.label }}</span>
+              <span
+                v-if="item.badge && counts[item.badge] > 0"
+                class="h-[18px] min-w-[20px] flex-none rounded-[4px] bg-[var(--badge-bg)] px-1.5 text-center text-[11px] font-semibold leading-[18px] tabular-nums text-white transition-opacity duration-200 ease-out"
+                :class="collapsed ? 'opacity-0' : 'opacity-100'"
+              >{{ counts[item.badge] }}</span>
+            </Link>
+          </div>
+        </div>
       </nav>
 
-      <!-- Collapse toggle -->
-      <div class="mt-auto flex pt-3.5" :class="collapsed ? 'justify-center' : 'justify-end'">
+      <!-- Collapse toggle — того же вида, что пункты меню, иконка на той же оси -->
+      <div class="flex-none border-t border-[var(--sidebar-border)] px-[15px] py-3">
         <button
+          type="button"
           @click="collapsed = !collapsed"
-          :title="collapsed ? t('layout.expand') : t('layout.collapse')"
-          class="flex h-7 w-7 flex-none items-center justify-center rounded-[6px] text-[var(--sidebar-muted)] hover:bg-[var(--nav-hover)] transition-colors cursor-pointer"
+          @mouseenter="showTip($event, t('layout.expand'))"
+          @mouseleave="hideTip"
+          :aria-expanded="!collapsed"
+          class="group flex h-[38px] w-full cursor-pointer items-center gap-3 overflow-hidden rounded-[6px] px-3 text-[14px] font-medium text-[var(--sidebar-muted)] outline-none transition-colors duration-200 ease-out hover:bg-[var(--nav-item-hover)] hover:text-[var(--sidebar-text)] focus-visible:ring-1 focus-visible:ring-[var(--nav-indicator)]"
         >
-          <Icon kind="chevronLeft" :size="15" :class="collapsed ? 'rotate-180' : ''" class="transition-transform duration-300" />
+          <Icon
+            kind="chevronLeft" :size="18"
+            class="transition-transform duration-[240ms] ease-in-out motion-reduce:transition-none"
+            :class="collapsed ? 'rotate-180' : ''"
+          />
+          <span
+            class="whitespace-nowrap transition-opacity duration-200 ease-out"
+            :class="collapsed ? 'opacity-0' : 'opacity-100'"
+          >{{ t('layout.collapse') }}</span>
         </button>
       </div>
     </aside>
+
+    <!-- Подсказка у иконки свёрнутого меню -->
+    <div
+      v-if="tip"
+      role="tooltip"
+      class="pointer-events-none fixed z-50 -translate-y-1/2 whitespace-nowrap rounded-[6px] bg-[#1C2036] px-2.5 py-1.5 text-[12.5px] font-medium text-[#E9EBF3] shadow-[0_4px_12px_rgba(0,0,0,.18)] dark:border dark:border-white/[.08]"
+      :style="{ top: tip.top + 'px', left: tip.left + 'px' }"
+    >{{ tip.text }}</div>
 
     <!-- ── MAIN AREA ─────────────────────────────────────────────────────── -->
     <div class="flex flex-1 flex-col min-w-0 overflow-hidden bg-[var(--content-bg)]">

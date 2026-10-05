@@ -26,14 +26,14 @@ const ICONS = {
     ],
     video: [
         { isCircle: true, cx: 12, cy: 12, r: 9 },
-        { isFilledPath: true, d: 'M10 8.5l6 3.5-6 3.5z' },
+        { isPath: true, d: 'M10 8.8l5.2 3.2-5.2 3.2z' },
     ],
     chat: [
         { isPath: true, d: 'M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5z' },
     ],
     tag: [
         { isPath: true, d: 'M11.5 3H6a2 2 0 0 0-2 2v5.5a2 2 0 0 0 .59 1.41l8 8a2 2 0 0 0 2.82 0l5.5-5.5a2 2 0 0 0 0-2.82l-8-8A2 2 0 0 0 11.5 3z' },
-        { isFilledCircle: true, cx: 7.5, cy: 7.5, r: 1.2 },
+        { isCircle: true, cx: 8, cy: 8, r: 1.3 },
     ],
     pin: [
         { isPath: true, d: 'M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21z' },
@@ -55,6 +55,11 @@ const ICONS = {
         { isCircle: true, cx: 12, cy: 12, r: 9 },
         { isPath: true, d: 'M9.5 15c.4 1 1.3 1.6 2.5 1.6 1.6 0 2.7-.8 2.7-2 0-1.3-1.1-1.7-2.7-2.1-1.6-.4-2.5-.9-2.5-2.1 0-1.2 1.1-2 2.5-2 1.2 0 2.1.6 2.5 1.6' },
         { isPath: true, d: 'M12 7.3v1.1M12 15.6v1.1' },
+    ],
+    // Заявки на тариф: чек — отличается от «Тарифов» (coin) в меню
+    receipt: [
+        { isPath: true, d: 'M6 3h12v18l-3-2-3 2-3-2-3 2z' },
+        { isPath: true, d: 'M9.5 8h5M9.5 11.5h5M9.5 15h3' },
     ],
     chart: [
         { isPath: true, d: 'M5 20V10M12 20V4M19 20v-7' },

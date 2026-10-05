@@ -16,6 +16,11 @@ body { font-family: 'Nunito', sans-serif; }
     --sidebar-muted: #9497A8;
     --section-label: #B3B5C4;
     --nav-hover: #F4F4F8;
+    /* Пункты меню сайдбара: свои токены, --nav-hover общий для всех страниц */
+    --nav-icon: #8A8DA0;
+    --nav-item-hover: rgba(21, 23, 43, .04);
+    --nav-item-active: rgba(59, 74, 102, .08);
+    --nav-indicator: #3B4A66;
     --accent: #3B4A66;
     --accent-hover: #2E3A52;
     --accent-tint: #EEF0F4;
@@ -36,13 +41,17 @@ body { font-family: 'Nunito', sans-serif; }
 }
 
 .dark {
-    --sidebar-bg: #14172A;
-    --sidebar-border: rgba(255, 255, 255, .08);
-    --sidebar-text: rgba(255, 255, 255, .68);
-    --sidebar-text-strong: #F5F5FA;
-    --sidebar-muted: rgba(255, 255, 255, .4);
-    --section-label: rgba(255, 255, 255, .3);
+    --sidebar-bg: #121528;
+    --sidebar-border: rgba(255, 255, 255, .06);
+    --sidebar-text: #A3A9BF;
+    --sidebar-text-strong: #E9EBF3;
+    --sidebar-muted: #7C8299;
+    --section-label: #565C78;
     --nav-hover: rgba(255, 255, 255, .05);
+    --nav-icon: #7C8299;
+    --nav-item-hover: rgba(255, 255, 255, .04);
+    --nav-item-active: rgba(120, 142, 186, .12);
+    --nav-indicator: #7D92B8;
     --accent: #55698C;
     --accent-hover: #64799E;
     --accent-tint: rgba(85, 105, 140, .18);
