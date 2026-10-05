@@ -16,16 +16,20 @@
         <!-- Scripts -->
         @routes
         @php
+            // Echo ходит через тот же nginx, что и админка (location /app → reverb:8080),
+            // поэтому хост, схема и порт — из APP_URL, включая нестандартный порт (:8000 в dev).
+            $appUrl = parse_url((string) config('app.url'));
+            $reverbScheme = $appUrl['scheme'] ?? 'https';
             $reverbConfig = [
                 'key' => config('broadcasting.connections.reverb.key'),
-                'host' => parse_url((string) config('app.url'), PHP_URL_HOST) ?: request()->getHost(),
-                'port' => (parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https') === 'https' ? 443 : 80,
-                'scheme' => parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https',
+                'host' => ($appUrl['host'] ?? null) ?: request()->getHost(),
+                'port' => $appUrl['port'] ?? ($reverbScheme === 'https' ? 443 : 80),
+                'scheme' => $reverbScheme,
             ];
         @endphp
         <script>
             window.__REVERB__ = @json($reverbConfig);
-выдает         </script>
+        </script>
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
     </head>
