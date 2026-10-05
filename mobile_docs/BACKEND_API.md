@@ -10,7 +10,8 @@
 
 **Base URL:** `https://dashoguzsowda.com.tm/api`  
 **Префикс:** `/v1/...`  
-**Auth:** `Authorization: Bearer {token}` (кроме публичных GET)  
+**Auth:** `Authorization: Bearer {token}` — **на всех эндпоинтах**, кроме
+`GET /v1/about`, `POST /v1/auth/send-code` и `POST /v1/auth/verify`. Без токена → `401`.  
 **Locale:** заголовок `Accept-Language: tk` или `ru` (уже используется)
 
 ---
@@ -553,6 +554,11 @@ Alias: мобилка читает `tariff` или `subscription`.
 - `remaining` — сколько ещё можно создать в текущем периоде. При исчерпании
   создание объявления/ролика вернёт `403` с локализованным текстом.
 - `tariff` — `null`, если тарифа нет вовсе.
+- Новый пользователь сразу получает бесплатный тариф. Когда платный истекает,
+  пользователь переводится на бесплатный, а объявления и ролики сверх его
+  лимитов (самые старые одобренные) получают `status: "suspended"` — скрыты
+  из выдачи, но видны владельцу в `/v1/listings/my` и `/v1/videos/my`.
+  Продлит тариф — вернутся сами. Подробнее: `API_CHANGES_tariff_expiry.md`.
 
 ---
 
@@ -617,7 +623,7 @@ Alias: мобилка читает `tariff` или `subscription`.
 
 ## 5. История поиска (Recent)
 
-**Auth:** Bearer token (обязательно). Без авторизации мобилка хранит историю только локально.
+**Auth:** Bearer token (обязательно, как и везде).
 
 ### `GET /v1/search/recent`
 
@@ -714,7 +720,6 @@ PUT body:
 | **Язык** | SharedPreferences (`keyLocale`) |
 | **Тема** | SharedPreferences |
 | **Push toggle** | SharedPreferences + FCM |
-| **История поиска (guest)** | SharedPreferences fallback |
 | **Onboarding locale/theme UI** | SharedPreferences |
 
 ---
@@ -734,8 +739,11 @@ PUT body:
 |---|---|
 | [`API_CHANGES_orders_direct.md`](./API_CHANGES_orders_direct.md) | Заказ ведёт владелец магазина, а не админ; один заказ — один магазин |
 | [`API_CHANGES_commission.md`](./API_CHANGES_commission.md) | Комиссия платформы: удерживается с магазина, покупателю не видна |
-| [`API_CHANGES_wholesale_visibility.md`](./API_CHANGES_wholesale_visibility.md) | Опт видят только розничные продавцы |
+| [`API_CHANGES_wholesale_visibility.md`](./API_CHANGES_wholesale_visibility.md) | Опт видят тарифы с флагом `can_see_wholesale` |
 | [`API_CHANGES_payment_methods.md`](./API_CHANGES_payment_methods.md) | Способ оплаты заказа |
+| [`API_CHANGES_tariff_expiry.md`](./API_CHANGES_tariff_expiry.md) | Бесплатный тариф с регистрации, истечение платного, статус `suspended` |
+| [`API_CHANGES_auth_required.md`](./API_CHANGES_auth_required.md) | Гостевого режима нет: без токена только «О нас» и вход |
+| [`API_CHANGES_order_location.md`](./API_CHANGES_order_location.md) | Геолокация покупателя в заказе (`lat`/`lng`) |
 
 ---
 
@@ -829,7 +837,7 @@ PUT body:
 
 ### `GET /v1/listings/{id}/reviews` — отзывы об объявлении
 
-Публичный (токен не нужен). Отдаёт **только `approved`** — того, что на
+Отдаёт **только `approved`** — того, что на
 модерации или отклонено, в ответе нет. У объявления не в статусе `approved`
 эндпоинт вернёт **404**, как и его карточка.
 
@@ -877,7 +885,7 @@ Query: `sort=latest|rating_desc|rating_asc` (по умолчанию `latest`),
 ### `GET /v1/users/{id}/reviews` — отзывы о продавце
 
 То же самое для отзывов, оставленных о пользователе (`target_user_id`).
-Публичный, формат ответа идентичен.
+Формат ответа идентичен.
 
 ### `GET /v1/reviews/my` — свои отзывы
 
@@ -1118,6 +1126,8 @@ fallback, на него же ложатся типы, которых мобил�
   "city_id": 4,
   "district_id": 9,
   "address": "ул. Магтымгулы, 12, кв. 5",
+  "lat": 37.9601,
+  "lng": 58.3261,
   "comment": "Позвонить за час",
   "payment_method_id": 3
 }
@@ -1126,6 +1136,10 @@ fallback, на него же ложатся типы, которых мобил�
 - `items` — обязателен, до 50 разных товаров, **все из одного магазина**;
   повторы одного `listing_id` складываются.
 - `address` — обязателен всегда (заказ = доставка).
+- `lat`, `lng` — геолокация точки доставки с телефона, **необязательны**:
+  по ней продавец находит, куда везти. Отправлять только парой (одна без
+  другой — 422); диапазоны −90…90 и −180…180. Нет доступа к GPS — не слать,
+  останется адрес текстом.
 - `contact_name`, `phone`, `region_id`, `city_id`, `district_id` — необязательны:
   пусто → берутся из профиля покупателя. Их видит продавец: он звонит и везёт.
 - `payment_method_id` — чем покупатель рассчитается, **необязательно**: пусто
@@ -1146,6 +1160,7 @@ fallback, на него же ложатся типы, которых мобил�
     "contact_name": "Merdan",
     "phone": "+99361234567",
     "address": "ул. Магтымгулы, 12, кв. 5",
+    "location": { "lat": 37.9601, "lng": 58.3261 },
     "city": { "id": 4, "name_tk": "Änew", "name_ru": "Анау" },
     "comment": "Позвонить за час",
     "payment_method": { "id": 3, "name_tk": "Eltip berlende terminal", "name_ru": "Терминал при доставке" },
@@ -1235,6 +1250,7 @@ POST /v1/my/store/orders/{id}/complete                          // отвёз и
     "buyer": { "name": "Merdan", "phone": "+99361234567" },
     "delivery": {
       "address": "ул. Магтымгулы, 12, кв. 5",
+      "location": { "lat": 37.9601, "lng": 58.3261 },
       "region": { "id": 1, "name_tk": "Ahal", "name_ru": "Ахал" },
       "city": { "id": 4, "name_tk": "Änew", "name_ru": "Анау" },
       "district": null,
