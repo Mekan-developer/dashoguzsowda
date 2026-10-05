@@ -135,6 +135,8 @@ it('rejects a non-root category on upload', function () {
 });
 
 it('filters the public feed by root category', function () {
+    actingAsClient();
+
     $other = Category::create([
         'name_ru' => 'Авто', 'name_tk' => 'Awto', 'slug' => 'auto', 'level' => 1, 'is_active' => true,
     ]);
@@ -150,6 +152,8 @@ it('filters the public feed by root category', function () {
 });
 
 it('searches the public feed by title', function () {
+    actingAsClient();
+
     makeVideo(['title' => 'Сдаётся квартира']);
     makeVideo(['title' => 'Продаю машину']);
 
@@ -160,6 +164,8 @@ it('searches the public feed by title', function () {
 });
 
 it('combines title search with category filter', function () {
+    actingAsClient();
+
     $other = Category::create([
         'name_ru' => 'Авто', 'name_tk' => 'Awto', 'slug' => 'auto-combo', 'level' => 1, 'is_active' => true,
     ]);
@@ -199,6 +205,8 @@ it('does not count rejected videos towards the tariff limit', function () {
 // ─── Лента (ТЗ §7, экран 9) ─────────────────────────────────────────────────
 
 it('feed returns only approved videos', function () {
+    actingAsClient();
+
     makeVideo(['title' => 'Одобренный']);
     makeVideo(['status' => 'pending']);
     makeVideo(['status' => 'rejected']);
@@ -207,9 +215,7 @@ it('feed returns only approved videos', function () {
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.title', 'Одобренный')
-        ->assertJsonPath('meta.total', 1)
-        // Гость — ключа is_liked нет
-        ->assertJsonMissingPath('data.0.is_liked');
+        ->assertJsonPath('meta.total', 1);
 });
 
 it('feed exposes is_liked for an authenticated viewer', function () {
@@ -227,6 +233,8 @@ it('feed exposes is_liked for an authenticated viewer', function () {
 });
 
 it('feed filters by tag', function () {
+    actingAsClient();
+
     makeVideo(['tags' => ['Недвижимость', 'Аренда']]);
     makeVideo(['tags' => ['Авто']]);
 
@@ -237,6 +245,8 @@ it('feed filters by tag', function () {
 });
 
 it('hides foreign pending videos in show but lets the owner see their own', function () {
+    actingAsClient();
+
     $video = makeVideo(['status' => 'pending']);
 
     $this->getJson("/api/v1/videos/{$video->id}")->assertNotFound();
@@ -315,6 +325,8 @@ it('forbids a blocked user from liking a video', function () {
 // ─── Просмотры (ТЗ §7.2) ────────────────────────────────────────────────────
 
 it('increments views atomically, skipping the author', function () {
+    actingAsClient();
+
     $video = makeVideo();
 
     // Гость из публичной ленты

@@ -99,7 +99,9 @@ function feedTitles(): Illuminate\Support\Collection
     return collect(test()->getJson('/api/v1/listings')->assertOk()->json('data'))->pluck('title');
 }
 
-it('shows a guest only retail goods and plain listings', function () {
+it('shows a regular client only retail goods and plain listings', function () {
+    actingAsClient();
+
     expect(feedTitles())
         ->toContain('Рис', 'Сахар', 'Велосипед')
         ->not->toContain('Мука мешками', 'Масло ящиками');

@@ -29,8 +29,11 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Мобильное API v1
 |--------------------------------------------------------------------------
-| Разложено по доменам: один домен — один непрерывный блок, внутри него
-| сначала публичное, затем то, что требует auth:sanctum.
+| Разложено по доменам: один домен — один непрерывный блок.
+|
+| Без авторизации — только «О нас» и вход по SMS: приложением пользуются
+| лишь зарегистрированные, у каждого с регистрации есть тариф (бесплатный).
+| Весь контент (лента, справочники, магазины, баннеры…) — под auth:sanctum.
 |
 | Два правила порядка, которые нельзя нарушать при правках:
 |   1. статический сегмент объявляется ДО model binding — иначе «my»,
@@ -66,11 +69,17 @@ Route::prefix('v1')
         });
 
         /*
+        |======================================================================
+        | Всё остальное — только для авторизованных
+        |======================================================================
+        */
+        Route::middleware('auth:sanctum')->group(function () {
+
+        /*
         |----------------------------------------------------------------------
         | Профиль, тариф и настройки текущего пользователя
         |----------------------------------------------------------------------
         */
-        Route::middleware('auth:sanctum')->group(function () {
 
             Route::prefix('profile')->name('profile.')->group(function () {
                 Route::get('/',  [ProfileController::class, 'show'])->name('show');
@@ -124,11 +133,10 @@ Route::prefix('v1')
                 Route::get('/', [PreferenceController::class, 'show'])->name('show');
                 Route::put('/', [PreferenceController::class, 'update'])->name('update');
             });
-        });
 
         /*
         |----------------------------------------------------------------------
-        | Публичные справочники
+        | Справочники
         |----------------------------------------------------------------------
         */
         // Дерево категорий для мобильного приложения
@@ -167,15 +175,13 @@ Route::prefix('v1')
         |----------------------------------------------------------------------
         */
         Route::prefix('search')->name('search.')->group(function () {
-            // Популярные запросы по всему сайту — публичные
+            // Популярные запросы по всему сайту
             Route::get('/popular', [SearchPopularController::class, 'index'])->name('popular');
 
-            // История запросов — только для авторизованных, гость хранит её на устройстве
-            Route::middleware('auth:sanctum')->group(function () {
-                Route::get('/recent',    [SearchRecentController::class, 'index'])->name('recent.index');
-                Route::post('/recent',   [SearchRecentController::class, 'store'])->name('recent.store');
-                Route::delete('/recent', [SearchRecentController::class, 'destroy'])->name('recent.destroy');
-            });
+            // История запросов пользователя
+            Route::get('/recent',    [SearchRecentController::class, 'index'])->name('recent.index');
+            Route::post('/recent',   [SearchRecentController::class, 'store'])->name('recent.store');
+            Route::delete('/recent', [SearchRecentController::class, 'destroy'])->name('recent.destroy');
         });
 
         /*
@@ -186,38 +192,35 @@ Route::prefix('v1')
         Route::prefix('listings')->name('listings.')->group(function () {
             Route::get('/', [ListingController::class, 'index'])->name('index');
 
-            Route::middleware('auth:sanctum')->group(function () {
-                // my — ДО /{listing}, иначе уйдёт в model binding
-                Route::get('/my', [ListingController::class, 'my'])->name('my');
+            // my — ДО /{listing}, иначе уйдёт в model binding
+            Route::get('/my', [ListingController::class, 'my'])->name('my');
 
-                // Публикация и повторная публикация (update возвращает объявление
-                // в pending) — заблокированному недоступны (ТЗ 13.3).
-                Route::post('/', [ListingController::class, 'store'])
-                    ->middleware(['not_blocked', 'throttle:20,1'])->name('store');
+            // Публикация и повторная публикация (update возвращает объявление
+            // в pending) — заблокированному недоступны (ТЗ 13.3).
+            Route::post('/', [ListingController::class, 'store'])
+                ->middleware(['not_blocked', 'throttle:20,1'])->name('store');
 
-                // Multipart-PUT PHP не парсит — обновление слать POST-ом
-                Route::match(['put', 'post'], '/{listing}', [ListingController::class, 'update'])
-                    ->middleware(['not_blocked', 'throttle:20,1'])->can('update', 'listing')->name('update');
+            // Multipart-PUT PHP не парсит — обновление слать POST-ом
+            Route::match(['put', 'post'], '/{listing}', [ListingController::class, 'update'])
+                ->middleware(['not_blocked', 'throttle:20,1'])->can('update', 'listing')->name('update');
 
-                Route::delete('/{listing}',      [ListingController::class, 'destroy'])->can('delete', 'listing')->name('destroy');
-                Route::post('/{listing}/boost',  [ListingController::class, 'boost'])->can('boost', 'listing')->name('boost');
-            });
+            Route::delete('/{listing}',      [ListingController::class, 'destroy'])->can('delete', 'listing')->name('destroy');
+            Route::post('/{listing}/boost',  [ListingController::class, 'boost'])->can('boost', 'listing')->name('boost');
 
             Route::get('/{listing}', [ListingController::class, 'show'])->name('show');
 
-            // Отзывы об объявлении: публично и только approved (ТЗ 8.2)
+            // Отзывы об объявлении: только approved (ТЗ 8.2)
             Route::get('/{listing}/reviews', [ReviewController::class, 'forListing'])->name('reviews');
         });
 
         /*
         |----------------------------------------------------------------------
-        | Ролики (ТЗ §7): публичная лента отдаёт только approved
+        | Ролики (ТЗ §7): лента отдаёт только approved
         |----------------------------------------------------------------------
         */
         Route::prefix('videos')->name('videos.')->group(function () {
             Route::get('/', [VideoController::class, 'index'])->name('index');
 
-            Route::middleware('auth:sanctum')->group(function () {
                 // my — ДО /{video}, иначе уйдёт в model binding
                 Route::get('/my', [VideoController::class, 'my'])->name('my');
 
@@ -240,11 +243,10 @@ Route::prefix('v1')
                     ->middleware(['not_blocked', 'throttle:60,1'])->name('like');
 
                 Route::delete('/{video}', [VideoController::class, 'destroy'])->can('delete', 'video')->name('destroy');
-            });
 
             Route::get('/{video}', [VideoController::class, 'show'])->name('show');
 
-            // Просмотр из ленты доступен и гостю (лента публичная)
+            // Просмотр из ленты
             Route::post('/{video}/view', [VideoController::class, 'view'])->middleware('throttle:60,1')->name('view');
         });
 
@@ -256,7 +258,7 @@ Route::prefix('v1')
         | всегда на один магазин. Заказать можно только товар магазина с
         | доставкой; дальше заказ ведёт сам продавец.
         */
-        Route::middleware('auth:sanctum')->prefix('orders')->name('orders.')->group(function () {
+        Route::prefix('orders')->name('orders.')->group(function () {
             Route::get('/', [OrderController::class, 'index'])->name('index');
 
             Route::post('/', [OrderController::class, 'store'])
@@ -272,7 +274,7 @@ Route::prefix('v1')
         | Избранное (ТЗ 8.1)
         |----------------------------------------------------------------------
         */
-        Route::middleware('auth:sanctum')->prefix('favorites')->name('favorites.')->group(function () {
+        Route::prefix('favorites')->name('favorites.')->group(function () {
             Route::get('/', [FavoriteController::class, 'index'])->name('index');
             Route::post('/', [FavoriteController::class, 'store'])->middleware('throttle:60,1')->name('store');
             Route::delete('/{listing}', [FavoriteController::class, 'destroy'])->middleware('throttle:60,1')->name('destroy');
@@ -283,7 +285,7 @@ Route::prefix('v1')
         | Отзывы и жалобы — уходят на модерацию (ТЗ 8.2/8.3)
         |----------------------------------------------------------------------
         */
-        Route::middleware(['auth:sanctum', 'not_blocked', 'throttle:10,1'])->group(function () {
+        Route::middleware(['not_blocked', 'throttle:10,1'])->group(function () {
             Route::post('/reviews',    [ReviewController::class, 'store'])->name('reviews.store');
             Route::post('/complaints', [ComplaintController::class, 'store'])->name('complaints.store');
 
@@ -293,14 +295,13 @@ Route::prefix('v1')
         });
 
         // Свои отзывы — со статусом модерации и причиной отказа
-        Route::get('/reviews/my', [ReviewController::class, 'my'])
-            ->middleware('auth:sanctum')->name('reviews.my');
+        Route::get('/reviews/my', [ReviewController::class, 'my'])->name('reviews.my');
 
         // Удаление своего отзыва: доступно и заблокированному — он убирает свой текст
         Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])
-            ->middleware('auth:sanctum')->can('delete', 'review')->name('reviews.destroy');
+            ->can('delete', 'review')->name('reviews.destroy');
 
-        // Отзывы о продавце — публичная лента одобренных
+        // Отзывы о продавце — лента одобренных
         Route::get('/users/{user}/reviews', [ReviewController::class, 'forUser'])->name('users.reviews');
 
         /*
@@ -308,9 +309,11 @@ Route::prefix('v1')
         | Чат с поддержкой (единственный диалог пользователя с админом)
         |----------------------------------------------------------------------
         */
-        Route::middleware('auth:sanctum')->prefix('chat')->name('chat.')->group(function () {
+        Route::prefix('chat')->name('chat.')->group(function () {
             Route::get('/',       [ChatController::class, 'index'])->name('index');
             Route::post('/',      [ChatController::class, 'store'])->middleware('throttle:30,1')->name('store');
             Route::patch('/read', [ChatController::class, 'markRead'])->name('read');
         });
+
+        }); // auth:sanctum
     });

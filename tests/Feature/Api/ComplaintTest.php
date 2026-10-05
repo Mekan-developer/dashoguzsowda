@@ -31,7 +31,9 @@ beforeEach(function () {
     $this->reason = ComplaintReason::create(['name_ru' => 'Спам', 'name_tk' => 'Spam', 'is_active' => true]);
 });
 
-it('lists only active complaint reasons publicly', function () {
+it('lists only active complaint reasons', function () {
+    actingAsClient();
+
     ComplaintReason::create(['name_ru' => 'Скрытая', 'name_tk' => 'Gizlin', 'is_active' => false]);
 
     $this->getJson('/api/v1/complaint-reasons')

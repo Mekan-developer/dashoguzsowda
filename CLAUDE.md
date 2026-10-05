@@ -92,6 +92,10 @@
 ## Структура роутов
 
 - Mobile API prefix: `/api/v1/...` → `routes/api/v1.php`, Sanctum-токены
+- **Гостевого режима в API нет** (решение заказчика): пользуются только
+  зарегистрированные, у каждого с регистрации есть тариф. Без токена открыты
+  лишь `GET /v1/about` и `POST /v1/auth/send-code|verify`, всё остальное —
+  в одной группе `auth:sanctum`. Новый эндпоинт кладётся туда же.
 - Admin prefix: `/admin/...` → `routes/web.php`, Inertia + сессия (не API)
 - API контроллеры: `App\Http\Controllers\Api\V1\`
 - Admin контроллеры: `App\Http\Controllers\Admin\`

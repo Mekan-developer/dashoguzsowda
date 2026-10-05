@@ -164,6 +164,8 @@ it('blocks manager from banner routes until the permission is granted, then allo
 });
 
 it('returns only active and in-schedule banners via the api, ordered by sort_order', function () {
+    actingAsClient();
+
     $second = Banner::create(['title_ru' => 'Активный', 'image' => 'banners/a.webp', 'is_active' => true, 'sort_order' => 2]);
     $first = Banner::create(['title_ru' => 'Первый', 'image' => 'banners/b.webp', 'is_active' => true, 'sort_order' => 1]);
     Banner::create(['title_ru' => 'Выключен', 'image' => 'banners/c.webp', 'is_active' => false, 'sort_order' => 3]);

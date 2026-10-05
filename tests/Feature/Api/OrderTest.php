@@ -517,6 +517,8 @@ it('keeps orders of other buyers hidden', function () {
 });
 
 it('marks a listing as orderable only when it can actually be ordered', function () {
+    actingAsClient();
+
     $this->getJson("/api/v1/listings/{$this->listing->id}")
         ->assertOk()
         ->assertJsonPath('data.is_orderable', true);

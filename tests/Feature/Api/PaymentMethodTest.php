@@ -147,6 +147,8 @@ it('не принимает выключенный способ в наборе 
 });
 
 it('отдаёт набор магазина в его публичной карточке', function () {
+    actingAsClient();
+
     $this->store->paymentMethods()->sync([$this->cash->id, $this->transfer->id]);
 
     $this->getJson("/api/v1/stores/{$this->store->id}")

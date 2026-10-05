@@ -143,6 +143,8 @@ it('swaps sort order between siblings on move', function () {
 });
 
 it('hides all descendants of an inactive category from the mobile API even if they are individually active', function () {
+    actingAsClient();
+
     $root = Category::create(['name_ru' => 'Родитель', 'slug' => 'parent-hidden', 'level' => 1, 'order' => 1, 'is_active' => false]);
     $child = Category::create(['name_ru' => 'Ребёнок', 'slug' => 'child-active', 'level' => 2, 'order' => 1, 'parent_id' => $root->id, 'is_active' => true]);
 

@@ -128,11 +128,6 @@ it('removes a listing from favorites idempotently', function () {
 it('exposes is_favorite on listing card for authenticated viewer', function () {
     Favorite::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id]);
 
-    // Гость — ключа нет
-    $this->getJson("/api/v1/listings/{$this->listing->id}")
-        ->assertOk()
-        ->assertJsonMissingPath('data.is_favorite');
-
     Sanctum::actingAs($this->user);
 
     $this->getJson("/api/v1/listings/{$this->listing->id}")

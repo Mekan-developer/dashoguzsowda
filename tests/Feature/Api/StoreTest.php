@@ -32,7 +32,9 @@ function makeStore(array $overrides = []): Store
     ], $overrides));
 }
 
-it('lists only popular stores, ordered by sort_order, without auth', function () {
+it('lists only popular stores, ordered by sort_order', function () {
+    actingAsClient();
+
     $second = makeStore(['name' => 'B', 'is_popular' => true, 'sort_order' => 2]);
     $first  = makeStore(['name' => 'A', 'is_popular' => true, 'sort_order' => 1, 'user_id' => User::factory()->create()->id]);
     makeStore(['name' => 'Hidden', 'is_popular' => false, 'user_id' => User::factory()->create()->id]);
@@ -44,7 +46,9 @@ it('lists only popular stores, ordered by sort_order, without auth', function ()
         ->assertJsonCount(2, 'data');
 });
 
-it('returns a store card without auth', function () {
+it('returns a store card', function () {
+    actingAsClient();
+
     $store = makeStore();
 
     $this->getJson("/api/v1/stores/{$store->id}")
@@ -54,10 +58,14 @@ it('returns a store card without auth', function () {
 });
 
 it('returns 404 for a missing store', function () {
+    actingAsClient();
+
     $this->getJson('/api/v1/stores/999999')->assertNotFound();
 });
 
 it('lists only approved listings attached to the store, paginated', function () {
+    actingAsClient();
+
     $store = makeStore();
 
     Listing::create([
@@ -85,6 +93,8 @@ it('lists only approved listings attached to the store, paginated', function () 
 });
 
 it('hides a store that has not passed moderation', function () {
+    actingAsClient();
+
     $store = makeStore(['status' => 'pending']);
 
     $this->getJson("/api/v1/stores/{$store->id}")->assertNotFound();
@@ -92,12 +102,16 @@ it('hides a store that has not passed moderation', function () {
 });
 
 it('hides a store whose owner tariff expired', function () {
+    actingAsClient();
+
     $store = makeStore(['is_active' => false]);
 
     $this->getJson("/api/v1/stores/{$store->id}")->assertNotFound();
 });
 
 it('filters the public store list by trade type and delivery', function () {
+    actingAsClient();
+
     $wholesaleTariff = Tariff::create([
         'name' => 'Premium', 'name_ru' => 'Премиум', 'name_tk' => 'Premium', 'price' => 250,
         'listings_limit' => 100, 'videos_limit' => 50, 'boost_limit' => 50,

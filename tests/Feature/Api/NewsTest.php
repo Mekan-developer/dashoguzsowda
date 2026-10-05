@@ -15,6 +15,8 @@ function makeNews(array $attributes = []): News
 }
 
 it('returns only published news', function () {
+    actingAsClient();
+
     makeNews(['title_ru' => 'Опубликованная']);
     makeNews(['title_ru' => 'Черновик', 'is_published' => false, 'published_at' => null]);
 
@@ -25,18 +27,24 @@ it('returns only published news', function () {
 });
 
 it('hides news scheduled for the future', function () {
+    actingAsClient();
+
     makeNews(['title_ru' => 'Завтрашняя', 'published_at' => now()->addDay()]);
 
     $this->getJson('/api/v1/news')->assertOk()->assertJsonCount(0, 'data');
 });
 
 it('shows published news without a publication date', function () {
+    actingAsClient();
+
     makeNews(['title_ru' => 'Без даты', 'published_at' => null]);
 
     $this->getJson('/api/v1/news')->assertOk()->assertJsonCount(1, 'data');
 });
 
 it('filters by type', function () {
+    actingAsClient();
+
     makeNews(['title_ru' => 'Обычная', 'type' => 'regular']);
     makeNews(['title_ru' => 'Реклама', 'type' => 'ad']);
 
@@ -47,6 +55,8 @@ it('filters by type', function () {
 });
 
 it('rejects an unknown type', function () {
+    actingAsClient();
+
     $this->getJson('/api/v1/news?type=spam')
         ->assertStatus(422)
         ->assertJsonValidationErrors('type');
@@ -54,6 +64,8 @@ it('rejects an unknown type', function () {
 
 /** Публичный роут без авторизации не должен отдавать всю таблицу по ?limit. */
 it('caps the page size', function () {
+    actingAsClient();
+
     $this->getJson('/api/v1/news?limit=1000000')
         ->assertStatus(422)
         ->assertJsonValidationErrors('limit');
@@ -70,6 +82,8 @@ it('caps the page size', function () {
 });
 
 it('returns newest news first', function () {
+    actingAsClient();
+
     makeNews(['title_ru' => 'Старая', 'published_at' => now()->subDays(3)]);
     makeNews(['title_ru' => 'Новая',  'published_at' => now()->subMinute()]);
 
@@ -79,18 +93,24 @@ it('returns newest news first', function () {
 });
 
 it('returns 404 for a draft news item', function () {
+    actingAsClient();
+
     $draft = makeNews(['is_published' => false, 'published_at' => null]);
 
     $this->getJson("/api/v1/news/{$draft->id}")->assertNotFound();
 });
 
 it('returns 404 for a news item scheduled for the future', function () {
+    actingAsClient();
+
     $scheduled = makeNews(['published_at' => now()->addDay()]);
 
     $this->getJson("/api/v1/news/{$scheduled->id}")->assertNotFound();
 });
 
 it('returns a published news item', function () {
+    actingAsClient();
+
     $news = makeNews(['title_ru' => 'Видимая']);
 
     $this->getJson("/api/v1/news/{$news->id}")

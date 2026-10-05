@@ -138,6 +138,8 @@ it('forbids a blocked user from creating a listing even with a valid token', fun
 // ─── Публичная выдача ───────────────────────────────────────────────────────
 
 it('lists only approved listings, boosted first', function () {
+    actingAsClient();
+
     $pending = makeListing(['status' => 'pending']);
     $old     = makeListing(['title' => 'Старое поднятое', 'is_boosted' => true, 'created_at' => now()->subDay()]);
     $fresh   = makeListing(['title' => 'Новое обычное']);
@@ -150,6 +152,8 @@ it('lists only approved listings, boosted first', function () {
 });
 
 it('searches by title and description', function () {
+    actingAsClient();
+
     makeListing(['title' => 'Продам велосипед']);
     makeListing(['title' => 'Куплю гараж', 'description' => 'Рядом с парком']);
 
@@ -160,6 +164,8 @@ it('searches by title and description', function () {
 });
 
 it('filters by parent category including its subtree', function () {
+    actingAsClient();
+
     makeListing(); // категория-лист внутри rootCategory
 
     $otherRoot = Category::create(['name_ru' => 'Другое', 'name_tk' => 'Başga', 'slug' => 'other', 'level' => 1]);
@@ -171,6 +177,8 @@ it('filters by parent category including its subtree', function () {
 });
 
 it('returns the full 3-level category path', function () {
+    actingAsClient();
+
     $leaf3 = Category::create([
         'parent_id' => $this->leaf->id, 'name_ru' => 'test', 'name_tk' => 'test',
         'slug' => 'test-leaf', 'level' => 3,
@@ -185,6 +193,8 @@ it('returns the full 3-level category path', function () {
 });
 
 it('filters by type and price range', function () {
+    actingAsClient();
+
     makeListing(['type' => 'services', 'price' => 100]);
     makeListing(['type' => 'goods', 'price' => 900]);
 
@@ -193,6 +203,8 @@ it('filters by type and price range', function () {
 });
 
 it('sorts by distance when geolocation is enabled', function () {
+    actingAsClient();
+
     $far  = makeListing(['title' => 'Далеко', 'location' => ['lat' => 40.0, 'lng' => 60.0]]);
     $near = makeListing(['title' => 'Рядом', 'location' => ['lat' => 37.96, 'lng' => 58.39]]);
     makeListing(['title' => 'Без гео', 'location' => null]);
@@ -207,6 +219,8 @@ it('sorts by distance when geolocation is enabled', function () {
 // ─── Карточка и просмотры ──────────────────────────────────────────────────
 
 it('increments views for visitors but not for the owner', function () {
+    actingAsClient();
+
     $listing = makeListing();
 
     $this->getJson("/api/v1/listings/{$listing->id}")->assertOk();
@@ -218,6 +232,8 @@ it('increments views for visitors but not for the owner', function () {
 });
 
 it('hides foreign pending listings but shows own with rejection reason', function () {
+    actingAsClient();
+
     $pending = makeListing(['status' => 'pending']);
 
     $this->getJson("/api/v1/listings/{$pending->id}")->assertNotFound();

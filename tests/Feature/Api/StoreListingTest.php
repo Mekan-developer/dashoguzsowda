@@ -189,6 +189,8 @@ it('filters the store showcase by trade type and stock', function () {
 });
 
 it('filters the store showcase by category leaf and parent subtree', function () {
+    actingAsClient();
+
     $root = Category::create(['name_ru' => 'Техника', 'name_tk' => 'Tehnika', 'slug' => 'tech', 'level' => 1]);
     $mid  = Category::create([
         'parent_id' => $root->id, 'name_ru' => 'Телефоны', 'name_tk' => 'Telefonlar',

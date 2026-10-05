@@ -44,7 +44,15 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Мобильное API без токена отдаёт только «О нас» и вход по SMS — весь
+ * контент для зарегистрированных. Обычный клиент на бесплатном тарифе:
+ * не видит опт, не владеет ничем из тестовых данных.
+ */
+function actingAsClient(): \App\Models\User
 {
-    // ..
+    $user = \App\Models\User::factory()->create();
+    \Laravel\Sanctum\Sanctum::actingAs($user);
+
+    return $user;
 }

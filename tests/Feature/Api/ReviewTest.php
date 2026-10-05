@@ -204,6 +204,8 @@ it('forbids blocked user from editing but allows deleting own review', function 
 });
 
 it('returns only approved reviews of a listing with rating summary', function () {
+    actingAsClient();
+
     $second = User::factory()->create();
 
     Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Отличный товар', 'rating' => 5, 'status' => 'approved']);
@@ -230,6 +232,8 @@ it('returns only approved reviews of a listing with rating summary', function ()
 });
 
 it('sorts listing reviews by rating and paginates', function () {
+    actingAsClient();
+
     foreach ([3, 5, 4] as $i => $rating) {
         Review::create([
             'user_id'    => $this->user->id,
@@ -253,12 +257,16 @@ it('sorts listing reviews by rating and paginates', function () {
 });
 
 it('hides reviews of a listing that has not passed moderation', function () {
+    actingAsClient();
+
     $this->listing->update(['status' => 'pending']);
 
     $this->getJson("/api/v1/listings/{$this->listing->id}/reviews")->assertNotFound();
 });
 
 it('returns approved reviews about a seller', function () {
+    actingAsClient();
+
     Review::create(['user_id' => $this->user->id, 'target_user_id' => $this->owner->id, 'text' => 'Надёжный', 'rating' => 5, 'status' => 'approved']);
     Review::create(['user_id' => $this->user->id, 'target_user_id' => $this->owner->id, 'text' => 'Ждём',     'rating' => 2, 'status' => 'pending']);
 
@@ -289,6 +297,8 @@ it('shows own reviews with moderation status', function () {
 });
 
 it('exposes listing rating in feed and card', function () {
+    actingAsClient();
+
     Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Пять', 'rating' => 5, 'status' => 'approved']);
     Review::create(['user_id' => $this->user->id, 'listing_id' => $this->listing->id, 'text' => 'Три',  'rating' => 3, 'status' => 'approved']);
     // Оценка на модерации в среднее не попадает
