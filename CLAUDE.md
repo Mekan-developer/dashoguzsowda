@@ -261,7 +261,9 @@
 - `listings.is_boosted`, `listings.boosted_at`
 - Интервал между поднятиями задаётся в настройках системы (таблица `settings` или конфиг).
 - `ListingService::canBoost(Listing $listing): bool`
-- Лимит поднятий берётся из тарифа пользователя.
+- Лимит поднятий берётся из тарифа пользователя. Поднятие из админки его
+  не проверяет (`BoostListingAction::execute(..., ignoreTariffLimit: true)`),
+  интервал между поднятиями действует и там.
 
 ---
 

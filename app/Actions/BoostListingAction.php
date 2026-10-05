@@ -13,7 +13,12 @@ class BoostListingAction
         private readonly CheckBoostLimitAction $checkBoostLimitAction,
     ) {}
 
-    public function execute(Listing $listing): void
+    /**
+     * @param  bool  $ignoreTariffLimit  поднятие из админки: лимит поднятий
+     *                                   тарифа владельца на админа не действует,
+     *                                   интервал между поднятиями — действует
+     */
+    public function execute(Listing $listing, bool $ignoreTariffLimit = false): void
     {
         if (! $this->listingService->canBoost($listing)) {
             throw ValidationException::withMessages([
@@ -21,7 +26,9 @@ class BoostListingAction
             ]);
         }
 
-        $this->checkBoostLimitAction->execute($listing);
+        if (! $ignoreTariffLimit) {
+            $this->checkBoostLimitAction->execute($listing);
+        }
 
         $this->listingService->boost($listing);
     }

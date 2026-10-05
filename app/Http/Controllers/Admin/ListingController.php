@@ -17,6 +17,7 @@ use App\Repositories\Interfaces\RegionRepositoryInterface;
 use App\Services\ListingService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class ListingController extends Controller
@@ -115,7 +116,13 @@ class ListingController extends Controller
 
     public function boost(Listing $listing)
     {
-        $this->boostAction->execute($listing);
+        // Отказ («интервал не прошёл») не привязан ни к одному полю формы —
+        // без тоста кнопка просто молчала бы.
+        try {
+            $this->boostAction->execute($listing, ignoreTariffLimit: true);
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'error', 'message' => collect($e->errors())->flatten()->first()]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('messages.listing_boosted')]);
     }

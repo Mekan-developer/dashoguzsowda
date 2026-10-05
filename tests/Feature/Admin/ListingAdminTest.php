@@ -6,6 +6,7 @@ use App\Models\City;
 use App\Models\Listing;
 use App\Models\ListingMedia;
 use App\Models\Region;
+use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -120,6 +121,55 @@ it('lets admin boost and delete a listing', function () {
 
     $this->delete(route('listings.destroy', $listing))->assertRedirect(route('listings.index'));
     expect(Listing::find($listing->id))->toBeNull();
+});
+
+/** Лимит поднятий тарифа — для владельца в мобилке, на админа он не действует */
+it('lets admin boost a listing even when the owner boost limit is used up', function () {
+    $tariff = Tariff::create([
+        'name_ru' => 'Free', 'name_tk' => 'Free', 'listings_limit' => 5, 'videos_limit' => 1,
+        'boost_limit' => 1, 'duration_days' => null, 'is_free' => true, 'is_active' => true,
+    ]);
+    $this->owner->forceFill(['tariff_id' => $tariff->id, 'tariff_ends_at' => null])->save();
+
+    $make = fn (array $attrs) => Listing::create([
+        'user_id' => $this->owner->id,
+        'category_id' => $this->leaf->id,
+        'region_id' => $this->region->id,
+        'city_id' => $this->city->id,
+        'title' => 'Объявление',
+        'type' => 'goods',
+        'phone' => $this->owner->phone,
+        'status' => 'approved',
+        ...$attrs,
+    ]);
+    $make(['is_boosted' => true, 'boosted_at' => now()]);
+    $listing = $make([]);
+
+    $this->actingAs($this->admin);
+
+    $this->patch(route('listings.boost', $listing))->assertRedirect();
+    expect($listing->fresh()->is_boosted)->toBeTrue();
+});
+
+it('shows an error toast when admin boosts before the interval has passed', function () {
+    $listing = Listing::create([
+        'user_id' => $this->owner->id,
+        'category_id' => $this->leaf->id,
+        'region_id' => $this->region->id,
+        'city_id' => $this->city->id,
+        'title' => 'Только что поднятое',
+        'type' => 'goods',
+        'phone' => $this->owner->phone,
+        'status' => 'approved',
+        'is_boosted' => true,
+        'boosted_at' => now(),
+    ]);
+
+    $this->actingAs($this->admin);
+
+    $this->patch(route('listings.boost', $listing))
+        ->assertRedirect()
+        ->assertSessionHas('toast', ['type' => 'error', 'message' => __('messages.boost_interval_not_passed')]);
 });
 
 it('forbids manager from deleting a listing', function () {
