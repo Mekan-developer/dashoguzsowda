@@ -166,8 +166,11 @@ const sections = computed(() => [
     ]},
 ])
 
+// Пункт подсвечивается на всём разделе, а не только на списке:
+// users.index → users.* (users.show, users.edit, …)
 function isActive(routeName) {
-    try { return route().current(routeName) } catch { return false }
+    const pattern = routeName.endsWith('.index') ? routeName.replace(/\.index$/, '.*') : routeName
+    try { return route().current(pattern) } catch { return false }
 }
 
 const eyebrow = computed(() => sections.value.find(s => s.items.some(i => isActive(i.routeName)))?.eyebrow ?? '')
