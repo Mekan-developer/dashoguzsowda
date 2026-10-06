@@ -1,5 +1,6 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
+import twColors from 'tailwindcss/colors';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -12,32 +13,50 @@ export default {
     ],
     theme: {
         extend: {
+            /*
+             * Дизайн-система админки. Эталон — страница «Объявления» и токены
+             * в resources/css/app.css. Старые имена (blue, ink, muted, dcard…)
+             * сохранены, но смотрят в ту же палитру — сотни классов по страницам
+             * получают единый вид без переписывания каждой.
+             * blue / muted / link — через rgb-каналы CSS-переменных: у них разные
+             * значения в светлой и тёмной теме, а модификаторы /10 должны работать.
+             */
             colors: {
                 navy:    '#1e2a3b',
-                blue:    { DEFAULT: '#4361ee', dark: '#3451d1', light: '#e8ecfd' },
-                teal:    '#00b4d8',
-                green:   '#06d6a0',
-                orange:  '#fb8500',
-                pink:    '#f72585',
-                purple:  '#7c3aed',
-                red:     '#ef4444',
-                ink:     '#2d3748',
-                muted:   '#718096',
-                line:    '#e2e8f0',
-                surface: '#f4f6fb',
-                dnavy:   '#141d2b',
-                dbg:     '#0f1623',
-                dcard:   '#1a2332',
-                dline:   '#2d3748',
+                blue:    {
+                    DEFAULT: 'rgb(var(--c-accent) / <alpha-value>)',
+                    dark:    'rgb(var(--c-accent-hover) / <alpha-value>)',
+                    light:   'var(--accent-tint)',
+                },
+                // Текст-ссылка: акцент, но светлее в тёмной теме — для контраста
+                link:    'rgb(var(--c-link) / <alpha-value>)',
+                teal:    '#0E9FB5',
+                // Семантика: одинаковые тона в обеих темах, читаются и как текст,
+                // и как заливка кнопки с белым текстом
+                green:   { ...twColors.green, DEFAULT: '#22A06B' },
+                orange:  '#D97706',
+                pink:    '#DB2777',
+                purple:  '#7C5CD6',
+                // Шкала red-500/600… нужна бейджам и кнопкам-иконкам; red без номера — наш тон
+                red:     { ...twColors.red, DEFAULT: '#DC4C4C' },
+                ink:     '#15172B',
+                muted:   'rgb(var(--c-muted) / <alpha-value>)',
+                line:    '#EAEAF0',
+                surface: '#F4F5F8',
+                dnavy:   '#121528',
+                dbg:     '#181B2E',
+                dcard:   '#20233B',
+                dline:   '#2E3148',
             },
             borderRadius: {
-                card: '16px',
-                btn:  '10px',
-                pill: '20px',
+                card: '12px',
+                btn:  '8px',
+                pill: '9999px',
             },
             boxShadow: {
-                soft:  '0 1px 8px rgba(0,0,0,0.05)',
-                'lg2': '0 8px 24px rgba(0,0,0,0.09)',
+                // Карточки без рамки получают тонкий контур вместо тени
+                soft:  '0 0 0 1px var(--card-border)',
+                'lg2': '0 12px 32px rgba(10, 12, 30, .16)',
             },
             fontFamily: {
                 sans: ['Nunito', ...defaultTheme.fontFamily.sans],

@@ -26,6 +26,7 @@ createInertiaApp({
             .mount(el);
     },
     progress: {
-        color: '#4361ee',
+        // Цвет индикатора меню — читается в обеих темах
+        color: 'var(--nav-indicator)',
     },
 });

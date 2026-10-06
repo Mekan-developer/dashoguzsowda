@@ -38,6 +38,11 @@ body { font-family: 'Nunito', sans-serif; }
     --status-ok: #22C55E;
     --status-bad: #EF4444;
     --status-glow: none;
+    /* rgb-каналы для tailwind-цветов blue / link / muted (tailwind.config.js) */
+    --c-accent: 59 74 102;
+    --c-accent-hover: 46 58 82;
+    --c-link: 59 74 102;
+    --c-muted: 110 114 138;
 }
 
 .dark {
@@ -69,22 +74,79 @@ body { font-family: 'Nunito', sans-serif; }
     --status-ok: #4ADE80;
     --status-bad: #F26D6D;
     --status-glow: 0 0 6px currentColor;
+    --c-accent: 85 105 140;
+    --c-accent-hover: 100 121 158;
+    --c-link: 143 163 200;
+    --c-muted: 143 148 173;
 }
 
 /* Form fields (drawer-формы: News, Tariffs, Reviews, Statistics) */
 @layer components {
+    /* Поле ввода: 40px, радиус 8px — как поиск и фильтры на «Объявлениях» */
     .input {
-        @apply w-full box-border rounded-[10px] px-[13px] py-[10px] text-sm outline-none transition-shadow;
+        @apply w-full box-border min-h-[40px] rounded-[8px] px-3 py-[9px] text-[13.5px] outline-none transition-[border-color,box-shadow] duration-150 ease-out;
         background: var(--field-bg);
         border: 1px solid var(--field-border);
         color: var(--text);
     }
+    .input:hover:not(:focus):not(:disabled) { border-color: var(--text-muted); }
     .input:focus {
         border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-tint);
         --tw-ring-shadow: 0 0 #0000; /* глушим ring от @tailwindcss/forms */
     }
+    .input:disabled { @apply cursor-not-allowed opacity-60; }
     .input::placeholder { color: var(--text-muted); }
+
+    /*
+     * Дизайн-система админки. Эталон — страница «Объявления»:
+     * кнопки 40px (малые 34px), радиус 8px, переходы 150ms, без теней и свечения.
+     */
+    .btn {
+        @apply inline-flex h-10 flex-shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[8px] px-4 text-[13.5px] font-semibold outline-none transition-colors duration-150 ease-out;
+        @apply focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)];
+        @apply disabled:cursor-not-allowed disabled:opacity-50;
+    }
+    .btn-sm { @apply h-[34px] px-3 text-[13px]; }
+    .btn-primary { @apply bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]; }
+    .btn-secondary {
+        @apply border border-[var(--field-border)] bg-transparent text-[var(--text-secondary)];
+        @apply hover:bg-[var(--nav-hover)] hover:text-[var(--text)];
+    }
+    .btn-danger { @apply bg-red text-white hover:bg-red/90; }
+    .btn-success { @apply bg-green text-white hover:bg-green/90; }
+    /* Мягкие действия модерации: одобрить / отклонить в карточке сущности */
+    .btn-green-soft { @apply bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300; }
+    .btn-red-soft   { @apply bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:text-red-300; }
+    .btn-ghost { @apply text-[var(--text-secondary)] hover:bg-[var(--nav-hover)] hover:text-[var(--text)]; }
+
+    /* Квадратная кнопка-иконка в строке таблицы / карточке (34px) */
+    .icon-btn {
+        @apply inline-flex h-[34px] w-[34px] flex-shrink-0 cursor-pointer items-center justify-center rounded-[8px] outline-none transition-colors duration-150 ease-out;
+        @apply bg-[var(--nav-hover)] text-[var(--text-secondary)] hover:bg-sky-500/15 hover:text-sky-600 dark:hover:text-sky-300;
+        @apply focus-visible:ring-2 focus-visible:ring-[var(--accent)];
+        @apply disabled:cursor-not-allowed disabled:opacity-40;
+    }
+    .icon-btn-success { @apply bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300; }
+    .icon-btn-danger  { @apply bg-red-500/10 text-red-600 hover:bg-red-500/20 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300; }
+
+    /* Карточка-поверхность: тонкая рамка вместо тени, радиус 12px */
+    .card { @apply rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]; }
+    .card-title { @apply text-[15px] font-semibold text-[var(--text)]; }
+
+    /* Сегментированный контрол (вкладки-фильтры), 42px — как статусы на «Объявлениях» */
+    .seg { @apply flex h-[42px] max-w-full items-center gap-0.5 overflow-x-auto rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1; scrollbar-width: none; }
+    .seg-item { @apply h-full flex-none cursor-pointer whitespace-nowrap rounded-[6px] px-3.5 text-[13px] font-medium text-[var(--text-secondary)] transition-colors duration-150 ease-out hover:bg-[var(--nav-hover)] hover:text-[var(--text)]; }
+    .seg-item-active { @apply bg-[var(--accent)] font-semibold text-white hover:bg-[var(--accent)] hover:text-white; }
+
+    /* Select-фильтр над таблицей: 42px, как поиск и сегменты */
+    .filter-select {
+        @apply h-[42px] max-w-[260px] cursor-pointer rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] py-0 pl-3 pr-9 text-[13px] font-medium text-[var(--text)] outline-none transition-colors duration-150 ease-out;
+        @apply hover:border-[var(--text-muted)] focus:border-[var(--accent)] focus:ring-[3px] focus:ring-[var(--accent-tint)];
+    }
+
+    /* Подпись поля формы */
+    .field-label { @apply mb-1.5 block text-[12.5px] font-medium text-[var(--text-secondary)]; }
 }
 
 /* Toggle switch */
@@ -94,6 +156,9 @@ body { font-family: 'Nunito', sans-serif; }
 .tog-slider::before { content:''; @apply absolute w-[18px] h-[18px] rounded-full bg-white left-[3px] top-[3px] transition-transform duration-200 shadow-sm; }
 .tog input:checked ~ .tog-slider { @apply bg-blue; }
 .tog input:checked ~ .tog-slider::before { @apply translate-x-5; }
+.dark .tog-slider { background: #3A3E58; }
+.tog input:focus-visible ~ .tog-slider { box-shadow: 0 0 0 3px var(--accent-tint); }
+.tog input:disabled ~ .tog-slider { @apply cursor-not-allowed opacity-50; }
 
 /* Theme transitions */
 body, .card-theme { transition: background .3s, color .3s, border-color .3s; }
