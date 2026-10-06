@@ -7,6 +7,9 @@ import Icon from '@/Components/Icon.vue'
 import Pagination from '@/Components/Pagination.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
+import StatCard from '@/Components/StatCard.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import { th, tr, thead } from '@/table'
 
 // Раздел только для наблюдения: заказ ведёт владелец магазина — принимает,
 // везёт сам и получает деньги. Админу здесь важно одно: кто, у какого магазина,
@@ -134,136 +137,89 @@ function mapUrl(order) {
     return `https://www.google.com/maps?q=${order.latitude},${order.longitude}`
 }
 
-const th = 'px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[.06em] text-muted whitespace-nowrap'
-const td = 'px-4 py-3 align-top'
+// Ячейки сверху: в строке заказа по две строки текста разной длины
+const td = 'px-5 py-3.5 align-top text-[13.5px]'
 </script>
 
 <template>
   <AppLayout>
     <template #header>{{ t('orders.title') }}</template>
 
-    <p class="mb-4 text-[13px] text-muted">{{ t('orders.hint') }}</p>
+    <template #description>{{ t('orders.hint') }}</template>
 
-    <!-- ── Фильтры ─────────────────────────────────────────────────────── -->
-    <div class="mb-4 rounded-card bg-white p-4 shadow-soft dark:bg-dcard">
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_13rem_10rem_10rem]">
-        <div>
-          <label class="mb-1 block text-[11px] font-semibold text-muted">{{ t('common.search') }}</label>
-          <SearchInput
-            v-model="search"
-            :placeholder="t('orders.searchPlaceholder')"
-            @submit="apply()"
-          />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-[11px] font-semibold text-muted">{{ t('orders.colStore') }}</label>
-          <select v-model="storeFilter" @change="apply()" class="input h-[38px] w-full py-0">
-            <option value="">{{ t('orders.allStores') }}</option>
-            <option v-for="store in stores" :key="store.id" :value="String(store.id)">{{ store.name }}</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="mb-1 block text-[11px] font-semibold text-muted">{{ t('orders.dateFrom') }}</label>
-          <input v-model="from" type="date" :max="to || undefined" @change="apply()" class="input h-[38px] w-full py-0" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-[11px] font-semibold text-muted">{{ t('orders.dateTo') }}</label>
-          <input v-model="to" type="date" :min="from || undefined" @change="apply()" class="input h-[38px] w-full py-0" />
-        </div>
+    <!-- ── Фильтры: одна строка одной высоты, переносится на узком экране ── -->
+    <div class="mb-3 flex flex-wrap items-center gap-2.5">
+      <SearchInput
+        v-model="search"
+        :placeholder="t('orders.searchPlaceholder')"
+        class="w-full sm:w-[280px]"
+        @submit="apply()"
+      />
+      <select v-model="storeFilter" @change="apply()" :aria-label="t('orders.colStore')" class="filter-select">
+        <option value="">{{ t('orders.allStores') }}</option>
+        <option v-for="store in stores" :key="store.id" :value="String(store.id)">{{ store.name }}</option>
+      </select>
+      <div class="flex items-center gap-1.5">
+        <input v-model="from" type="date" :max="to || undefined" @change="apply()" :aria-label="t('orders.dateFrom')" :title="t('orders.dateFrom')" class="filter-select !pr-3 font-data" />
+        <span class="text-[var(--text-muted)]">–</span>
+        <input v-model="to" type="date" :min="from || undefined" @change="apply()" :aria-label="t('orders.dateTo')" :title="t('orders.dateTo')" class="filter-select !pr-3 font-data" />
       </div>
+      <button v-if="hasFilters" type="button" @click="resetFilters" class="btn btn-ghost btn-sm">
+        <Icon kind="close" :size="14" />{{ t('orders.resetFilters') }}
+      </button>
+    </div>
 
-      <div class="mt-3 flex flex-wrap items-center gap-1.5">
+    <div class="mb-5 flex flex-wrap items-center gap-2.5">
+      <div class="seg">
         <button
-          v-for="item in statuses"
-          :key="item.value"
+          v-for="item in statuses" :key="item.value"
+          type="button"
           @click="setStatus(item.value)"
-          class="flex items-center gap-1.5 rounded-pill px-3 py-1 text-[12px] font-bold transition"
-          :class="statusFilter === item.value
-            ? 'bg-[var(--accent)] text-white'
-            : 'bg-surface text-ink hover:bg-line dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10'"
-        >
-          {{ item.label }}
-          <span
-            v-if="item.count"
-            class="rounded-pill px-1.5 text-[11px] font-extrabold"
-            :class="statusFilter === item.value ? 'bg-white/25' : 'bg-orange/15 text-orange'"
-          >{{ item.count }}</span>
-        </button>
-
-        <button
-          v-if="hasFilters"
-          @click="resetFilters"
-          class="ml-auto flex items-center gap-1 text-[12px] font-semibold text-muted transition hover:text-red"
-        >
-          <Icon kind="close" :size="12" />
-          {{ t('orders.resetFilters') }}
-        </button>
+          :aria-pressed="statusFilter === item.value"
+          class="seg-item"
+          :class="statusFilter === item.value ? 'seg-item-active' : ''"
+        >{{ item.label }}<template v-if="item.count"> ({{ item.count }})</template></button>
       </div>
     </div>
 
     <!-- ── Сводка по выбранным заказам ─────────────────────────────────── -->
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-      <div class="rounded-card bg-white px-4 py-3 shadow-soft dark:bg-dcard">
-        <div class="text-[11px] font-semibold text-muted">{{ t('orders.sumOrders') }}</div>
-        <div class="mt-1 font-data text-[22px] font-black leading-tight text-ink dark:text-slate-100">{{ summary.orders }}</div>
-      </div>
-      <div class="rounded-card bg-white px-4 py-3 shadow-soft dark:bg-dcard">
-        <div class="text-[11px] font-semibold text-muted">{{ t('orders.sumBuyers') }}</div>
-        <div class="mt-1 font-data text-[22px] font-black leading-tight text-ink dark:text-slate-100">{{ summary.buyers }}</div>
-      </div>
-      <div class="rounded-card bg-white px-4 py-3 shadow-soft dark:bg-dcard">
-        <div class="text-[11px] font-semibold text-muted">{{ t('orders.sumQty') }}</div>
-        <div class="mt-1 font-data text-[22px] font-black leading-tight text-ink dark:text-slate-100">{{ money(summary.qty) }}</div>
-      </div>
-      <div class="rounded-card bg-white px-4 py-3 shadow-soft dark:bg-dcard">
-        <div class="text-[11px] font-semibold text-muted">{{ t('orders.sumTotal') }}</div>
-        <div class="mt-1 font-data text-[22px] font-black leading-tight text-ink dark:text-slate-100">
-          {{ money(summary.total) }} <span class="text-[13px] font-bold text-muted">{{ t('orders.amountUnit') }}</span>
-        </div>
-      </div>
-      <div class="rounded-card bg-white px-4 py-3 shadow-soft dark:bg-dcard">
-        <div class="text-[11px] font-semibold text-muted">{{ t('orders.sumCommission') }}</div>
-        <div class="mt-1 font-data text-[22px] font-black leading-tight text-purple">
-          {{ money(summary.commission) }} <span class="text-[13px] font-bold">{{ t('orders.amountUnit') }}</span>
-        </div>
-      </div>
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <StatCard :label="t('orders.sumOrders')" :value="summary.orders" icon="cart" />
+      <StatCard :label="t('orders.sumBuyers')" :value="summary.buyers" icon="users" />
+      <StatCard :label="t('orders.sumQty')" :value="money(summary.qty)" icon="listing" />
+      <StatCard :label="t('orders.sumTotal')" :value="`${money(summary.total)} ${t('orders.amountUnit')}`" icon="coin" tone="success" />
+      <StatCard :label="t('orders.sumCommission')" :value="`${money(summary.commission)} ${t('orders.amountUnit')}`" icon="receipt" tone="info" />
     </div>
-    <p class="mb-5 mt-2 text-[11px] text-muted">{{ t('orders.summaryNote') }}</p>
+    <p class="mb-6 mt-2 text-[12px] text-[var(--text-muted)]">{{ t('orders.summaryNote') }}</p>
 
     <!-- ── Вкладки и сортировка ────────────────────────────────────────── -->
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <div class="inline-flex rounded-btn bg-surface p-1 dark:bg-white/5">
+      <div class="seg !h-10">
         <button
           v-for="tab in [{ value: 'orders', label: t('orders.viewOrders') }, { value: 'buyers', label: t('orders.viewBuyers') }]"
           :key="tab.value"
+          type="button"
           @click="apply({ view: tab.value })"
-          class="rounded-[8px] px-4 py-1.5 text-[13px] font-bold transition"
-          :class="view === tab.value
-            ? 'bg-white text-ink shadow-soft dark:bg-dcard dark:text-slate-100'
-            : 'text-muted hover:text-ink dark:hover:text-slate-200'"
+          :aria-pressed="view === tab.value"
+          class="seg-item"
+          :class="view === tab.value ? 'seg-item-active' : ''"
         >{{ tab.label }}</button>
       </div>
 
-      <button
-        @click="toggleSort"
-        class="flex items-center gap-1.5 rounded-btn border border-line bg-white px-3 py-1.5 text-[12px] font-bold text-ink transition hover:bg-surface dark:border-dline dark:bg-dcard dark:text-slate-200 dark:hover:bg-white/5"
-      >
-        <Icon :kind="sort === 'desc' ? 'arrowDown' : 'arrowUp'" :size="12" />
+      <button type="button" @click="toggleSort" class="btn btn-secondary btn-sm">
+        <Icon :kind="sort === 'desc' ? 'arrowDown' : 'arrowUp'" :size="14" />
         {{ sort === 'desc' ? t('orders.sortNewest') : t('orders.sortOldest') }}
       </button>
     </div>
 
     <!-- ── Заказы ──────────────────────────────────────────────────────── -->
-    <div v-if="view === 'orders' && orders" class="overflow-hidden rounded-card bg-white shadow-soft dark:bg-dcard">
+    <div v-if="view === 'orders' && orders" class="overflow-hidden card">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="border-b border-line dark:border-dline">
-            <tr>
+          <thead>
+            <tr :class="thead">
               <th :class="th">
-                <button @click="toggleSort" class="flex items-center gap-1 uppercase hover:text-ink dark:hover:text-slate-200">
+                <button type="button" @click="toggleSort" class="flex items-center gap-1 uppercase hover:text-[var(--text)]">
                   {{ t('orders.colDate') }}
                   <Icon :kind="sort === 'desc' ? 'arrowDown' : 'arrowUp'" :size="10" />
                 </button>
@@ -274,27 +230,28 @@ const td = 'px-4 py-3 align-top'
               <th :class="[th, 'text-right']">{{ t('orders.colQty') }}</th>
               <th :class="[th, 'text-right']">{{ t('orders.colTotal') }}</th>
               <th :class="th">{{ t('common.status') }}</th>
-              <th class="w-8"></th>
+              <th class="w-12"></th>
             </tr>
           </thead>
           <tbody>
             <template v-for="order in orders.data" :key="order.id">
               <tr
                 @click="toggle(order.id)"
-                class="cursor-pointer border-b border-line transition hover:bg-surface/50 dark:border-dline dark:hover:bg-white/3"
-                :class="expanded.has(order.id) ? 'bg-surface/50 dark:bg-white/3' : ''"
+                :aria-expanded="expanded.has(order.id)"
+                class="cursor-pointer border-b border-[var(--card-border)] transition-colors duration-150 hover:bg-[var(--nav-hover)]"
+                :class="expanded.has(order.id) ? 'bg-[var(--nav-hover)]' : ''"
               >
                 <td :class="[td, 'whitespace-nowrap']">
                   <div class="text-[13px] font-semibold text-ink dark:text-slate-100">{{ date(order.created_at) }}</div>
-                  <div class="text-[11px] text-muted">{{ time(order.created_at) }}</div>
+                  <div class="text-[12px] text-muted">{{ time(order.created_at) }}</div>
                 </td>
 
-                <td :class="[td, 'whitespace-nowrap font-data text-[13px] font-bold text-ink dark:text-slate-100']">
+                <td :class="[td, 'whitespace-nowrap font-data text-[13px] font-semibold text-[var(--text)]']">
                   №{{ orderNumber(order) }}
                 </td>
 
                 <td :class="td">
-                  <div class="text-[13px] font-bold text-ink dark:text-slate-100">{{ order.contact_name || order.user?.name || '—' }}</div>
+                  <div class="text-[13px] font-semibold text-[var(--text)]">{{ order.contact_name || order.user?.name || '—' }}</div>
                   <div class="text-[12px] text-muted">{{ order.phone }}</div>
                 </td>
 
@@ -303,41 +260,41 @@ const td = 'px-4 py-3 align-top'
                   <button
                     v-if="part(order)?.store"
                     @click.stop="setStore(part(order).store.id)"
-                    class="text-left text-[13px] font-bold text-ink transition hover:text-blue dark:text-slate-100"
+                    class="text-left text-[13px] font-semibold text-[var(--text)] transition hover:text-link"
                   >{{ part(order).store.name }}</button>
                   <div v-else class="text-[13px] text-muted">—</div>
                   <div v-if="part(order)?.user" class="text-[12px] text-muted">{{ part(order).user.name }}</div>
                 </td>
 
                 <td :class="[td, 'whitespace-nowrap text-right']">
-                  <div class="text-[13px] font-bold text-ink dark:text-slate-100">{{ t('orders.pcs', { qty: num(order.items_qty) }) }}</div>
-                  <div class="text-[11px] text-muted">{{ t('orders.itemsCount', { count: order.items_count }) }}</div>
+                  <div class="text-[13px] font-semibold text-[var(--text)]">{{ t('orders.pcs', { qty: num(order.items_qty) }) }}</div>
+                  <div class="text-[12px] text-muted">{{ t('orders.itemsCount', { count: order.items_count }) }}</div>
                 </td>
 
                 <td :class="[td, 'whitespace-nowrap text-right']">
-                  <div class="text-[13px] font-bold text-ink dark:text-slate-100">{{ money(order.total) }} {{ t('orders.amountUnit') }}</div>
-                  <div v-if="num(order.commission_total) > 0" class="text-[11px] font-semibold text-purple">
+                  <div class="text-[13px] font-semibold text-[var(--text)]">{{ money(order.total) }} {{ t('orders.amountUnit') }}</div>
+                  <div v-if="num(order.commission_total) > 0" class="text-[12px] font-semibold text-purple">
                     {{ t('orders.commission') }} {{ money(order.commission_total) }}
                   </div>
                 </td>
 
                 <td :class="td"><StatusBadge :status="order.status" /></td>
 
-                <td class="pr-4 align-middle text-muted">
-                  <Icon kind="chevronDown" :size="14" class="transition" :class="expanded.has(order.id) ? 'rotate-180' : ''" />
+                <td class="pr-4 align-middle text-[var(--text-muted)]">
+                  <span class="icon-btn !h-8 !w-8 !bg-transparent"><Icon kind="chevronDown" :size="16" class="transition-transform duration-150" :class="expanded.has(order.id) ? 'rotate-180' : ''" /></span>
                 </td>
               </tr>
 
               <!-- Подробности: что именно куплено, куда везти и что ответил продавец -->
-              <tr v-if="expanded.has(order.id)" class="border-b border-line dark:border-dline">
-                <td colspan="8" class="bg-surface/40 px-4 py-4 dark:bg-dbg/40">
-                  <div class="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                    <div class="rounded-card bg-white p-4 dark:bg-dcard">
-                      <div class="mb-2 text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.items') }}</div>
+              <tr v-if="expanded.has(order.id)" class="border-b border-[var(--card-border)]">
+                <td colspan="8" class="bg-black/[.015] px-4 py-4 dark:bg-white/[.015] sm:px-5">
+                  <div class="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                    <div class="card p-4">
+                      <div class="card-title mb-3">{{ t('orders.items') }}</div>
                       <div class="overflow-x-auto">
                         <table class="w-full text-[13px]">
                           <thead>
-                            <tr class="text-[11px] text-muted">
+                            <tr class="text-[11.5px] uppercase tracking-[.06em] text-[var(--text-muted)]">
                               <th class="pb-1.5 text-left font-semibold">{{ t('orders.colProduct') }}</th>
                               <th class="pb-1.5 text-right font-semibold">{{ t('orders.colPrice') }}</th>
                               <th class="pb-1.5 text-right font-semibold">{{ t('orders.colQty') }}</th>
@@ -348,19 +305,19 @@ const td = 'px-4 py-3 align-top'
                             <tr v-for="item in part(order)?.items || []" :key="item.id" class="border-t border-line dark:border-dline">
                               <td class="py-1.5 pr-3 text-ink dark:text-slate-200">
                                 {{ item.title }}
-                                <span v-if="item.is_wholesale" class="ml-1 rounded-pill bg-purple/10 px-1.5 py-px text-[10px] font-bold text-purple">
+                                <span v-if="item.is_wholesale" class="ml-1 inline-flex h-5 items-center rounded-full bg-violet-500/10 px-2 text-[12px] font-semibold text-violet-700 dark:text-violet-300">
                                   {{ t('orders.wholesale') }}
                                 </span>
                               </td>
                               <td class="whitespace-nowrap py-1.5 text-right font-data text-muted">{{ money(item.unit_price) }}</td>
                               <td class="whitespace-nowrap py-1.5 text-right font-data text-ink dark:text-slate-200">{{ item.qty }}</td>
-                              <td class="whitespace-nowrap py-1.5 text-right font-data font-bold text-ink dark:text-slate-200">{{ money(item.total) }}</td>
+                              <td class="whitespace-nowrap py-1.5 text-right font-data font-semibold text-[var(--text)]">{{ money(item.total) }}</td>
                             </tr>
                           </tbody>
-                          <tfoot class="border-t-2 border-line dark:border-dline">
+                          <tfoot class="border-t border-[var(--field-border)]">
                             <tr>
                               <td colspan="3" class="pt-2 text-right text-[12px] font-semibold text-muted">{{ t('orders.totalLabel') }}</td>
-                              <td class="whitespace-nowrap pt-2 text-right font-data font-black text-ink dark:text-slate-100">
+                              <td class="whitespace-nowrap pt-2 text-right font-data font-semibold text-[var(--text)]">
                                 {{ money(order.total) }} {{ t('orders.amountUnit') }}
                               </td>
                             </tr>
@@ -377,7 +334,7 @@ const td = 'px-4 py-3 align-top'
                               </tr>
                               <tr>
                                 <td colspan="3" class="pt-1 text-right text-[12px] font-semibold text-muted">{{ t('orders.payout') }}</td>
-                                <td class="whitespace-nowrap pt-1 text-right font-data font-bold text-ink dark:text-slate-200">
+                                <td class="whitespace-nowrap pt-1 text-right font-data font-semibold text-[var(--text)]">
                                   {{ money(payout(order.total, order.commission_total)) }}
                                 </td>
                               </tr>
@@ -387,39 +344,59 @@ const td = 'px-4 py-3 align-top'
                       </div>
                     </div>
 
-                    <div class="space-y-3 rounded-card bg-white p-4 text-[13px] dark:bg-dcard">
+                    <div class="card space-y-3 p-4 text-[13.5px]">
+                      <!-- Ход заказа: из дат, которые уже есть у заказа -->
                       <div>
-                        <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.colDelivery') }}</div>
+                        <div class="card-title mb-3">{{ t('orders.timeline') }}</div>
+                        <ol class="relative space-y-3 border-l border-[var(--card-border)] pl-4">
+                          <li class="relative">
+                            <span class="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--card-bg)] bg-[var(--text-muted)]"></span>
+                            <div class="text-[var(--text)]">{{ t('orders.timelineCreated') }}</div>
+                            <div class="font-data text-[12px] text-[var(--text-muted)]">{{ date(order.created_at) }} {{ time(order.created_at) }}</div>
+                          </li>
+                          <li v-if="order.decided_at" class="relative">
+                            <span class="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--card-bg)] bg-[var(--text-muted)]"></span>
+                            <div class="text-[var(--text)]">{{ t('orders.timelineDecided') }}</div>
+                            <div class="font-data text-[12px] text-[var(--text-muted)]">{{ date(order.decided_at) }} {{ time(order.decided_at) }}</div>
+                          </li>
+                          <li class="relative">
+                            <span class="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--card-bg)] bg-[var(--accent)]"></span>
+                            <div class="flex items-center gap-2"><span class="text-[var(--text-muted)]">{{ t('orders.timelineNow') }}:</span><StatusBadge :status="order.status" /></div>
+                          </li>
+                        </ol>
+                      </div>
+                      <div class="border-t border-[var(--card-border)] pt-3">
+                        <div class="text-[12px] text-[var(--text-muted)]">{{ t('orders.colDelivery') }}</div>
                         <div class="mt-0.5 text-ink dark:text-slate-200">{{ deliveryLine(order) || '—' }}</div>
                         <a
                           v-if="mapUrl(order)"
                           :href="mapUrl(order)" target="_blank" rel="noopener"
-                          class="mt-0.5 inline-block text-[12px] font-bold text-blue hover:underline"
+                          class="mt-0.5 inline-block text-[12.5px] font-medium text-link hover:underline"
                         >{{ t('orders.openOnMap') }}</a>
                       </div>
                       <!-- Чем покупатель обещал рассчитаться: деньги продавец
                            получает на месте, значит должен приехать готовым -->
                       <div>
-                        <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.paymentMethod') }}</div>
+                        <div class="text-[12px] text-[var(--text-muted)]">{{ t('orders.paymentMethod') }}</div>
                         <div class="mt-0.5 text-ink dark:text-slate-200">
                           {{ order.payment_method ? (order.payment_method.name_ru || order.payment_method.name_tk) : t('orders.paymentNotChosen') }}
                         </div>
                       </div>
                       <div v-if="part(order)?.store?.phone">
-                        <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.storePhone') }}</div>
+                        <div class="text-[12px] text-[var(--text-muted)]">{{ t('orders.storePhone') }}</div>
                         <div class="mt-0.5 text-ink dark:text-slate-200">{{ part(order).store.phone }}</div>
                       </div>
                       <div v-if="order.comment">
-                        <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.buyerComment') }}</div>
+                        <div class="text-[12px] text-[var(--text-muted)]">{{ t('orders.buyerComment') }}</div>
                         <div class="mt-0.5 text-ink dark:text-slate-200">{{ order.comment }}</div>
                       </div>
                       <!-- Решение по заказу — за продавцом: причина отказа или его комментарий -->
                       <div v-if="order.decision_comment || part(order)?.comment || order.decided_at">
-                        <div class="text-[11px] font-bold uppercase tracking-[.06em] text-muted">{{ t('orders.sellerAnswer') }}</div>
+                        <div class="text-[12px] text-[var(--text-muted)]">{{ t('orders.sellerAnswer') }}</div>
                         <div v-if="order.decision_comment || part(order)?.comment" class="mt-0.5 text-ink dark:text-slate-200">
                           {{ order.decision_comment || part(order).comment }}
                         </div>
-                        <div v-if="order.decided_at" class="text-[11px] text-muted">{{ date(order.decided_at) }} {{ time(order.decided_at) }}</div>
+                        <div v-if="order.decided_at" class="text-[12px] text-muted">{{ date(order.decided_at) }} {{ time(order.decided_at) }}</div>
                       </div>
                     </div>
                   </div>
@@ -428,27 +405,31 @@ const td = 'px-4 py-3 align-top'
             </template>
 
             <tr v-if="!orders.data.length">
-              <td colspan="8" class="px-4 py-12 text-center text-sm text-muted">{{ t('orders.empty') }}</td>
+              <td colspan="8">
+                <EmptyState icon="cart" :title="t('orders.empty')" :text="hasFilters ? t('common.emptyFiltered') : ''">
+                  <button v-if="hasFilters" type="button" class="btn btn-secondary" @click="resetFilters">{{ t('common.resetFilters') }}</button>
+                </EmptyState>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <Pagination :links="orders.links" />
+      <Pagination :links="orders.links" :from="orders.from" :to="orders.to" :total="orders.total" />
     </div>
 
     <!-- ── Покупатели: кто сколько заказал и где ───────────────────────── -->
-    <div v-if="view === 'buyers' && buyers" class="overflow-hidden rounded-card bg-white shadow-soft dark:bg-dcard">
+    <div v-if="view === 'buyers' && buyers" class="overflow-hidden card">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="border-b border-line dark:border-dline">
-            <tr>
+          <thead>
+            <tr :class="thead">
               <th :class="th">{{ t('orders.colBuyer') }}</th>
               <th :class="[th, 'text-right']">{{ t('orders.colOrders') }}</th>
               <th :class="th">{{ t('orders.colStores') }}</th>
               <th :class="[th, 'text-right']">{{ t('orders.colQty') }}</th>
               <th :class="[th, 'text-right']">{{ t('orders.colTotal') }}</th>
               <th :class="th">
-                <button @click="toggleSort" class="flex items-center gap-1 uppercase hover:text-ink dark:hover:text-slate-200">
+                <button type="button" @click="toggleSort" class="flex items-center gap-1 uppercase hover:text-[var(--text)]">
                   {{ t('orders.colLastOrder') }}
                   <Icon :kind="sort === 'desc' ? 'arrowDown' : 'arrowUp'" :size="10" />
                 </button>
@@ -460,14 +441,14 @@ const td = 'px-4 py-3 align-top'
             <tr
               v-for="buyer in buyers.data"
               :key="buyer.id"
-              class="border-b border-line transition hover:bg-surface/50 dark:border-dline dark:hover:bg-white/3"
+              :class="tr"
             >
               <td :class="td">
-                <div class="text-[13px] font-bold text-ink dark:text-slate-100">{{ buyer.name || '—' }}</div>
+                <div class="text-[13px] font-semibold text-[var(--text)]">{{ buyer.name || '—' }}</div>
                 <div class="text-[12px] text-muted">{{ buyer.phone }}</div>
               </td>
 
-              <td :class="[td, 'text-right font-data text-[15px] font-black text-ink dark:text-slate-100']">
+              <td :class="[td, 'text-right font-data text-[15px] font-semibold text-[var(--text)]']">
                 {{ buyer.orders_count }}
               </td>
 
@@ -478,7 +459,8 @@ const td = 'px-4 py-3 align-top'
                     :key="store.id ?? 'none'"
                     @click="setStore(store.id)"
                     :disabled="!store.id"
-                    class="rounded-pill bg-surface px-2 py-0.5 text-[12px] font-semibold text-ink transition enabled:hover:bg-blue/10 enabled:hover:text-blue dark:bg-white/5 dark:text-slate-200"
+                    type="button"
+                    class="inline-flex h-6 items-center gap-1 rounded-full bg-[var(--nav-hover)] px-2.5 text-[12px] font-medium text-[var(--text)] transition-colors duration-150 enabled:hover:bg-[var(--accent-tint)] enabled:hover:text-link"
                   >
                     {{ store.name || '—' }}
                     <span class="text-muted">· {{ store.orders_count }}</span>
@@ -486,34 +468,31 @@ const td = 'px-4 py-3 align-top'
                 </div>
               </td>
 
-              <td :class="[td, 'whitespace-nowrap text-right text-[13px] font-bold text-ink dark:text-slate-100']">
+              <td :class="[td, 'whitespace-nowrap text-right text-[13px] font-semibold text-[var(--text)]']">
                 {{ t('orders.pcs', { qty: buyer.qty }) }}
               </td>
 
-              <td :class="[td, 'whitespace-nowrap text-right text-[13px] font-bold text-ink dark:text-slate-100']">
+              <td :class="[td, 'whitespace-nowrap text-right text-[13px] font-semibold text-[var(--text)]']">
                 {{ money(buyer.total) }} {{ t('orders.amountUnit') }}
               </td>
 
               <td :class="[td, 'whitespace-nowrap']">
                 <div class="text-[13px] font-semibold text-ink dark:text-slate-100">{{ date(buyer.last_order_at) }}</div>
-                <div class="text-[11px] text-muted">{{ time(buyer.last_order_at) }}</div>
+                <div class="text-[12px] text-muted">{{ time(buyer.last_order_at) }}</div>
               </td>
 
               <td class="pr-4 text-right align-middle">
-                <button
-                  @click="showBuyerOrders(buyer)"
-                  class="whitespace-nowrap text-[12px] font-bold text-blue hover:underline"
-                >{{ t('orders.showOrders') }}</button>
+                <button type="button" @click="showBuyerOrders(buyer)" class="btn btn-secondary btn-sm">{{ t('orders.showOrders') }}</button>
               </td>
             </tr>
 
             <tr v-if="!buyers.data.length">
-              <td colspan="7" class="px-4 py-12 text-center text-sm text-muted">{{ t('orders.emptyBuyers') }}</td>
+              <td colspan="7"><EmptyState icon="users" :title="t('orders.emptyBuyers')" :text="hasFilters ? t('common.emptyFiltered') : ''" /></td>
             </tr>
           </tbody>
         </table>
       </div>
-      <Pagination :links="buyers.links" />
+      <Pagination :links="buyers.links" :from="buyers.from" :to="buyers.to" :total="buyers.total" />
     </div>
   </AppLayout>
 </template>

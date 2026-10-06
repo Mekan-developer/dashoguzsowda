@@ -7,6 +7,8 @@ import GeoColumn from '@/Components/GeoColumn.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import Icon from '@/Components/Icon.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import { th, tr, thead } from '@/table'
 import RichTextEditor from '@/Components/RichTextEditor.vue'
 import { confirmDialog } from '@/confirm'
 
@@ -26,6 +28,26 @@ const props = defineProps({
 })
 
 const opts = { preserveScroll: true, preserveState: true }
+
+// ── Разделы: навигация слева, видна одна секция; выбор — в адресе (#about) ──
+const sections = computed(() => [
+    { key: 'monitoring', icon: 'chart',    label: t('settings.monitoring'),      desc: t('settings.monitoringDesc') },
+    { key: 'otp',        icon: 'lock',     label: t('settings.otpMonitor'),      desc: t('settings.otpDesc') },
+    { key: 'roles',      icon: 'users',    label: t('settings.roles'),           desc: t('settings.rolesDesc') },
+    { key: 'reasons',    icon: 'flag',     label: t('settings.reasons'),         desc: t('settings.reasonsDesc') },
+    { key: 'payment',    icon: 'coin',     label: t('settings.paymentSection'),  desc: t('settings.paymentDesc') },
+    { key: 'about',      icon: 'news',     label: t('settings.aboutSection'),    desc: t('settings.aboutDesc') },
+    { key: 'listings',   icon: 'listing',  label: t('settings.listingsSection'), desc: t('settings.listingsDesc') },
+])
+const activeSection = ref((() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.slice(1) : ''
+    return ['monitoring', 'otp', 'roles', 'reasons', 'payment', 'about', 'listings'].includes(hash) ? hash : 'monitoring'
+})())
+function openSection(key) {
+    activeSection.value = key
+    window.history.replaceState(window.history.state, '', `#${key}`)
+}
+const currentSection = computed(() => sections.value.find(x => x.key === activeSection.value))
 
 // ── Мониторинг ─────────────────────────────────────────────
 const monitoring     = ref(props.monitoring)
@@ -112,10 +134,11 @@ onUnmounted(() => wsConnection()?.unbind('state_change', syncWsState))
 
 // Три состояния вместо двух: у FCM и SMS-шлюза «не настроено» — это не поломка,
 // а рабочий режим локальной сборки, поэтому оранжевый, а не красный.
+// Тона статуса — те же, что у StatusBadge
 const TONES = {
-    ok:   { dot: 'bg-green',  badge: 'border-green/25 bg-green/10 text-green' },
-    warn: { dot: 'bg-orange', badge: 'border-orange/25 bg-orange/10 text-orange' },
-    bad:  { dot: 'bg-red',    badge: 'border-red/25 bg-red/10 text-red' },
+    ok:   { dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+    warn: { dot: 'bg-amber-500',   badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+    bad:  { dot: 'bg-red-500',     badge: 'bg-red-500/10 text-red-700 dark:text-red-300' },
 }
 
 function smsTone(sms) {
@@ -138,8 +161,8 @@ const monitorCards = computed(() => {
         {
             key:        'queues',
             icon:       'layers',
-            accent:     'bg-blue/10 text-blue',
-            accentText: 'text-blue',
+            accent:     'bg-[var(--accent-tint)] text-link',
+            accentText: 'text-link',
             title:      t('settings.queues'),
             subtitle:   t('settings.queuesSubtitle'),
             tone:       queues.ok ? 'ok' : 'bad',
@@ -153,7 +176,7 @@ const monitorCards = computed(() => {
         {
             key:        'ws',
             icon:       'wifi',
-            accent:     'bg-teal/10 text-teal',
+            accent:     'bg-[var(--accent-tint)] text-link',
             accentText: 'text-teal',
             title:      'Reverb',
             subtitle:   t('settings.wsSubtitle'),
@@ -179,7 +202,7 @@ const monitorCards = computed(() => {
         {
             key:        'fcm',
             icon:       'bell',
-            accent:     'bg-purple/10 text-purple',
+            accent:     'bg-[var(--accent-tint)] text-link',
             accentText: 'text-purple',
             title:      'FCM',
             subtitle:   t('settings.fcmSubtitle'),
@@ -194,7 +217,7 @@ const monitorCards = computed(() => {
         {
             key:        'sms',
             icon:       'phone',
-            accent:     'bg-green/10 text-green',
+            accent:     'bg-[var(--accent-tint)] text-link',
             accentText: 'text-green',
             title:      t('settings.smsGateway'),
             subtitle:   t('settings.smsSubtitle'),
@@ -256,9 +279,9 @@ function otpCountdown(row) {
 }
 function otpStatusClass(row) {
     const status = otpStatus(row)
-    if (status === 'active') return 'bg-green/10 text-green'
-    if (status === 'used')   return 'bg-blue/10 text-blue'
-    return 'bg-orange/10 text-orange'
+    if (status === 'active') return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    if (status === 'used')   return 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
+    return 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
 }
 // Общее для OTP-таблицы и подписи «синхронизировано» на карточке шлюза:
 // сегодняшнее время без даты, всё остальное — с датой.
@@ -427,43 +450,69 @@ function saveBoostSettings() {
 <template>
   <AppLayout>
     <template #header>{{ t('nav.settings') }}</template>
+    <template #description>{{ t('settings.description') }}</template>
 
-    <div class="space-y-8">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <!-- Навигация по разделам: слева на десктопе, сегментами сверху на узком -->
+      <nav :aria-label="t('settings.navLabel')" class="lg:sticky lg:top-0 lg:self-start">
+        <ul class="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0 [scrollbar-width:none]">
+          <li v-for="sec in sections" :key="sec.key" class="flex-none">
+            <button
+              type="button"
+              @click="openSection(sec.key)"
+              :aria-current="activeSection === sec.key ? 'page' : null"
+              class="relative flex h-10 w-full items-center gap-2.5 whitespace-nowrap rounded-[8px] px-3 text-left text-[13.5px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              :class="activeSection === sec.key
+                ? 'bg-[var(--nav-item-active)] font-semibold text-[var(--text)]'
+                : 'font-medium text-[var(--text-secondary)] hover:bg-[var(--nav-hover)] hover:text-[var(--text)]'"
+            >
+              <span v-if="activeSection === sec.key" class="absolute inset-y-2 left-0 hidden w-[3px] rounded-full bg-[var(--nav-indicator)] lg:block"></span>
+              <Icon :kind="sec.icon" :size="16" class="flex-none" />{{ sec.label }}
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="min-w-0">
+      <!-- Заголовок текущего раздела -->
+      <header class="mb-5">
+        <h2 class="text-[20px] font-semibold text-[var(--text)]">{{ currentSection?.label }}</h2>
+        <p class="mt-1 text-[13.5px] text-[var(--text-muted)]">{{ currentSection?.desc }}</p>
+      </header>
       <!-- 1. Мониторинг -->
-      <section>
-        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.monitoring') }}</h2>
+      <section v-show="activeSection === 'monitoring'">
+        <div class="mb-4 flex flex-wrap items-center justify-end gap-3">
           <div class="flex items-center gap-3">
             <!-- Время общее для всех карточек: бэкенд отдаёт все проверки одним
                  запросом, поэтому в подвале карточек его не дублируем -->
             <span class="text-[11.5px] text-[var(--text-muted)]">{{ t('settings.updatedAgo', { s: secondsAgo }) }}</span>
             <button
               type="button" :disabled="!!reloading" @click="reload('all')"
-              class="flex items-center gap-1.5 rounded-[9px] border border-green/30 bg-green/5 px-3 py-1.5 text-[12px] font-bold text-green transition-colors hover:bg-green/10 disabled:cursor-not-allowed disabled:opacity-50"
+              class="btn btn-secondary btn-sm"
             >
-              <Icon kind="refresh" :size="13" :class="{ 'animate-spin': reloading === 'all' }" />
+              <Icon kind="refresh" :size="14" :class="{ 'animate-spin': reloading === 'all' }" />
               {{ t('settings.refreshAll') }}
             </button>
           </div>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           <div
             v-for="card in monitorCards" :key="card.key"
-            class="flex flex-col rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] p-[18px] shadow-[var(--card-shadow)]"
+            class="card flex flex-col p-5"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="flex min-w-0 items-center gap-3">
-                <span class="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-xl" :class="card.accent">
+                <span class="flex h-9 w-9 flex-none items-center justify-center rounded-[8px]" :class="card.accent">
                   <Icon :kind="card.icon" :size="19" />
                 </span>
                 <div class="min-w-0">
-                  <div class="truncate text-[15px] font-bold leading-tight text-[var(--text)]">{{ card.title }}</div>
+                  <div class="truncate text-[15px] font-semibold leading-tight text-[var(--text)]">{{ card.title }}</div>
                   <div class="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{{ card.subtitle }}</div>
                 </div>
               </div>
               <span
-                class="flex flex-none items-center gap-1.5 rounded-pill border px-2.5 py-[3px] text-[11.5px] font-bold"
+                class="flex h-6 flex-none items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold"
                 :class="[TONES[card.tone].badge, { 'status-flash': flashing.includes(card.key) }]"
               >
                 <span class="h-1.5 w-1.5 rounded-full" :class="TONES[card.tone].dot"></span>
@@ -476,11 +525,11 @@ function saveBoostSettings() {
             <div class="mb-4 mt-4 grid grid-cols-2 gap-2.5">
               <div
                 v-for="(stat, i) in card.stats" :key="stat.label"
-                class="min-w-0 rounded-xl border border-[var(--field-border)] bg-[var(--field-bg)] px-3 py-2.5"
+                class="min-w-0 rounded-[8px] border border-[var(--card-border)] bg-[var(--field-bg)] px-3 py-2.5"
               >
                 <div class="truncate text-[12px] text-[var(--text-muted)]">{{ stat.label }}</div>
                 <div
-                  class="truncate font-data font-extrabold"
+                  class="truncate font-data font-semibold"
                   :class="[
                     stat.small ? 'mt-1 text-[13px]' : 'text-[22px] leading-tight',
                     stat.danger ? 'text-red' : (i === 1 ? card.accentText : 'text-[var(--text)]'),
@@ -493,12 +542,12 @@ function saveBoostSettings() {
             <div class="mt-auto flex items-center justify-between gap-2">
               <span
                 class="min-w-0 truncate text-[11.5px]"
-                :class="card.noteWarn ? 'font-semibold text-orange' : 'text-[var(--text-muted)]'"
+                :class="card.noteWarn ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-[var(--text-muted)]'"
                 :title="card.note"
               >{{ card.note }}</span>
               <button
                 type="button" :disabled="!!reloading" @click="reload(card.key)"
-                class="flex flex-none items-center gap-1.5 rounded-[8px] border border-[var(--field-border)] px-3 py-[5px] text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--nav-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                class="btn btn-secondary btn-sm !h-8"
               >
                 <!-- иконку держим всегда: если показывать её только на время
                      спиннера, подпись кнопки прыгает при каждом обновлении -->
@@ -511,14 +560,12 @@ function saveBoostSettings() {
       </section>
 
       <!-- 2. Мониторинг OTP-кодов -->
-      <section>
-        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.otpMonitor') }}</h2>
+      <section v-show="activeSection === 'otp'">
+        <div class="mb-4 flex flex-wrap items-center gap-2">
           <div class="flex items-center gap-2">
-            <div class="w-56">
+            <div class="w-full sm:w-[280px]">
               <SearchInput
                 v-model="otpPhone"
-                size="sm"
                 :debounce="350"
                 :placeholder="t('settings.otpSearchPlaceholder')"
                 @search="fetchOtpCodes"
@@ -528,59 +575,58 @@ function saveBoostSettings() {
             <button
               type="button" :title="t('settings.reload')" :disabled="otpReloading"
               @click="reloadOtpCodes"
-              class="rounded-full p-1.5 text-muted transition hover:bg-surface hover:text-ink dark:hover:bg-dbg dark:hover:text-slate-100 disabled:opacity-50"
+              :aria-label="t('settings.reload')"
+              class="icon-btn !h-[42px] !w-[42px]"
             >
-              <Icon kind="refresh" :size="15" :class="{ 'animate-spin': otpReloading }" />
+              <Icon kind="refresh" :size="16" :class="{ 'animate-spin': otpReloading }" />
             </button>
           </div>
         </div>
 
-        <div class="overflow-hidden rounded-card bg-white dark:bg-dcard border border-line dark:border-dline">
-          <div class="border-b border-line dark:border-dline px-5 py-3 text-[12px] text-muted">
+        <div class="overflow-hidden card">
+          <div class="border-b border-[var(--card-border)] px-5 py-3 text-[12.5px] text-[var(--text-muted)]">
             {{ t('settings.otpMonitorHint') }}
           </div>
 
-          <div v-if="!otpCodes.length" class="px-5 py-10 text-center text-[13px] text-muted">
-            {{ t('settings.otpEmpty') }}
-          </div>
+          <EmptyState v-if="!otpCodes.length" icon="lock" :title="t('settings.otpEmpty')" />
 
           <div v-else class="overflow-x-auto">
-            <table class="w-full text-[13px]">
+            <table class="w-full min-w-[640px] text-[13.5px]">
               <thead>
-                <tr class="border-b border-line dark:border-dline text-left text-muted">
-                  <th class="px-5 py-3 font-semibold">{{ t('common.phone') }}</th>
-                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpCode') }}</th>
-                  <th class="px-5 py-3 font-semibold">{{ t('common.status') }}</th>
-                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpAttempts') }}</th>
-                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpRequestedAt') }}</th>
-                  <th class="px-5 py-3 font-semibold">{{ t('settings.otpExpiresIn') }}</th>
+                <tr :class="thead">
+                  <th :class="th">{{ t('common.phone') }}</th>
+                  <th :class="th">{{ t('settings.otpCode') }}</th>
+                  <th :class="th">{{ t('common.status') }}</th>
+                  <th :class="th">{{ t('settings.otpAttempts') }}</th>
+                  <th :class="th">{{ t('settings.otpRequestedAt') }}</th>
+                  <th :class="th">{{ t('settings.otpExpiresIn') }}</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-line dark:divide-dline">
-                <tr v-for="row in otpCodes" :key="row.id">
+              <tbody>
+                <tr v-for="row in otpCodes" :key="row.id" :class="tr">
                   <td class="px-5 py-3">
                     <div class="font-data font-semibold text-ink dark:text-slate-100">{{ row.phone }}</div>
-                    <div class="text-[11px] text-muted">{{ row.user_name || t('settings.otpNewUser') }}</div>
+                    <div class="text-[12px] text-muted">{{ row.user_name || t('settings.otpNewUser') }}</div>
                   </td>
                   <td class="px-5 py-3">
                     <button
                       type="button"
                       :title="t('settings.otpCopy')"
-                      class="rounded-btn bg-surface dark:bg-dbg px-3 py-1.5 font-data text-[16px] font-extrabold tracking-[0.18em] text-ink dark:text-slate-100 transition hover:bg-blue/10 hover:text-blue"
+                      class="rounded-[8px] border border-[var(--card-border)] bg-[var(--field-bg)] px-3 py-1 font-data text-[16px] font-semibold tracking-[0.18em] text-[var(--text)] transition-colors duration-150 hover:bg-[var(--accent-tint)] hover:text-link"
                       @click="copyCode(row)"
                     >{{ row.code }}</button>
-                    <span v-if="copiedCodeId === row.id" class="ml-2 text-[11px] font-bold text-green">{{ t('settings.otpCopied') }}</span>
+                    <span v-if="copiedCodeId === row.id" class="ml-2 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">{{ t('settings.otpCopied') }}</span>
                   </td>
                   <td class="px-5 py-3">
-                    <span class="rounded-pill px-2.5 py-1 text-[11px] font-bold" :class="otpStatusClass(row)">
+                    <span class="inline-flex h-6 items-center rounded-full px-2.5 text-[11.5px] font-semibold" :class="otpStatusClass(row)">
                       {{ t(`settings.otpStatus.${otpStatus(row)}`) }}
                     </span>
                   </td>
-                  <td class="px-5 py-3 font-data" :class="row.attempts > 0 ? 'text-orange' : 'text-muted'">
+                  <td class="px-5 py-3 font-data" :class="row.attempts > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-muted'">
                     {{ row.attempts }} / {{ row.max_attempts }}
                   </td>
                   <td class="px-5 py-3 font-data text-muted">{{ shortTime(row.created_at) }}</td>
-                  <td class="px-5 py-3 font-data" :class="otpStatus(row) === 'active' ? 'font-bold text-green' : 'text-muted'">
+                  <td class="px-5 py-3 font-data" :class="otpStatus(row) === 'active' ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-muted'">
                     {{ otpStatus(row) === 'active' ? otpCountdown(row) : '—' }}
                   </td>
                 </tr>
@@ -591,22 +637,22 @@ function saveBoostSettings() {
       </section>
 
       <!-- 3. Роли и права доступа -->
-      <section>
-        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.roles') }}</h2>
-        <div class="overflow-hidden rounded-card bg-white dark:bg-dcard border border-line dark:border-dline">
-          <table class="w-full text-[13px]">
+      <section v-show="activeSection === 'roles'">
+        <div class="overflow-hidden card">
+          <div class="overflow-x-auto">
+          <table class="w-full min-w-[480px] text-[13.5px]">
             <thead>
-              <tr class="border-b border-line dark:border-dline text-left text-muted">
-                <th class="px-5 py-3 font-semibold">{{ t('settings.permission') }}</th>
-                <th class="w-32 px-5 py-3 text-center font-semibold">{{ t('role.admin') }}</th>
-                <th class="w-32 px-5 py-3 text-center font-semibold">{{ t('role.manager') }}</th>
+              <tr :class="thead">
+                <th :class="th">{{ t('settings.permission') }}</th>
+                <th :class="th" class="w-32 !text-center">{{ t('role.admin') }}</th>
+                <th :class="th" class="w-32 !text-center">{{ t('role.manager') }}</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-line dark:divide-dline">
-              <tr v-for="row in permissionRows" :key="row.label">
-                <td class="px-5 py-3 font-medium text-ink dark:text-slate-200">{{ row.label }}</td>
+            <tbody>
+              <tr v-for="row in permissionRows" :key="row.label" :class="tr" class="!h-[52px]">
+                <td class="px-5 py-3 font-medium text-[var(--text)]">{{ row.label }}</td>
                 <td class="px-5 py-3 text-center">
-                  <Icon kind="check" :size="16" class="inline text-green" />
+                  <Icon kind="check" :size="16" class="inline text-emerald-600 dark:text-emerald-400" />
                 </td>
                 <td class="px-5 py-3 text-center">
                   <ToggleSwitch
@@ -617,19 +663,19 @@ function saveBoostSettings() {
                     v-else-if="row.manager === 'toggle' && row.toggleKey === 'banners'"
                     :modelValue="canManageBanners" @update:modelValue="toggleManagerBanners"
                   />
-                  <Icon v-else-if="row.manager" kind="check" :size="16" class="inline text-green" />
+                  <Icon v-else-if="row.manager" kind="check" :size="16" class="inline text-emerald-600 dark:text-emerald-400" />
                   <Icon v-else kind="lock" :size="15" class="inline text-muted" />
                 </td>
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </section>
 
       <!-- 4. Справочники причин -->
-      <section>
-        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.reasons') }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
+      <section v-show="activeSection === 'reasons'">
+        <div class="grid gap-4 xl:grid-cols-2 [&>*]:max-h-[560px]">
           <GeoColumn
             ref="rejectionCol"
             :title="t('settings.rejectionReasons')"
@@ -658,9 +704,8 @@ function saveBoostSettings() {
       </section>
 
       <!-- 5. Способы оплаты -->
-      <section>
-        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.paymentSection') }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
+      <section v-show="activeSection === 'payment'">
+        <div class="grid gap-4 xl:grid-cols-2 [&>*:first-child]:max-h-[560px]">
           <GeoColumn
             ref="paymentCol"
             :title="t('settings.paymentMethods')"
@@ -673,36 +718,37 @@ function saveBoostSettings() {
             @toggle="togglePayment"
             @destroy="destroyPayment"
           />
-          <div class="rounded-card border border-line bg-white p-5 text-[12px] leading-relaxed text-muted dark:border-dline dark:bg-dcard">
+          <div class="card self-start p-5 text-[13px] leading-relaxed text-[var(--text-secondary)]">
             {{ t('settings.paymentHint') }}
           </div>
         </div>
       </section>
 
       <!-- 6. О нас -->
-      <section>
-        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.aboutSection') }}</h2>
-        <div class="rounded-card border border-line bg-white p-5 dark:border-dline dark:bg-dcard">
-          <div class="mb-1 font-extrabold text-ink dark:text-slate-100">{{ t('settings.aboutTitle') }}</div>
-          <div class="mb-4 text-[12px] text-muted">{{ t('settings.aboutHint') }}</div>
+      <section v-show="activeSection === 'about'">
+        <div class="card p-5">
+          <div class="card-title mb-1">{{ t('settings.aboutTitle') }}</div>
+          <div class="mb-4 text-[12.5px] text-[var(--text-muted)]">{{ t('settings.aboutHint') }}</div>
 
           <!-- Язык правится по одному, но сохраняются обе версии сразу -->
-          <div class="mb-3 flex items-center gap-2">
-            <button
-              v-for="code in ['ru', 'tk']"
-              :key="code"
-              @click="aboutLang = code"
-              class="rounded-btn px-3 py-1.5 text-[12px] font-bold uppercase transition"
-              :class="aboutLang === code
-                ? 'bg-blue text-white'
-                : 'bg-surface text-[var(--text-secondary)] hover:bg-line dark:bg-dbg dark:hover:bg-dline'"
-            >{{ code }}</button>
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <div class="seg !h-9" role="group">
+              <button
+                v-for="code in ['ru', 'tk']"
+                :key="code"
+                type="button"
+                @click="aboutLang = code"
+                :aria-pressed="aboutLang === code"
+                class="seg-item uppercase"
+                :class="aboutLang === code ? 'seg-item-active' : ''"
+              >{{ code }}</button>
+            </div>
 
-            <span class="ml-auto flex gap-3 text-[11px]">
-              <span :class="(aboutForm.about_ru || '').trim() ? 'text-green' : 'text-muted'">
+            <span class="ml-auto flex gap-3 text-[12px]">
+              <span :class="(aboutForm.about_ru || '').trim() ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted'">
                 {{ (aboutForm.about_ru || '').trim() ? t('settings.aboutRuFilled') : t('settings.aboutRuEmpty') }}
               </span>
-              <span :class="(aboutForm.about_tk || '').trim() ? 'text-green' : 'text-muted'">
+              <span :class="(aboutForm.about_tk || '').trim() ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted'">
                 {{ (aboutForm.about_tk || '').trim() ? t('settings.aboutTkFilled') : t('settings.aboutTkEmpty') }}
               </span>
             </span>
@@ -710,40 +756,38 @@ function saveBoostSettings() {
 
           <RichTextEditor v-model="aboutContent" />
 
-          <div v-if="aboutErrors.about_ru || aboutErrors.about_tk" class="mt-1 text-[11px] text-red">
+          <div v-if="aboutErrors.about_ru || aboutErrors.about_tk" class="mt-1.5 text-[12px] font-medium text-red">
             {{ aboutErrors.about_ru || aboutErrors.about_tk }}
           </div>
 
-          <button @click="saveAbout" class="mt-4 rounded-btn bg-blue px-5 py-2 text-[13px] font-bold text-white transition hover:bg-blue/90">
-            {{ t('actions.save') }}
-          </button>
+          <div class="mt-4 flex justify-end border-t border-[var(--card-border)] pt-4">
+            <button type="button" @click="saveAbout" class="btn btn-primary">{{ t('actions.save') }}</button>
+          </div>
         </div>
       </section>
 
       <!-- 7. Объявления -->
-      <section>
-        <h2 class="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">{{ t('settings.listingsSection') }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5">
-            <div class="mb-1 font-extrabold text-ink dark:text-slate-100">{{ t('settings.boostInterval') }}</div>
-            <div class="mb-4 text-[12px] text-muted">{{ t('settings.boostIntervalHint') }}</div>
+      <section v-show="activeSection === 'listings'">
+        <div class="card max-w-[560px] p-5">
+          <div class="card-title mb-1">{{ t('settings.boostInterval') }}</div>
+          <div class="mb-4 text-[12.5px] text-[var(--text-muted)]">{{ t('settings.boostIntervalHint') }}</div>
 
-            <div class="mb-4">
-              <div class="mb-1.5 text-[12px] text-muted">{{ t('settings.boostIntervalLabel') }}</div>
-              <input
-                v-model.number="boostIntervalHours" type="number" min="1" max="8760"
-                class="w-full rounded-btn border-2 border-line dark:border-dline bg-surface dark:bg-dbg px-3 py-2 text-[14px] font-bold text-ink dark:text-slate-100 outline-none focus:border-blue"
-              />
-              <div v-if="boostErrors.boost_interval_hours" class="mt-1 text-[11px] text-red">{{ boostErrors.boost_interval_hours }}</div>
-            </div>
+          <div class="mb-4">
+            <label for="boost-interval" class="field-label">{{ t('settings.boostIntervalLabel') }}</label>
+            <input
+              id="boost-interval"
+              v-model.number="boostIntervalHours" type="number" min="1" max="8760"
+              class="input max-w-[200px] font-data"
+            />
+            <div v-if="boostErrors.boost_interval_hours" class="mt-1.5 text-[12px] font-medium text-red">{{ boostErrors.boost_interval_hours }}</div>
+          </div>
 
-            <button @click="saveBoostSettings" class="w-full rounded-btn bg-blue py-2 text-[13px] font-bold text-white transition hover:bg-blue/90">
-              {{ t('actions.save') }}
-            </button>
+          <div class="flex justify-end border-t border-[var(--card-border)] pt-4">
+            <button type="button" @click="saveBoostSettings" class="btn btn-primary">{{ t('actions.save') }}</button>
           </div>
         </div>
       </section>
-
+      </div>
     </div>
   </AppLayout>
 </template>

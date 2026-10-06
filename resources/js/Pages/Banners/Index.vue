@@ -9,7 +9,11 @@ import Icon from '@/Components/Icon.vue'
 import CreateButton from '@/Components/CreateButton.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
-import DataTable from '@/Components/DataTable.vue'
+import SearchInput from '@/Components/SearchInput.vue'
+import StatusBadge from '@/Components/StatusBadge.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import Pagination from '@/Components/Pagination.vue'
+import DrawerFooter from '@/Components/DrawerFooter.vue'
 import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
@@ -37,24 +41,13 @@ const emptyForm = () => ({
 const form   = ref(emptyForm())
 const errors = ref({})
 
-const dataTableColumns = computed(() => [
-    { key: 'id', label: t('common.id'), width: '64px', type: 'id' },
-    { key: 'image', label: '', width: '40px', type: 'image' },
-    { key: 'title_ru', label: t('common.title'), type: 'text' },
-    { key: 'link_type', label: t('banners.linkColumn') },
-    { key: 'is_active', label: t('common.status') },
-    { key: 'sort_order', label: '', width: '56px' },
-])
-
-const dataTableActions = computed(() => [
-    {
-        icon: (b) => b.is_active ? 'eyeOff' : 'eye',
-        title: (b) => b.is_active ? t('actions.hide') : t('actions.show'),
-        handler: (b) => toggle(b),
-    },
-    { icon: 'pencil', title: t('actions.edit'), handler: openEdit },
-    { icon: 'trash', title: t('actions.delete'), handler: destroy, color: 'red' },
-])
+// Поиск по заголовку — на клиенте, в пределах страницы (как было в DataTable)
+const query = ref('')
+const visible = computed(() => {
+    const q = query.value.trim().toLowerCase()
+    const items = props.banners.data || []
+    return q ? items.filter(b => (b.title_ru || '').toLowerCase().includes(q) || (b.title_tk || '').toLowerCase().includes(q)) : items
+})
 
 // RU и TK хранятся раздельно; поле показывает активный язык (как в News)
 const title = computed({
@@ -73,12 +66,23 @@ function linkSummary(b) {
     if (b.link_type === 'listing') return t('banners.linkSummaryListing', { id: b.listing_id })
     return '—'
 }
+// status — ключ цвета StatusBadge, label — своя подпись
 function statusMeta(b) {
     const now = Date.now()
-    if (!b.is_active) return { dot: 'bg-muted', cls: 'text-muted', label: t('banners.statusOff') }
-    if (b.starts_at && new Date(b.starts_at).getTime() > now) return { dot: 'bg-orange', cls: 'text-orange', label: t('banners.statusScheduled') }
-    if (b.ends_at && new Date(b.ends_at).getTime() < now) return { dot: 'bg-red', cls: 'text-red', label: t('banners.statusExpired') }
-    return { dot: 'bg-green', cls: 'text-green', label: t('banners.statusActive') }
+    if (!b.is_active) return { status: 'suspended', label: t('banners.statusOff') }
+    if (b.starts_at && new Date(b.starts_at).getTime() > now) return { status: 'new', label: t('banners.statusScheduled') }
+    if (b.ends_at && new Date(b.ends_at).getTime() < now) return { status: 'rejected', label: t('banners.statusExpired') }
+    return { status: 'active', label: t('banners.statusActive') }
+}
+
+function shortDate(d) {
+    return new Date(d).toLocaleDateString('ru', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+function periodText(b) {
+    if (b.starts_at && b.ends_at) return `${shortDate(b.starts_at)} – ${shortDate(b.ends_at)}`
+    if (b.starts_at) return t('banners.from', { date: shortDate(b.starts_at) })
+    if (b.ends_at) return t('banners.until', { date: shortDate(b.ends_at) })
+    return t('banners.always')
 }
 
 function openCreate() {
@@ -121,55 +125,71 @@ async function destroy(b) {
 <template>
   <AppLayout>
     <template #header>{{ t('nav.banners') }}</template>
+    <template #actions>
+      <CreateButton :label="t('actions.add')" @click="openCreate" />
+    </template>
 
-    <div class="space-y-4">
-      <div class="flex justify-end">
-        <CreateButton :label="t('actions.add')" @click="openCreate" />
+    <div class="mb-4 flex flex-wrap items-center gap-2.5">
+      <SearchInput v-model="query" :placeholder="t('banners.searchPlaceholder')" class="w-full sm:w-[280px]" />
+      <span class="ml-auto whitespace-nowrap text-[12.5px] tabular-nums text-[var(--text-muted)]">
+        {{ t('dataTable.countOf', { shown: visible.length, total: banners.total ?? banners.data.length }) }}
+      </span>
+    </div>
+
+    <!-- Список с крупным превью: по картинке баннер узнают быстрее, чем по названию -->
+    <div class="card overflow-hidden">
+      <div v-if="visible.length" class="divide-y divide-[var(--card-border)]">
+        <article
+          v-for="b in visible" :key="b.id"
+          class="flex flex-col gap-4 p-4 transition-colors duration-150 hover:bg-[var(--nav-hover)] sm:flex-row sm:items-center sm:px-5"
+          @dblclick="openEdit(b)"
+        >
+          <button type="button" class="relative aspect-[2/1] w-full flex-none overflow-hidden rounded-[8px] border border-[var(--card-border)] bg-[var(--field-bg)] sm:w-[200px]" :title="t('actions.edit')" @click="openEdit(b)">
+            <img v-if="b.image" :src="`/storage/${b.image}`" class="h-full w-full object-cover" alt="" loading="lazy" />
+            <span v-else class="flex h-full w-full items-center justify-center text-[var(--text-muted)]"><Icon kind="image" :size="22" /></span>
+          </button>
+
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-data text-[12px] tabular-nums text-[var(--text-muted)]">#{{ b.id }}</span>
+              <h3 class="truncate text-[14px] font-semibold text-[var(--text)]">{{ b.title_ru }}</h3>
+              <StatusBadge :status="statusMeta(b).status" :label="statusMeta(b).label" />
+            </div>
+            <dl class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-[12.5px] sm:grid-cols-2">
+              <div class="flex gap-1.5"><dt class="text-[var(--text-muted)]">{{ t('banners.linkColumn') }}:</dt><dd class="truncate text-[var(--text-secondary)]">{{ linkSummary(b) }}</dd></div>
+              <div class="flex gap-1.5"><dt class="text-[var(--text-muted)]">{{ t('banners.period') }}:</dt><dd class="font-data tabular-nums text-[var(--text-secondary)]">{{ periodText(b) }}</dd></div>
+            </dl>
+          </div>
+
+          <div class="flex flex-none items-center gap-1.5 sm:ml-2">
+            <!-- Порядок показа в карусели -->
+            <button type="button" @click.stop="move(b, 'up')" :disabled="isFirst(b)" class="icon-btn !bg-transparent hover:!bg-[var(--field-bg)]" :title="t('banners.moveUp')" :aria-label="t('banners.moveUp')"><Icon kind="arrowUp" :size="15" /></button>
+            <button type="button" @click.stop="move(b, 'down')" :disabled="isLast(b)" class="icon-btn !bg-transparent hover:!bg-[var(--field-bg)]" :title="t('banners.moveDown')" :aria-label="t('banners.moveDown')"><Icon kind="arrowDown" :size="15" /></button>
+            <span class="mx-1 h-6 w-px bg-[var(--card-border)]"></span>
+            <button type="button" @click.stop="toggle(b)" class="icon-btn" :title="b.is_active ? t('actions.hide') : t('actions.show')" :aria-label="b.is_active ? t('actions.hide') : t('actions.show')"><Icon :kind="b.is_active ? 'eyeOff' : 'eye'" :size="16" /></button>
+            <button type="button" @click.stop="openEdit(b)" class="icon-btn" :title="t('actions.edit')" :aria-label="t('actions.edit')"><Icon kind="pencil" :size="16" /></button>
+            <button type="button" @click.stop="destroy(b)" class="icon-btn icon-btn-danger" :title="t('actions.delete')" :aria-label="t('actions.delete')"><Icon kind="trash" :size="16" /></button>
+          </div>
+        </article>
       </div>
-
-      <DataTable
-        :columns="dataTableColumns"
-        :items="banners.data"
-        :pagination="banners"
-        :actions="dataTableActions"
-        :search-field="'title_ru'"
-        :search-placeholder="t('banners.searchPlaceholder')"
-        @dblclick="openEdit"
-      >
-        <template #cell-link_type="{ item }">
-          <span class="text-[13px] text-[var(--text-secondary)]">{{ linkSummary(item) }}</span>
-        </template>
-
-        <template #cell-is_active="{ item }">
-          <div class="flex items-center gap-1.5">
-            <div class="h-1.5 w-1.5 rounded-full" :class="statusMeta(item).dot"></div>
-            <span class="text-[11px] font-bold" :class="statusMeta(item).cls">{{ statusMeta(item).label }}</span>
-          </div>
-        </template>
-
-        <template #cell-sort_order="{ item }">
-          <div class="flex flex-col -my-1">
-            <button
-              @click.stop="move(item, 'up')" :disabled="isFirst(item)"
-              class="flex h-[13px] w-[13px] items-center justify-center text-muted transition hover:text-blue disabled:opacity-25 disabled:hover:text-muted"
-            ><Icon kind="arrowUp" :size="10" /></button>
-            <button
-              @click.stop="move(item, 'down')" :disabled="isLast(item)"
-              class="flex h-[13px] w-[13px] items-center justify-center text-muted transition hover:text-blue disabled:opacity-25 disabled:hover:text-muted"
-            ><Icon kind="arrowDown" :size="10" /></button>
-          </div>
-        </template>
-      </DataTable>
+      <EmptyState v-else-if="query" icon="search" :title="t('dataTable.empty')" :text="t('common.emptyFiltered')">
+        <button type="button" class="btn btn-secondary" @click="query = ''">{{ t('common.resetFilters') }}</button>
+      </EmptyState>
+      <EmptyState v-else icon="layers" :title="t('banners.emptyTitle')" :text="t('banners.emptyText')">
+        <CreateButton :label="t('actions.add')" @click="openCreate" />
+      </EmptyState>
+      <Pagination :links="banners.links" :from="banners.from" :to="banners.to" :total="banners.total" />
     </div>
 
     <AppDrawer :open="drawer" :title="editItem ? t('banners.editTitle') : t('banners.newTitle')" @close="drawer = false">
       <!-- Переключатель языка формы -->
-      <div class="mb-4 inline-flex gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
+      <div class="seg mb-4 !inline-flex !h-9" role="group">
         <button
           v-for="l in ['ru', 'tk']" :key="l" type="button"
           @click="lang = l"
-          class="rounded-[8px] px-5 py-1.5 text-[12px] font-bold uppercase transition-colors"
-          :class="lang === l ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
+          :aria-pressed="lang === l"
+          class="seg-item uppercase"
+          :class="lang === l ? 'seg-item-active' : ''"
         >{{ l }}</button>
       </div>
 
@@ -190,12 +210,13 @@ async function destroy(b) {
       </DrawerField>
 
       <DrawerField :label="t('banners.linkTypeLabel')" :error="errors.link_type">
-        <div class="grid grid-cols-3 gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
+        <div class="seg grid grid-cols-3 !h-10">
           <button
             v-for="(label, value) in linkTypeMeta" :key="value" type="button"
             @click="form.link_type = value === 'null' ? null : value"
-            class="rounded-[8px] px-2 py-[7px] text-[12px] font-bold transition-colors"
-            :class="(form.link_type ?? 'null') === value ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
+            :aria-pressed="(form.link_type ?? 'null') === value"
+            class="seg-item"
+            :class="(form.link_type ?? 'null') === value ? 'seg-item-active' : ''"
           >{{ label }}</button>
         </div>
       </DrawerField>
@@ -217,26 +238,13 @@ async function destroy(b) {
         </DrawerField>
       </div>
 
-      <div class="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3">
-        <div class="text-[13px] font-bold text-[var(--text)]">{{ t('banners.activeLabel') }}</div>
+      <div class="mt-5 flex items-center justify-between gap-4 rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3">
+        <div class="text-[13.5px] font-semibold text-[var(--text)]">{{ t('banners.activeLabel') }}</div>
         <ToggleSwitch v-model="form.is_active" />
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <button
-            @click="drawer = false"
-            class="rounded-[10px] border border-[var(--field-border)] bg-transparent px-[18px] py-[10px] text-[13px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--nav-hover)]"
-          >{{ t('actions.cancel') }}</button>
-          <button
-            @click="save"
-            :disabled="!canSave"
-            class="rounded-[10px] px-5 py-[10px] text-[13px] font-bold transition-colors"
-            :class="canSave
-              ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-[0_10px_22px_-8px_var(--accent)]'
-              : 'cursor-not-allowed bg-[var(--field-disabled-bg)] text-[var(--text-muted)]'"
-          >{{ t('actions.save') }}</button>
-        </div>
+        <DrawerFooter :can-save="canSave" @cancel="drawer = false" @save="save" />
       </template>
     </AppDrawer>
   </AppLayout>

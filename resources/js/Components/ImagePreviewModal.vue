@@ -14,7 +14,7 @@ defineEmits(['close'])
     <Transition name="ov">
       <div
         v-if="open"
-        class="fixed inset-0 z-[600] flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
+        class="fixed inset-0 z-[600] flex items-center justify-center bg-[#0A0C1A]/80 p-6"
         @click.self="$emit('close')"
       >
         <button
@@ -23,7 +23,7 @@ defineEmits(['close'])
         >
           <Icon kind="close" :size="16" />
         </button>
-        <img :src="src" :alt="alt" class="max-h-[85vh] max-w-[90vw] rounded-card object-contain shadow-[0_24px_48px_rgba(0,0,0,.4)]" />
+        <img :src="src" :alt="alt" class="max-h-[85vh] max-w-[90vw] rounded-card object-contain shadow-lg2" />
       </div>
     </Transition>
   </Teleport>

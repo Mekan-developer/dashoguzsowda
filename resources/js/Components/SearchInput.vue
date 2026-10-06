@@ -47,7 +47,7 @@ let timer = null
 
 const sizes = {
     sm: { box: 'h-8  gap-2   px-2.5 rounded-lg',     text: 'text-[12px]', icon: 14, close: 12 },
-    md: { box: 'h-10 gap-2.5 px-3   rounded-[10px]', text: 'text-[13px]', icon: 16, close: 14 },
+    md: { box: 'h-[42px] gap-2.5 px-3 rounded-[8px]', text: 'text-[13.5px]', icon: 16, close: 14 },
     lg: { box: 'h-12 gap-3   px-3.5 rounded-xl',     text: 'text-[15px]', icon: 18, close: 16 },
 }
 const s = computed(() => sizes[props.size])
@@ -120,11 +120,11 @@ defineExpose({ focus, clear })
 <template>
   <div
     :class="[
-      'group relative flex items-center bg-[var(--field-bg)]',
+      'group relative flex items-center border border-[var(--field-border)] bg-[var(--field-bg)] transition-colors duration-150 ease-out',
       s.box,
       disabled
         ? 'cursor-not-allowed opacity-55'
-        : 'focus-within:ring-2 focus-within:ring-inset focus-within:ring-[var(--accent)]',
+        : 'hover:border-[var(--text-muted)] focus-within:!border-[var(--accent)] focus-within:ring-[3px] focus-within:ring-[var(--accent-tint)]',
     ]"
     @click="focus"
   >

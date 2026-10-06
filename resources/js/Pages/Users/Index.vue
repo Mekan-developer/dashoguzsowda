@@ -8,6 +8,9 @@ import StatusBadge from '@/Components/StatusBadge.vue'
 import UserCreateModal from '@/Components/UserCreateModal.vue'
 import CreateButton from '@/Components/CreateButton.vue'
 import SearchInput from '@/Components/SearchInput.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import Icon from '@/Components/Icon.vue'
+import { th, td, tr, thead } from '@/table'
 
 const { t } = useI18n()
 
@@ -49,6 +52,13 @@ function doUnblock(user) {
     router.patch(route('users.unblock', user.id))
 }
 
+const hasFilters = computed(() => !!(search.value || status.value || regionId.value))
+function resetFilters() {
+    search.value = ''; status.value = ''; regionId.value = ''
+    applyFilters()
+}
+
+
 function formatDate(d) {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('ru', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -59,99 +69,110 @@ function formatDate(d) {
   <AppLayout>
     <template #header>{{ t('nav.users') }}</template>
 
-    <!-- Toolbar -->
-    <div class="mb-4 flex flex-wrap items-center gap-3">
+    <template #actions>
+      <CreateButton v-if="isAdmin" :label="t('actions.add')" @click="openCreate" />
+    </template>
+
+    <!-- Панель фильтров: поиск, статус, регион — одна строка одной высоты -->
+    <div class="mb-4 flex flex-wrap items-center gap-2.5">
       <SearchInput
         v-model="search" @submit="applyFilters"
         :placeholder="t('users.searchPlaceholder')"
-        class="w-64"
+        class="w-full sm:w-[280px]"
       />
-      <select v-model="status" @change="applyFilters" class="rounded-btn border-2 border-line bg-surface py-[9px] px-[14px] text-[13px] font-semibold text-ink outline-none transition focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200">
+      <select v-model="status" @change="applyFilters" :aria-label="t('common.status')" class="filter-select">
         <option value="">{{ t('users.allStatuses') }}</option>
         <option value="active">{{ t('users.activeFilter') }}</option>
         <option value="blocked">{{ t('users.blockedFilter') }}</option>
       </select>
-      <select v-model="regionId" @change="applyFilters" class="rounded-btn border-2 border-line bg-surface py-[9px] px-[14px] text-[13px] font-semibold text-ink outline-none transition focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200">
+      <select v-model="regionId" @change="applyFilters" :aria-label="t('common.region')" class="filter-select">
         <option value="">{{ t('users.allRegions') }}</option>
         <option v-for="r in regions" :key="r.id" :value="r.id">{{ r.name_ru }}</option>
       </select>
-      <div class="ml-auto">
-        <CreateButton v-if="isAdmin" :label="t('actions.add')" @click="openCreate" />
-      </div>
+      <span class="ml-auto whitespace-nowrap text-[12.5px] tabular-nums text-[var(--text-muted)]">
+        {{ t('dataTable.countOf', { shown: users.data.length, total: users.total }) }}
+      </span>
     </div>
 
-    <!-- Table -->
-    <div class="rounded-card bg-white shadow-soft dark:bg-dcard overflow-hidden">
-      <table class="w-full">
-        <thead class="bg-surface/50 dark:bg-dbg/50">
-          <tr>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('users.colUser') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.region') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.tariff') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.status') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('users.colRegDate') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.actions') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="user in users.data" :key="user.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
-            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ user.id }}</td>
-            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
-              <div class="flex items-center gap-3">
-                <div class="h-8 w-8 rounded-full bg-blue flex items-center justify-center text-[12px] font-extrabold text-white flex-shrink-0">
-                  {{ (user.name || user.phone || '?').charAt(0).toUpperCase() }}
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[640px]">
+          <thead>
+            <tr :class="thead">
+              <th :class="th" class="w-[72px]">{{ t('common.id') }}</th>
+              <th :class="th">{{ t('users.colUser') }}</th>
+              <th :class="th" class="hidden lg:table-cell">{{ t('common.region') }}</th>
+              <th :class="th" class="hidden md:table-cell">{{ t('common.tariff') }}</th>
+              <th :class="th">{{ t('common.status') }}</th>
+              <th :class="th" class="hidden md:table-cell">{{ t('users.colRegDate') }}</th>
+              <th :class="th" class="text-right">{{ t('common.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="user in users.data" :key="user.id"
+              @dblclick="router.visit(route('users.show', user.id))"
+              class="h-[64px] cursor-pointer border-b border-[var(--card-border)] transition-colors duration-150 last:border-b-0 hover:bg-[var(--nav-hover)]"
+            >
+              <td :class="td" class="font-data tabular-nums text-[var(--text-muted)]">{{ user.id }}</td>
+              <td :class="td">
+                <div class="flex min-w-0 items-center gap-3">
+                  <div class="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[var(--accent-tint)] text-[12.5px] font-semibold text-link">
+                    {{ (user.name || user.phone || '?').charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="min-w-0">
+                    <Link :href="route('users.show', user.id)" class="block max-w-[260px] truncate font-semibold text-[var(--text)] transition-colors duration-150 hover:text-link">{{ user.name || '—' }}</Link>
+                    <div class="font-data text-[12px] text-[var(--text-muted)]">{{ user.phone }}</div>
+                  </div>
                 </div>
-                <div>
-                  <div class="font-bold text-ink dark:text-slate-200">{{ user.name || '—' }}</div>
-                  <div class="text-[11px] font-data text-muted">{{ user.phone }}</div>
+              </td>
+              <td :class="td" class="hidden text-[var(--text-secondary)] lg:table-cell">{{ user.region?.name_ru || '—' }}</td>
+              <td :class="td" class="hidden md:table-cell">
+                <span v-if="user.tariff" class="inline-flex h-6 items-center rounded-full bg-[var(--accent-tint)] px-2.5 text-[11.5px] font-semibold text-link">{{ user.tariff.name_ru }}</span>
+                <span v-else class="text-[var(--text-muted)]">—</span>
+              </td>
+              <td :class="td"><StatusBadge :status="user.status" /></td>
+              <td :class="td" class="hidden whitespace-nowrap font-data tabular-nums text-[var(--text-secondary)] md:table-cell">{{ formatDate(user.created_at) }}</td>
+              <td :class="td">
+                <div class="flex items-center justify-end gap-1.5">
+                  <Link :href="route('users.show', user.id)" class="icon-btn" :title="t('actions.show')" :aria-label="t('actions.show')">
+                    <Icon kind="eye" :size="16" />
+                  </Link>
+                  <button v-if="isAdmin && user.status === 'active'" type="button" @click="confirmBlock(user)" class="icon-btn icon-btn-danger" :title="t('actions.block')" :aria-label="t('actions.block')">
+                    <Icon kind="lock" :size="16" />
+                  </button>
+                  <button v-else-if="isAdmin" type="button" @click="doUnblock(user)" class="icon-btn icon-btn-success" :title="t('actions.unblock')" :aria-label="t('actions.unblock')">
+                    <Icon kind="check" :size="16" />
+                  </button>
                 </div>
-              </div>
-            </td>
-            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline text-muted">{{ user.region?.name_ru || '—' }}</td>
-            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
-              <span v-if="user.tariff" class="rounded-pill bg-blue-light px-2 py-0.5 text-[11px] font-bold text-blue">{{ user.tariff.name_ru }}</span>
-              <span v-else class="text-muted">—</span>
-            </td>
-            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
-              <StatusBadge :status="user.status" />
-            </td>
-            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ formatDate(user.created_at) }}</td>
-            <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
-              <div class="flex items-center gap-1.5">
-                <Link :href="route('users.show', user.id)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-blue-light text-blue transition hover:bg-blue hover:text-white">
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
-                </Link>
-                <button v-if="isAdmin && user.status === 'active'" @click="confirmBlock(user)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-red/10 text-red transition hover:bg-red hover:text-white" :title="t('actions.block')">
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" stroke-width="2"/></svg>
-                </button>
-                <button v-else-if="isAdmin" @click="doUnblock(user)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-green/10 text-green transition hover:bg-green hover:text-white" :title="t('actions.unblock')">
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-width="2" stroke-linecap="round" points="20 6 9 17 4 12"/></svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!users.data?.length">
-            <td colspan="7" class="px-4 py-10 text-center text-[13px] text-muted">{{ t('users.notFound') }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <Pagination :links="users.links" />
+              </td>
+            </tr>
+            <tr v-if="!users.data?.length">
+              <td colspan="7">
+                <EmptyState icon="users" :title="t('users.notFound')" :text="hasFilters ? t('common.emptyFiltered') : ''">
+                  <button v-if="hasFilters" type="button" class="btn btn-secondary" @click="resetFilters">{{ t('common.resetFilters') }}</button>
+                </EmptyState>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <Pagination :links="users.links" :from="users.from" :to="users.to" :total="users.total" />
     </div>
 
     <!-- Create Modal -->
     <UserCreateModal v-if="isAdmin" :open="createOpen" :regions="regions" @close="createOpen = false" />
 
     <!-- Block modal -->
-    <div v-if="blockTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="blockTarget = null">
-      <div class="w-[420px] rounded-card bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,.18)] dark:bg-dcard">
-        <h3 class="mb-2 text-[17px] font-extrabold text-ink dark:text-slate-100">{{ t('users.blockTitle') }}</h3>
+    <div v-if="blockTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-[#0A0C1A]/50 p-4" @click.self="blockTarget = null">
+      <div class="card w-full max-w-[420px] p-6 shadow-lg2">
+        <h3 class="mb-1 text-[16px] font-semibold text-[var(--text)]">{{ t('users.blockTitle') }}</h3>
         <p class="mb-4 text-[13px] text-muted">{{ blockTarget?.name || blockTarget?.phone }}</p>
         <textarea v-model="blockReason" :placeholder="t('users.blockReasonPlaceholder')" rows="3"
-          class="w-full rounded-btn border-2 border-line bg-surface py-[10px] px-[14px] text-[13px] font-semibold outline-none focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200 mb-4 resize-none"></textarea>
-        <div class="flex gap-2.5">
-          <button @click="blockTarget = null" class="flex-1 rounded-btn border-2 border-line bg-white py-[11px] text-[13px] font-bold text-muted hover:border-blue hover:text-blue transition dark:bg-dcard dark:border-dline">{{ t('actions.cancel') }}</button>
-          <button @click="doBlock" class="flex-1 rounded-btn bg-red py-[11px] text-[13px] font-bold text-white hover:opacity-90 transition">{{ t('actions.block') }}</button>
+          class="input mb-4 resize-none"></textarea>
+        <div class="flex justify-end gap-2">
+          <button @click="blockTarget = null" class="btn btn-secondary">{{ t('actions.cancel') }}</button>
+          <button @click="doBlock" class="btn btn-danger">{{ t('actions.block') }}</button>
         </div>
       </div>
     </div>

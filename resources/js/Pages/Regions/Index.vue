@@ -101,7 +101,9 @@ async function destroyDistrict(item) {
   <AppLayout>
     <template #header>{{ t('regions.header') }}</template>
 
-    <div class="grid gap-5" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+    <!-- Регион → город → район: выбор слева раскрывает следующую колонку.
+         Колонки одной высоты, список прокручивается внутри. -->
+    <div class="grid grid-cols-1 gap-5 lg:h-[calc(100vh-212px)] lg:min-h-[480px] lg:grid-cols-3 [&>*]:max-h-[560px] lg:[&>*]:max-h-none">
       <!-- Регионы -->
       <GeoColumn
         ref="regionCol"

@@ -8,6 +8,9 @@ import DrawerField from '@/Components/DrawerField.vue'
 import DrawerFooter from '@/Components/DrawerFooter.vue'
 import CreateButton from '@/Components/CreateButton.vue'
 import ToggleSwitch from '@/Components/ToggleSwitch.vue'
+import StatusBadge from '@/Components/StatusBadge.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import Icon from '@/Components/Icon.vue'
 import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
@@ -55,61 +58,83 @@ async function destroy(item) {
   <AppLayout>
     <template #header>{{ t('nav.tariffs') }}</template>
 
-    <div class="space-y-4">
-      <div class="flex justify-end">
-        <CreateButton :label="t('tariffs.addBtn')" @click="openCreate" />
-      </div>
+    <template #description>{{ t('tariffs.description') }}</template>
+    <template #actions>
+      <CreateButton :label="t('tariffs.addBtn')" @click="openCreate" />
+    </template>
 
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div
-          v-for="item in tariffs" :key="item.id"
-          class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline p-5 flex flex-col gap-3"
-        >
-          <div class="flex items-start justify-between">
-            <div>
-              <div class="font-extrabold text-ink dark:text-slate-100 text-base">{{ item.name_ru }}</div>
-              <div class="text-xs text-muted">{{ item.name_tk }}</div>
+    <!-- Карточки рядом — тарифы сравнивают между собой: цена, лимиты, права -->
+    <div v-if="tariffs.length" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <article
+        v-for="item in tariffs" :key="item.id"
+        class="card flex flex-col"
+        :class="!item.is_active && !item.is_free ? 'opacity-70' : ''"
+      >
+        <!-- Название и включённость -->
+        <div class="flex items-start justify-between gap-3 border-b border-[var(--card-border)] p-5">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="truncate text-[16px] font-semibold text-[var(--text)]">{{ item.name_ru }}</h2>
+              <StatusBadge v-if="item.is_free" status="regular" :label="t('tariffs.free')" />
             </div>
-            <!-- Бесплатный тариф не выключается: на нём все клиенты без платного -->
-            <span
-              v-if="item.is_free"
-              class="flex-none rounded-[4px] bg-surface px-2 py-1 text-[11px] font-semibold text-muted dark:bg-white/5"
-            >{{ t('tariffs.alwaysActive') }}</span>
-            <ToggleSwitch v-else :modelValue="item.is_active" @update:modelValue="toggle(item)" />
+            <div class="truncate text-[12.5px] text-[var(--text-muted)]">{{ item.name_tk }}</div>
           </div>
+          <!-- Бесплатный тариф не выключается: на нём все клиенты без платного -->
+          <StatusBadge v-if="item.is_free" status="active" :label="t('tariffs.alwaysActive')" />
+          <ToggleSwitch v-else :modelValue="item.is_active" @update:modelValue="toggle(item)" :aria-label="t('tariffs.activeLabel')" />
+        </div>
 
-          <div class="grid grid-cols-3 gap-2 text-center">
-            <div class="rounded-[8px] bg-surface dark:bg-dbg p-2">
-              <div class="text-lg font-extrabold text-blue">{{ item.listings_limit }}</div>
-              <div class="text-[10px] text-muted">{{ t('tariffs.unitListings') }}</div>
-            </div>
-            <div class="rounded-[8px] bg-surface dark:bg-dbg p-2">
-              <div class="text-lg font-extrabold text-blue">{{ item.videos_limit }}</div>
-              <div class="text-[10px] text-muted">{{ t('tariffs.unitVideos') }}</div>
-            </div>
-            <div class="rounded-[8px] bg-surface dark:bg-dbg p-2">
-              <div class="text-lg font-extrabold text-blue">{{ item.boost_limit }}</div>
-              <div class="text-[10px] text-muted">{{ t('tariffs.unitBoosts') }}</div>
-            </div>
+        <!-- Цена и срок -->
+        <div class="px-5 pt-4">
+          <div class="flex items-baseline gap-1.5">
+            <span class="font-data text-[26px] font-semibold tabular-nums text-[var(--text)]">{{ Number(item.price).toLocaleString('ru-RU') }}</span>
+            <span class="text-[13px] font-medium text-[var(--text-secondary)]">{{ t('tariffRequests.amountUnit') }}</span>
           </div>
+          <div class="text-[12.5px] text-[var(--text-muted)]">{{ item.is_free ? t('tariffs.unlimited') : t('tariffs.perPeriod', { n: item.duration_days }) }}</div>
+        </div>
 
-          <div class="flex items-center gap-2 text-xs text-muted">
-            <span class="font-bold text-ink dark:text-slate-200">{{ item.price }} {{ t('tariffRequests.amountUnit') }}</span>
-            <span>{{ item.is_free ? t('tariffs.unlimited') : `${item.duration_days} ${t('tariffs.days')}` }}</span>
-            <span v-if="item.is_free" class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold">{{ t('tariffs.free') }}</span>
-            <span class="ml-auto text-[11px]">{{ item.users_count }} {{ t('tariffs.usersCount') }}</span>
+        <!-- Лимиты и права -->
+        <dl class="mx-5 my-4 divide-y divide-[var(--card-border)] rounded-[8px] border border-[var(--card-border)] text-[13px]">
+          <div v-for="row in [
+            { label: t('tariffs.limitListings'), value: item.listings_limit },
+            { label: t('tariffs.limitVideos'),   value: item.videos_limit },
+            { label: t('tariffs.limitBoosts'),   value: item.boost_limit },
+          ]" :key="row.label" class="flex items-center justify-between px-3 py-2">
+            <dt class="text-[var(--text-secondary)]">{{ row.label }}</dt>
+            <dd class="font-data font-semibold tabular-nums text-[var(--text)]">{{ row.value }}</dd>
           </div>
+          <div v-for="row in [
+            { label: t('tariffs.featureStore'),     on: item.can_have_store },
+            { label: t('tariffs.featureWholesale'), on: item.can_see_wholesale },
+          ]" :key="row.label" class="flex items-center justify-between px-3 py-2">
+            <dt class="text-[var(--text-secondary)]">{{ row.label }}</dt>
+            <dd :class="row.on ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-muted)]'">
+              <Icon :kind="row.on ? 'check' : 'close'" :size="15" />
+              <span class="sr-only">{{ row.on ? t('common.yes') : t('common.no') }}</span>
+            </dd>
+          </div>
+        </dl>
 
-          <div class="flex gap-2 pt-1">
-            <button @click="openEdit(item)" class="flex-1 py-1.5 rounded-btn border border-line dark:border-dline text-xs font-bold text-ink dark:text-slate-200 hover:bg-surface dark:hover:bg-white/5 transition">
-              {{ t('tariffs.change') }}
+        <div class="mt-auto flex items-center gap-2 border-t border-[var(--card-border)] px-5 py-3">
+          <span class="flex items-center gap-1.5 text-[12.5px] text-[var(--text-muted)]" :title="t('tariffs.subscribers')">
+            <Icon kind="users" :size="14" />
+            <span class="font-data tabular-nums text-[var(--text-secondary)]">{{ item.users_count }}</span>
+          </span>
+          <div class="ml-auto flex gap-1.5">
+            <button type="button" @click="openEdit(item)" class="btn btn-secondary btn-sm">
+              <Icon kind="pencil" :size="14" />{{ t('tariffs.change') }}
             </button>
-            <button v-if="!item.is_free" @click="destroy(item)" class="px-3 py-1.5 rounded-btn border border-red/30 text-xs font-bold text-red hover:bg-red/5 transition">
-              {{ t('actions.delete') }}
+            <button v-if="!item.is_free" type="button" @click="destroy(item)" class="icon-btn icon-btn-danger" :title="t('actions.delete')" :aria-label="t('actions.delete')">
+              <Icon kind="trash" :size="16" />
             </button>
           </div>
         </div>
-      </div>
+      </article>
+    </div>
+    <div v-else class="card">
+      <EmptyState icon="coin" :title="t('tariffs.emptyTitle')">
+        <CreateButton :label="t('tariffs.addBtn')" @click="openCreate" />
+      </EmptyState>
     </div>
 
     <AppDrawer :open="drawer" :title="editItem ? t('tariffs.editTitle') : t('tariffs.newTitle')" @close="drawer = false">
@@ -125,7 +150,7 @@ async function destroy(item) {
       <!-- Цену админ принимает наличными и сверяет с суммой в заявке -->
       <DrawerField :label="t('tariffs.priceLabel')" :error="errors.price">
         <input v-model.number="form.price" type="number" min="0" step="0.01" class="input" />
-        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('tariffs.priceHint') }}</p>
+        <p class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('tariffs.priceHint') }}</p>
       </DrawerField>
       <div class="grid grid-cols-2 gap-3">
         <DrawerField :label="t('tariffs.limitListings')" :error="errors.listings_limit">
@@ -158,9 +183,9 @@ async function destroy(item) {
           <ToggleSwitch v-model="form.can_see_wholesale" /> {{ t('tariffs.canSeeWholesaleLabel') }}
         </label>
       </div>
-      <p v-if="form.is_free" class="text-[11px] text-[var(--text-muted)]">{{ t('tariffs.freeUnlimitedHint') }}</p>
-      <p v-if="editItem?.is_free" class="text-[11px] text-[var(--text-muted)]">{{ t('tariffs.freeProtectedHint') }}</p>
-      <p v-if="errors.is_free" class="text-[11px] text-red">{{ errors.is_free }}</p>
+      <p v-if="form.is_free" class="text-[12px] text-[var(--text-muted)]">{{ t('tariffs.freeUnlimitedHint') }}</p>
+      <p v-if="editItem?.is_free" class="text-[12px] text-[var(--text-muted)]">{{ t('tariffs.freeProtectedHint') }}</p>
+      <p v-if="errors.is_free" class="text-[12px] text-red">{{ errors.is_free }}</p>
 
       <template #footer>
         <DrawerFooter

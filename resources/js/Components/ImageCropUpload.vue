@@ -182,18 +182,18 @@ function onPointerUp(e) {
       v-if="!previewUrl"
       type="button"
       @click="pick"
-      class="flex w-full flex-col items-center justify-center gap-2 rounded-[11px] border-2 border-dashed border-[var(--field-border)] bg-[var(--field-bg)] py-8 text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+      class="flex w-full flex-col items-center justify-center gap-2 rounded-[8px] border-2 border-dashed border-[var(--field-border)] bg-[var(--field-bg)] py-8 text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
     >
       <span class="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-tint)] text-xl font-bold text-[var(--accent)]">+</span>
       <span class="text-[13px] font-semibold">{{ t('imageUpload.upload') }}</span>
-      <span class="text-[11px] text-[var(--text-muted)]">{{ t('imageUpload.formats', { mb: Math.round(maxBytes / 1024 / 1024), w: minWidth, h: minHeight }) }}</span>
+      <span class="text-[12px] text-[var(--text-muted)]">{{ t('imageUpload.formats', { mb: Math.round(maxBytes / 1024 / 1024), w: minWidth, h: minHeight }) }}</span>
     </button>
 
     <!-- Изображение целиком + перетаскиваемая рамка кропа -->
     <template v-else>
       <div
         ref="wrapperEl"
-        class="relative flex w-full select-none items-center justify-center overflow-hidden rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] touch-none"
+        class="relative flex w-full select-none items-center justify-center overflow-hidden rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] touch-none"
         :class="hasSlack ? 'cursor-move' : ''"
         :style="{ height: PREVIEW_HEIGHT + 'px' }"
         @pointerdown="onPointerDown"
@@ -220,21 +220,21 @@ function onPointerUp(e) {
           }"
         ></div>
       </div>
-      <p v-if="hasSlack" class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('imageUpload.dragHint') }}</p>
+      <p v-if="hasSlack" class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('imageUpload.dragHint') }}</p>
 
       <div class="mt-2 flex gap-2">
         <button
           type="button" @click="pick"
-          class="rounded-[10px] border border-[var(--field-border)] px-3.5 py-[7px] text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--nav-hover)]"
+          class="rounded-[8px] border border-[var(--field-border)] px-3.5 py-[7px] text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--nav-hover)]"
         >{{ t('actions.replace') }}</button>
         <button
           type="button" @click="remove"
-          class="rounded-[10px] px-3.5 py-[7px] text-[12px] font-semibold text-red transition-colors hover:bg-red/10"
+          class="rounded-[8px] px-3.5 py-[7px] text-[12px] font-semibold text-red transition-colors hover:bg-red/10"
         >{{ t('actions.delete') }}</button>
       </div>
     </template>
 
-    <p v-if="error" class="mt-1.5 text-[11px] font-semibold text-red">{{ error }}</p>
-    <p v-else-if="warning" class="mt-1.5 text-[11px] font-semibold text-orange">{{ warning }}</p>
+    <p v-if="error" class="mt-1.5 text-[12px] font-semibold text-red">{{ error }}</p>
+    <p v-else-if="warning" class="mt-1.5 text-[12px] font-semibold text-orange">{{ warning }}</p>
   </div>
 </template>

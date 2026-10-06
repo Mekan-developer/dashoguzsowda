@@ -101,7 +101,7 @@ watch(() => props.open, (open) => {
       <!-- Файл выбран — карточка файла с заменой и удалением -->
       <div
         v-if="form.video"
-        class="flex items-center gap-3 rounded-[10px] border border-[var(--field-border)] bg-[var(--field-bg)] px-3.5 py-3"
+        class="flex items-center gap-3 rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] px-3.5 py-3"
       >
         <span class="flex h-10 w-10 flex-none items-center justify-center rounded-[8px] bg-[var(--accent-tint)] text-[var(--accent)]">
           <Icon kind="video" :size="18" />
@@ -122,7 +122,7 @@ watch(() => props.open, (open) => {
       <button
         v-else
         type="button"
-        class="flex w-full flex-col items-center gap-2 rounded-[12px] border-[1.5px] border-dashed px-4 py-8 text-center transition"
+        class="flex w-full flex-col items-center gap-2 rounded-[8px] border-[1.5px] border-dashed px-4 py-8 text-center transition"
         :class="dragOver
           ? 'border-[var(--accent)] bg-[var(--accent-tint)]'
           : 'border-[var(--field-border)] bg-[var(--field-bg)] hover:border-[var(--accent)]'"

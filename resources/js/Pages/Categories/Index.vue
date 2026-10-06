@@ -12,17 +12,16 @@ import IconPicker from '@/Components/IconPicker.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import ImagePreviewModal from '@/Components/ImagePreviewModal.vue'
 import Icon from '@/Components/Icon.vue'
+import SearchInput from '@/Components/SearchInput.vue'
+import StatusBadge from '@/Components/StatusBadge.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import { th, td, tr, thead } from '@/table'
 import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
 const props = defineProps({ categories: Array, icons: Array })
 
-const levelBadge = {
-    1: 'bg-blue-light text-blue',
-    2: 'bg-green/10 text-green',
-    3: 'bg-orange/10 text-orange',
-}
 
 // Свёрнутые ветки (по умолчанию всё раскрыто)
 const collapsed = ref(new Set())
@@ -45,6 +44,28 @@ const flatList = computed(() => {
     }
     walk(props.categories, 0)
     return result
+})
+
+// Все узлы дерева с путём до корня — для поиска и счётчика
+const allFlat = computed(() => {
+    const result = []
+    function walk(items, depth, path) {
+        for (const item of items) {
+            result.push({ ...item, depth, path: path.join(' → ') })
+            if (item.children?.length) walk(item.children, depth + 1, [...path, item.name_ru])
+        }
+    }
+    walk(props.categories, 0, [])
+    return result
+})
+
+// Поиск — на клиенте: всё дерево уже на странице
+const query = ref('')
+const rows = computed(() => {
+    const q = query.value.trim().toLowerCase()
+    if (!q) return flatList.value
+    return allFlat.value.filter(c =>
+        c.name_ru?.toLowerCase().includes(q) || c.name_tk?.toLowerCase().includes(q))
 })
 
 // Первый/последний среди siblings — для отключения стрелок сортировки
@@ -164,104 +185,123 @@ const canSave = computed(() => form.value.name_ru.trim().length > 0)
       <CreateButton :label="t('categories.addBtn')" @click="openCreate()" />
     </template>
 
-    <div class="rounded-card bg-white shadow-soft dark:bg-dcard overflow-hidden">
-      <table class="w-full">
-        <thead class="bg-surface/50 dark:bg-dbg/50">
-          <tr>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">#</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('categories.colName') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('categories.colTk') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-20">{{ t('categories.colLevel') }}</th>
-            <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.status') }}</th>
-            <th class="px-4 py-[11px] text-right text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.actions') }}</th>
+    <!-- Поиск по дереву: совпадения показываются с путём до корня -->
+    <div class="mb-4 flex flex-wrap items-center gap-2.5">
+      <SearchInput v-model="query" :placeholder="t('categories.searchPlaceholder')" :debounce="0" class="w-full sm:w-[320px]" />
+      <span class="ml-auto whitespace-nowrap text-[12.5px] tabular-nums text-[var(--text-muted)]">
+        {{ t('dataTable.countOf', { shown: rows.length, total: allFlat.length }) }}
+      </span>
+    </div>
+
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+      <table class="w-full min-w-[640px]">
+        <thead>
+          <tr :class="thead">
+            <th :class="th" class="w-[72px]">{{ t('common.id') }}</th>
+            <th :class="th">{{ t('categories.colName') }}</th>
+            <th :class="th" class="w-[100px]">{{ t('categories.colLevel') }}</th>
+            <th :class="th" class="w-[130px]">{{ t('common.status') }}</th>
+            <th :class="th" class="w-[110px]">{{ t('categories.colOrder') }}</th>
+            <th :class="th" class="text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="cat in flatList" :key="cat.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
-            <td class="px-4 py-[12px] text-[12px] border-b border-line dark:border-dline font-data text-muted">
-              <div class="flex items-center gap-1">
-                <span>{{ cat.id }}</span>
-                <div class="flex flex-col -my-1">
-                  <button
-                    @click="move(cat, 'up')" :disabled="siblingInfo[cat.id]?.isFirst"
-                    class="flex h-[13px] w-[13px] items-center justify-center text-muted transition hover:text-blue disabled:opacity-25 disabled:hover:text-muted"
-                  ><Icon kind="arrowUp" :size="10" /></button>
-                  <button
-                    @click="move(cat, 'down')" :disabled="siblingInfo[cat.id]?.isLast"
-                    class="flex h-[13px] w-[13px] items-center justify-center text-muted transition hover:text-blue disabled:opacity-25 disabled:hover:text-muted"
-                  ><Icon kind="arrowDown" :size="10" /></button>
-                </div>
-              </div>
-            </td>
-            <td class="px-4 py-[12px] text-[13px] border-b border-line dark:border-dline">
-              <div class="flex items-center" :style="{ paddingLeft: cat.depth * 20 + 'px' }">
+          <tr v-for="cat in rows" :key="cat.id" :class="tr" class="!h-[60px]">
+            <td :class="td" class="font-data tabular-nums text-[var(--text-muted)]">{{ cat.id }}</td>
+            <td :class="td">
+              <!-- Отступ по уровню + вертикальная линия: видно, чья это подкатегория -->
+              <div class="flex min-w-0 items-center" :style="{ paddingLeft: (query ? 0 : cat.depth * 24) + 'px' }">
+                <span v-if="!query && cat.depth" class="mr-2 h-7 w-px flex-none bg-[var(--field-border)]"></span>
                 <button
-                  v-if="cat.children?.length"
+                  v-if="!query && cat.children?.length"
+                  type="button"
                   @click="toggleCollapse(cat.id)"
-                  class="mr-1 flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted transition hover:text-blue"
-                  :class="{ '-rotate-90': collapsed.has(cat.id) }"
+                  :aria-expanded="!collapsed.has(cat.id)"
+                  :title="collapsed.has(cat.id) ? t('categories.expand') : t('categories.collapse')"
+                  class="mr-1.5 flex h-6 w-6 flex-none items-center justify-center rounded-[6px] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--nav-hover)] hover:text-[var(--text)]"
                 >
-                  <Icon kind="chevronDown" :size="12" />
+                  <Icon kind="chevronDown" :size="14" class="transition-transform duration-150" :class="{ '-rotate-90': collapsed.has(cat.id) }" />
                 </button>
-                <span v-else class="mr-1 w-4 flex-shrink-0"></span>
+                <span v-else-if="!query" class="mr-1.5 w-6 flex-none"></span>
 
-                <div class="mr-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] bg-surface dark:bg-dbg overflow-hidden">
-                  <img v-if="cat.icon_url" :src="cat.icon_url" class="h-4 w-4 object-contain" alt="" />
-                  <Icon v-else kind="image" :size="12" class="text-muted" />
-                </div>
                 <button
                   v-if="cat.image_url"
                   type="button"
                   @click.stop="openPreview(cat)"
                   :title="t('categories.image')"
-                  class="mr-2 h-7 w-7 flex-shrink-0 overflow-hidden rounded-[7px] bg-surface transition hover:opacity-80 dark:bg-dbg"
-                >
-                  <img :src="cat.image_url" class="h-full w-full object-cover" alt="" />
-                </button>
+                  class="mr-3 h-9 w-9 flex-none overflow-hidden rounded-[8px] border border-[var(--card-border)] transition-opacity duration-150 hover:opacity-80"
+                ><img :src="cat.image_url" class="h-full w-full object-cover" alt="" /></button>
+                <div v-else class="mr-3 flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-[8px] border border-[var(--card-border)] bg-[var(--field-bg)]">
+                  <img v-if="cat.icon_url" :src="cat.icon_url" class="h-[18px] w-[18px] object-contain" alt="" />
+                  <Icon v-else kind="tag" :size="15" class="text-[var(--text-muted)]" />
+                </div>
 
-                <span class="font-bold text-ink dark:text-slate-200">{{ cat.name_ru }}</span>
-                <span v-if="cat.children?.length" class="ml-2 text-[10px] font-data font-bold text-muted">({{ cat.children.length }})</span>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="truncate font-semibold text-[var(--text)]">{{ cat.name_ru }}</span>
+                    <img v-if="cat.image_url && cat.icon_url" :src="cat.icon_url" class="h-3.5 w-3.5 flex-none object-contain opacity-70" alt="" />
+                  </div>
+                  <div class="truncate text-[12px] text-[var(--text-muted)]">
+                    <template v-if="query && cat.path">{{ cat.path }} · </template>{{ cat.name_tk || '—' }}<template v-if="cat.children?.length"> · {{ t('categories.subCount', { n: cat.children.length }) }}</template>
+                  </div>
+                </div>
               </div>
             </td>
-            <td class="px-4 py-[12px] text-[13px] border-b border-line dark:border-dline text-muted">{{ cat.name_tk }}</td>
-            <td class="px-4 py-[12px] text-[12px] border-b border-line dark:border-dline">
-              <span class="rounded-pill px-2.5 py-0.5 text-[11px] font-bold" :class="levelBadge[cat.level]">
-                L{{ cat.level }}
-              </span>
+            <td :class="td">
+              <span class="inline-flex h-6 items-center rounded-full bg-[var(--nav-hover)] px-2.5 font-data text-[11.5px] font-semibold text-[var(--text-secondary)]">L{{ cat.level }}</span>
             </td>
-            <td class="px-4 py-[12px] text-[13px] border-b border-line dark:border-dline">
-              <span :class="cat.is_active ? 'text-green font-bold' : 'text-muted'">{{ cat.is_active ? t('categories.active') : t('categories.hidden') }}</span>
+            <td :class="td">
+              <StatusBadge :status="cat.is_active ? 'active' : 'suspended'" :label="cat.is_active ? t('categories.active') : t('categories.hidden')" />
             </td>
-            <td class="px-4 py-[12px] text-[13px] border-b border-line dark:border-dline">
+            <td :class="td">
+              <div class="flex items-center gap-1">
+                <button
+                  type="button" @click="move(cat, 'up')" :disabled="siblingInfo[cat.id]?.isFirst"
+                  class="icon-btn !h-7 !w-7 !bg-transparent hover:!bg-[var(--nav-hover)]" :title="t('categories.moveUp')" :aria-label="t('categories.moveUp')"
+                ><Icon kind="arrowUp" :size="14" /></button>
+                <button
+                  type="button" @click="move(cat, 'down')" :disabled="siblingInfo[cat.id]?.isLast"
+                  class="icon-btn !h-7 !w-7 !bg-transparent hover:!bg-[var(--nav-hover)]" :title="t('categories.moveDown')" :aria-label="t('categories.moveDown')"
+                ><Icon kind="arrowDown" :size="14" /></button>
+              </div>
+            </td>
+            <td :class="td">
               <div class="flex items-center justify-end gap-1.5">
-                <button @click="toggleActive(cat)" :title="cat.is_active ? t('actions.hide') : t('actions.show')"
-                  class="flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-surface text-muted transition hover:bg-blue hover:text-white dark:bg-dbg">
-                  <Icon :kind="cat.is_active ? 'eye' : 'eyeOff'" :size="13" />
+                <button type="button" @click="toggleActive(cat)" :title="cat.is_active ? t('actions.hide') : t('actions.show')" :aria-label="cat.is_active ? t('actions.hide') : t('actions.show')" class="icon-btn">
+                  <Icon :kind="cat.is_active ? 'eyeOff' : 'eye'" :size="16" />
                 </button>
-                <button v-if="cat.level < 3" @click="openCreate(cat)" :title="t('categories.addSub')"
-                  class="flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-blue-light text-blue transition hover:bg-blue hover:text-white">
-                  <Icon kind="plus" :size="13" />
+                <button v-if="cat.level < 3" type="button" @click="openCreate(cat)" :title="t('categories.addSub')" :aria-label="t('categories.addSub')" class="icon-btn">
+                  <Icon kind="plus" :size="16" />
                 </button>
-                <button @click="openEdit(cat)" :title="t('actions.edit')"
-                  class="flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-surface text-muted transition hover:bg-blue hover:text-white dark:bg-dbg">
-                  <Icon kind="pencil" :size="13" />
+                <button type="button" @click="openEdit(cat)" :title="t('actions.edit')" :aria-label="t('actions.edit')" class="icon-btn">
+                  <Icon kind="pencil" :size="16" />
                 </button>
-                <button @click="destroy(cat)" :title="t('actions.delete')"
-                  class="flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-red/10 text-red transition hover:bg-red hover:text-white">
-                  <Icon kind="trash" :size="13" />
+                <button type="button" @click="destroy(cat)" :title="t('actions.delete')" :aria-label="t('actions.delete')" class="icon-btn icon-btn-danger">
+                  <Icon kind="trash" :size="16" />
                 </button>
               </div>
             </td>
           </tr>
-          <tr v-if="!flatList.length"><td colspan="6" class="px-4 py-10 text-center text-[13px] text-muted">{{ t('categories.empty') }}</td></tr>
+          <tr v-if="!rows.length">
+            <td colspan="6">
+              <EmptyState v-if="query" icon="search" :title="t('dataTable.empty')" :text="t('common.emptyFiltered')">
+                <button type="button" class="btn btn-secondary" @click="query = ''">{{ t('common.resetFilters') }}</button>
+              </EmptyState>
+              <EmptyState v-else icon="tag" :title="t('categories.empty')" :text="t('categories.emptyHint')">
+                <CreateButton :label="t('categories.addBtn')" @click="openCreate()" />
+              </EmptyState>
+            </td>
+          </tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <AppDrawer :open="drawerOpen" :title="editItem ? t('categories.editTitle') : t('categories.newTitle')" @close="drawerOpen = false">
       <div class="space-y-4 p-5">
         <DrawerField :label="t('categories.parentCategory')">
-          <select v-model="form.parent_id" class="w-full rounded-btn border-2 border-line bg-surface py-[9px] px-[14px] text-[13px] font-semibold text-ink outline-none focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200">
+          <select v-model="form.parent_id" class="input">
             <option value="">{{ t('categories.rootOption') }}</option>
             <option v-for="p in parentOptions" :key="p.id" :value="p.id">
               {{ '— '.repeat(p.depth) }}{{ p.name_ru }}
@@ -278,13 +318,13 @@ const canSave = computed(() => form.value.name_ru.trim().length > 0)
             :min-width="700"
             :min-height="700"
           />
-          <p class="mt-1.5 text-[11px] text-muted">{{ t('categories.imageHint') }}</p>
+          <p class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('categories.imageHint') }}</p>
         </DrawerField>
         <DrawerField :label="t('categories.nameRu')" required :error="errors.name_ru">
-          <input v-model="form.name_ru" class="w-full rounded-btn border-2 border-line bg-surface py-[9px] px-[14px] text-[13px] font-semibold text-ink outline-none focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200" :class="errors.name_ru ? 'border-red' : ''" />
+          <input v-model="form.name_ru" class="input" :class="errors.name_ru ? 'border-red' : ''" />
         </DrawerField>
         <DrawerField :label="t('categories.nameTk')" :error="errors.name_tk">
-          <input v-model="form.name_tk" class="w-full rounded-btn border-2 border-line bg-surface py-[9px] px-[14px] text-[13px] font-semibold text-ink outline-none focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200" :class="errors.name_tk ? 'border-red' : ''" />
+          <input v-model="form.name_tk" class="input" :class="errors.name_tk ? 'border-red' : ''" />
         </DrawerField>
         <DrawerField :label="t('categories.icon')" :error="errors.icon || errors.icon_path">
           <IconPicker
@@ -296,7 +336,7 @@ const canSave = computed(() => form.value.name_ru.trim().length > 0)
         </DrawerField>
         <DrawerField :label="t('categories.activeField')">
           <ToggleSwitch v-model="form.is_active" />
-          <p class="mt-1.5 text-[11px] text-muted">{{ t('categories.hiddenHint') }}</p>
+          <p class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('categories.hiddenHint') }}</p>
         </DrawerField>
       </div>
       <template #footer>

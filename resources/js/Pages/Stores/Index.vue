@@ -6,6 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import AppDrawer from '@/Components/AppDrawer.vue'
 import CreateButton from '@/Components/CreateButton.vue'
 import DrawerField from '@/Components/DrawerField.vue'
+import DrawerFooter from '@/Components/DrawerFooter.vue'
 import Icon from '@/Components/Icon.vue'
 import ImageCropUpload from '@/Components/ImageCropUpload.vue'
 import DataTable from '@/Components/DataTable.vue'
@@ -63,9 +64,9 @@ function onCityChange() { form.value.district_id = null }
 const statusFilter = ref(props.filters?.status || '')
 const statusChips = computed(() => [
     { value: '',         label: t('common.all') },
-    { value: 'pending',  label: t('stores.tabPending'),  count: props.counts?.pending, tint: 'bg-orange/15 text-orange' },
-    { value: 'approved', label: t('stores.tabApproved'), tint: 'bg-green/15 text-green' },
-    { value: 'rejected', label: t('stores.tabRejected'), tint: 'bg-red/15 text-red' },
+    { value: 'pending',  label: t('stores.tabPending'),  count: props.counts?.pending },
+    { value: 'approved', label: t('stores.tabApproved') },
+    { value: 'rejected', label: t('stores.tabRejected') },
 ])
 function setStatus(value) {
     statusFilter.value = value
@@ -86,7 +87,10 @@ const dataTableColumns = computed(() => [
     { key: 'sort_order', label: '', width: '56px' },
 ])
 
+// Модерация — тоже в колонке действий, как на остальных страницах
 const dataTableActions = computed(() => isAdmin.value ? [
+    { icon: 'check', title: t('actions.approve'), handler: approve, color: 'green', visible: s => s.status !== 'approved' },
+    { icon: 'close', title: t('actions.reject'), handler: openReject, color: 'red', visible: s => s.status !== 'rejected' },
     { icon: 'pencil', title: t('actions.edit'), handler: openEdit },
     { icon: 'trash', title: t('actions.delete'), handler: destroy, color: 'red' },
 ] : [])
@@ -193,6 +197,10 @@ function doReject() {
     })
 }
 
+// Нейтральная метка режима торговли
+const sectionHead = 'card-title mb-4 mt-2 border-t border-[var(--card-border)] pt-5'
+const tag = 'inline-flex h-6 items-center rounded-full bg-[var(--nav-hover)] px-2.5 text-[11.5px] font-semibold text-[var(--text-secondary)]'
+
 function reasonName(reason) {
     return reason?.name_ru || reason?.name_tk || ''
 }
@@ -206,26 +214,6 @@ function reasonName(reason) {
       <CreateButton v-if="isAdmin" :label="t('actions.create')" @click="openCreate" />
     </template>
 
-    <!-- Фильтр по статусу модерации: магазин виден в мобилке только после одобрения -->
-    <div class="mb-4 flex flex-wrap gap-2">
-      <button
-        v-for="chip in statusChips"
-        :key="chip.value"
-        @click="setStatus(chip.value)"
-        class="flex items-center gap-1.5 rounded-[20px] px-3.5 py-1.5 text-[13px] font-bold transition"
-        :class="statusFilter === chip.value
-          ? 'bg-[var(--accent)] text-white shadow-[0_4px_12px_var(--accent-tint)]'
-          : 'bg-white dark:bg-dcard border border-line dark:border-dline text-ink dark:text-slate-200 hover:bg-surface dark:hover:bg-white/5'"
-      >
-        {{ chip.label }}
-        <span
-          v-if="chip.count"
-          class="rounded-pill px-1.5 py-px text-[11px] font-extrabold"
-          :class="statusFilter === chip.value ? 'bg-white/25 text-white' : chip.tint"
-        >{{ chip.count }}</span>
-      </button>
-    </div>
-
     <DataTable
       :columns="dataTableColumns"
       :items="stores.data"
@@ -233,33 +221,41 @@ function reasonName(reason) {
       :actions="dataTableActions"
       :search-field="'name'"
       :search-placeholder="t('stores.searchPlaceholder')"
+      empty-icon="shop"
+      :empty-message="statusFilter ? t('dataTable.empty') : t('stores.emptyTitle')"
+      :empty-text="statusFilter ? t('common.emptyFiltered') : t('stores.emptyText')"
       @dblclick="isAdmin ? openEdit($event) : null"
     >
+      <!-- Фильтр по статусу модерации: магазин виден в мобилке только после одобрения -->
+      <template #toolbar>
+        <div class="seg">
+          <button
+            v-for="chip in statusChips" :key="chip.value"
+            type="button"
+            @click="setStatus(chip.value)"
+            :aria-pressed="statusFilter === chip.value"
+            class="seg-item"
+            :class="statusFilter === chip.value ? 'seg-item-active' : ''"
+          >{{ chip.label }}<template v-if="chip.count"> ({{ chip.count }})</template></button>
+        </div>
+      </template>
+
       <template #cell-user="{ item }">
-        <span class="text-[13px] text-[var(--text-secondary)]">{{ item.user?.name || item.user?.phone || '—' }}</span>
+        <span class="block max-w-[180px] truncate text-[var(--text-secondary)]">{{ item.user?.name || item.user?.phone || '—' }}</span>
       </template>
 
       <template #cell-trade="{ item }">
         <div class="flex flex-wrap items-center gap-1">
-          <span v-if="item.sells_retail" class="rounded-pill bg-blue/15 px-2 py-px text-[11px] font-bold text-blue">
-            {{ t('stores.retail') }}
-          </span>
-          <span v-if="item.sells_wholesale" class="rounded-pill bg-orange/15 px-2 py-px text-[11px] font-bold text-orange">
-            {{ t('stores.wholesale') }}
-          </span>
-          <span v-if="item.has_delivery" class="rounded-pill bg-green/15 px-2 py-px text-[11px] font-bold text-green">
-            {{ t('stores.delivery') }}
-          </span>
+          <span v-if="item.sells_retail" :class="tag">{{ t('stores.retail') }}</span>
+          <span v-if="item.sells_wholesale" :class="tag">{{ t('stores.wholesale') }}</span>
+          <span v-if="item.has_delivery" :class="tag" class="!bg-emerald-500/10 !text-emerald-700 dark:!text-emerald-300">{{ t('stores.delivery') }}</span>
         </div>
       </template>
 
       <!-- Комиссия платформы: у каждого магазина своя, 0 — комиссии нет -->
       <template #cell-commission_percent="{ item }">
-        <span
-          v-if="Number(item.commission_percent) > 0"
-          class="rounded-pill bg-purple/15 px-2 py-px text-[11px] font-bold text-purple"
-        >{{ Number(item.commission_percent) }} %</span>
-        <span v-else class="text-[12px] text-muted">—</span>
+        <span v-if="Number(item.commission_percent) > 0" class="font-data font-semibold tabular-nums text-[var(--text)]">{{ Number(item.commission_percent) }} %</span>
+        <span v-else class="text-[var(--text-muted)]">—</span>
       </template>
 
       <template #cell-status="{ item }">
@@ -268,55 +264,38 @@ function reasonName(reason) {
             <StatusBadge :status="item.status" />
           </span>
           <!-- Витрина погашена: у владельца истёк тариф с правом на магазин -->
-          <span v-if="!item.is_active" class="rounded-pill bg-muted/15 px-2 py-px text-[11px] font-bold text-muted">
-            {{ t('stores.inactive') }}
-          </span>
-          <template v-if="isAdmin && item.status !== 'approved'">
-            <button
-              @click.stop="approve(item)"
-              class="flex h-7 w-7 items-center justify-center rounded-[8px] bg-green/15 text-green transition hover:bg-green/25"
-              :title="t('actions.approve')" :aria-label="t('actions.approve')"
-            ><Icon kind="check" :size="13" /></button>
-          </template>
-          <button
-            v-if="isAdmin && item.status !== 'rejected'"
-            @click.stop="openReject(item)"
-            class="flex h-7 w-7 items-center justify-center rounded-[8px] bg-red/15 text-red transition hover:bg-red/25"
-            :title="t('actions.reject')" :aria-label="t('actions.reject')"
-          ><Icon kind="close" :size="13" /></button>
+          <StatusBadge v-if="!item.is_active" status="suspended" :label="t('stores.inactive')" />
         </div>
       </template>
 
       <template #cell-is_popular="{ item }">
-        <button v-if="isAdmin" @click.stop="toggle(item)" class="flex items-center gap-1.5">
-          <div class="h-1.5 w-1.5 rounded-full" :class="item.is_popular ? 'bg-green' : 'bg-muted'"></div>
-          <span class="text-[11px] font-bold" :class="item.is_popular ? 'text-green' : 'text-muted'">
-            {{ item.is_popular ? t('stores.popularOn') : t('stores.popularOff') }}
-          </span>
-        </button>
-        <div v-else class="flex items-center gap-1.5">
-          <div class="h-1.5 w-1.5 rounded-full" :class="item.is_popular ? 'bg-green' : 'bg-muted'"></div>
-          <span class="text-[11px] font-bold" :class="item.is_popular ? 'text-green' : 'text-muted'">
-            {{ item.is_popular ? t('stores.popularOn') : t('stores.popularOff') }}
-          </span>
-        </div>
+        <component
+          :is="isAdmin ? 'button' : 'span'"
+          :type="isAdmin ? 'button' : undefined"
+          @click.stop="isAdmin && toggle(item)"
+          class="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          :class="isAdmin ? 'cursor-pointer transition-opacity duration-150 hover:opacity-80' : ''"
+        >
+          <StatusBadge :status="item.is_popular ? 'active' : 'suspended'" :label="item.is_popular ? t('stores.popularOn') : t('stores.popularOff')" />
+        </component>
       </template>
 
       <template #cell-sort_order="{ item }">
-        <div v-if="isAdmin && item.is_popular" class="flex flex-col -my-1">
+        <div v-if="isAdmin && item.is_popular" class="flex items-center gap-0.5">
           <button
-            @click.stop="move(item, 'up')" :disabled="isFirstPopular(item)"
-            class="flex h-[13px] w-[13px] items-center justify-center text-muted transition hover:text-blue disabled:opacity-25 disabled:hover:text-muted"
-          ><Icon kind="arrowUp" :size="10" /></button>
+            type="button" @click.stop="move(item, 'up')" :disabled="isFirstPopular(item)"
+            class="icon-btn !h-7 !w-7 !bg-transparent hover:!bg-[var(--nav-hover)]" :title="t('stores.moveUp')" :aria-label="t('stores.moveUp')"
+          ><Icon kind="arrowUp" :size="14" /></button>
           <button
-            @click.stop="move(item, 'down')" :disabled="isLastPopular(item)"
-            class="flex h-[13px] w-[13px] items-center justify-center text-muted transition hover:text-blue disabled:opacity-25 disabled:hover:text-muted"
-          ><Icon kind="arrowDown" :size="10" /></button>
+            type="button" @click.stop="move(item, 'down')" :disabled="isLastPopular(item)"
+            class="icon-btn !h-7 !w-7 !bg-transparent hover:!bg-[var(--nav-hover)]" :title="t('stores.moveDown')" :aria-label="t('stores.moveDown')"
+          ><Icon kind="arrowDown" :size="14" /></button>
         </div>
       </template>
     </DataTable>
 
     <AppDrawer :open="drawer" :title="isCreate ? t('stores.createTitle') : t('stores.editTitle')" @close="closeDrawer">
+      <h3 class="card-title mb-4">{{ t('stores.sectionMain') }}</h3>
       <DrawerField v-if="isCreate" :label="t('users.ownerLabel')" :required="true" :error="errors.user_id">
         <UserSearchSelect v-model="form.user_id" :error="errors.user_id" />
       </DrawerField>
@@ -341,7 +320,8 @@ function reasonName(reason) {
         </DrawerField>
       </div>
 
-      <div class="grid grid-cols-3 gap-3">
+      <h3 :class="sectionHead">{{ t('stores.sectionAddress') }}</h3>
+      <div class="grid grid-cols-1 gap-x-3 sm:grid-cols-3">
         <DrawerField :label="t('common.region')" :error="errors.region_id">
           <select v-model="form.region_id" class="input" @change="onRegionChange">
             <option :value="null">—</option>
@@ -366,23 +346,24 @@ function reasonName(reason) {
         <input v-model="form.address" class="input" />
       </DrawerField>
 
+      <h3 :class="sectionHead">{{ t('stores.sectionTrade') }}</h3>
       <!-- Опт и розница — независимые флаги: магазин может торговать и так, и так -->
       <DrawerField :label="t('stores.tradeColumn')" :error="errors.sells_retail">
         <div class="flex flex-wrap gap-4">
-          <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+          <label class="flex cursor-pointer items-center gap-2 text-[13.5px] text-[var(--text)]">
             <input type="checkbox" v-model="form.sells_retail" class="accent-blue" />
             {{ t('stores.retail') }}
           </label>
-          <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+          <label class="flex cursor-pointer items-center gap-2 text-[13.5px] text-[var(--text)]">
             <input type="checkbox" v-model="form.sells_wholesale" class="accent-blue" />
             {{ t('stores.wholesale') }}
           </label>
-          <label class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+          <label class="flex cursor-pointer items-center gap-2 text-[13.5px] text-[var(--text)]">
             <input type="checkbox" v-model="form.has_delivery" class="accent-blue" />
             {{ t('stores.delivery') }}
           </label>
         </div>
-        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.deliveryHint') }}</p>
+        <p class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('stores.deliveryHint') }}</p>
       </DrawerField>
 
       <!-- Чем покупатель может рассчитаться с этим магазином: деньги идут
@@ -392,13 +373,13 @@ function reasonName(reason) {
           <label
             v-for="method in paymentMethods || []"
             :key="method.id"
-            class="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--text-secondary)]"
+            class="flex cursor-pointer items-center gap-2 text-[13.5px] text-[var(--text)]"
           >
             <input type="checkbox" :value="method.id" v-model="form.payment_method_ids" class="accent-blue" />
             {{ method.name_ru || method.name_tk }}
           </label>
         </div>
-        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.paymentHint') }}</p>
+        <p class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('stores.paymentHint') }}</p>
       </DrawerField>
 
       <!-- Комиссия платформы: своя ставка у каждого магазина, удерживается
@@ -412,9 +393,10 @@ function reasonName(reason) {
           />
           <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] font-bold text-[var(--text-muted)]">%</span>
         </div>
-        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.commissionHint') }}</p>
+        <p class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('stores.commissionHint') }}</p>
       </DrawerField>
 
+      <h3 :class="sectionHead">{{ t('stores.sectionMedia') }}</h3>
       <DrawerField :label="t('stores.logoLabel')" :error="errors.logo">
         <ImageCropUpload
           v-model="form.logo"
@@ -429,44 +411,35 @@ function reasonName(reason) {
 
       <DrawerField :label="t('stores.photosLabel')" :error="errors.photos">
         <div class="flex flex-wrap gap-2 mb-2">
-          <div v-for="photo in editItem?.photos || []" :key="photo.id" class="relative h-16 w-16 rounded-[9px] overflow-hidden border border-line dark:border-dline">
+          <div v-for="photo in editItem?.photos || []" :key="photo.id" class="relative h-16 w-16 overflow-hidden rounded-[8px] border border-[var(--card-border)]">
             <img :src="`/storage/${photo.path}`" class="h-full w-full object-cover" />
             <button type="button" @click="removeExistingPhoto(photo)" class="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white">
               <Icon kind="close" :size="9" />
             </button>
           </div>
-          <div v-for="(preview, i) in newPhotoPreviews" :key="'new-'+i" class="relative h-16 w-16 rounded-[9px] overflow-hidden border border-line dark:border-dline">
+          <div v-for="(preview, i) in newPhotoPreviews" :key="'new-'+i" class="relative h-16 w-16 overflow-hidden rounded-[8px] border border-[var(--card-border)]">
             <img :src="preview.url" class="h-full w-full object-cover" />
             <button type="button" @click="removeNewPhoto(i)" class="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white">
               <Icon kind="close" :size="9" />
             </button>
           </div>
         </div>
-        <label class="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-[var(--field-border)] px-3.5 py-2 text-[12px] font-semibold text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
+        <label class="btn btn-secondary btn-sm border-dashed">
           <input type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden" @change="onPhotosPick" />
           {{ t('stores.addPhotos') }}
         </label>
-        <p class="mt-1.5 text-[11px] text-[var(--text-muted)]">{{ t('stores.photosLimitHint') }}</p>
+        <p class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ t('stores.photosLimitHint') }}</p>
       </DrawerField>
 
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <button
-            @click="closeDrawer"
-            class="rounded-[10px] border border-[var(--field-border)] bg-transparent px-[18px] py-[10px] text-[13px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--nav-hover)]"
-          >{{ t('actions.cancel') }}</button>
-          <button
-            @click="save"
-            class="rounded-[10px] px-5 py-[10px] text-[13px] font-bold text-white transition-colors bg-[var(--accent)] hover:bg-[var(--accent-hover)] shadow-[0_10px_22px_-8px_var(--accent)]"
-          >{{ t('actions.save') }}</button>
-        </div>
+        <DrawerFooter @cancel="closeDrawer" @save="save" />
       </template>
     </AppDrawer>
 
     <!-- Отказ по магазину — с причиной из общего справочника (тип store) -->
-    <div v-if="rejectTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="rejectTarget = null">
-      <div class="w-full max-w-md rounded-card bg-white p-6 shadow-soft dark:bg-dcard">
-        <h3 class="mb-4 text-[17px] font-extrabold text-ink dark:text-slate-100">{{ t('stores.rejectTitle') }}</h3>
+    <div v-if="rejectTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-[#0A0C1A]/50 p-4" @click.self="rejectTarget = null">
+      <div class="card w-full max-w-[440px] p-6 shadow-lg2">
+        <h3 class="mb-4 text-[16px] font-semibold text-[var(--text)]">{{ t('stores.rejectTitle') }}</h3>
         <div class="mb-5 space-y-1 max-h-72 overflow-y-auto">
           <label v-for="r in rejectionReasons || []" :key="r.id" class="flex items-center gap-3 cursor-pointer rounded-btn p-3 hover:bg-surface dark:hover:bg-white/5 transition">
             <input type="radio" :value="r.id" v-model="rejectReason" class="accent-blue" />
@@ -474,9 +447,9 @@ function reasonName(reason) {
           </label>
           <p v-if="!(rejectionReasons || []).length" class="p-3 text-[13px] text-muted">{{ t('stores.noRejectionReasons') }}</p>
         </div>
-        <div class="flex gap-2">
-          <button @click="rejectTarget = null" class="flex-1 rounded-btn border-2 border-line py-[11px] text-[13px] font-bold text-muted hover:border-blue hover:text-blue transition dark:border-dline">{{ t('actions.cancel') }}</button>
-          <button @click="doReject" :disabled="!rejectReason" class="flex-1 rounded-btn bg-red py-[11px] text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40 transition">{{ t('actions.reject') }}</button>
+        <div class="flex justify-end gap-2">
+          <button @click="rejectTarget = null" class="btn btn-secondary">{{ t('actions.cancel') }}</button>
+          <button @click="doReject" :disabled="!rejectReason" class="btn btn-danger">{{ t('actions.reject') }}</button>
         </div>
       </div>
     </div>

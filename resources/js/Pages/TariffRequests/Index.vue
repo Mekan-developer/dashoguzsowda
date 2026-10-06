@@ -7,7 +7,9 @@ import Icon from '@/Components/Icon.vue'
 import Pagination from '@/Components/Pagination.vue'
 import SearchInput from '@/Components/SearchInput.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
+import EmptyState from '@/Components/EmptyState.vue'
 import { confirmDialog } from '@/confirm'
+import { th, td, tr, thead } from '@/table'
 
 const { t } = useI18n()
 
@@ -22,9 +24,9 @@ const statusFilter = ref(props.filters?.status || '')
 
 const chips = computed(() => [
     { value: '',         label: t('common.all') },
-    { value: 'pending',  label: t('tariffRequests.tabPending'),  count: props.counts?.pending, tint: 'bg-orange/15 text-orange' },
-    { value: 'approved', label: t('tariffRequests.tabApproved'), tint: 'bg-green/15 text-green' },
-    { value: 'rejected', label: t('tariffRequests.tabRejected'), tint: 'bg-red/15 text-red' },
+    { value: 'pending',  label: t('tariffRequests.tabPending'),  count: props.counts?.pending },
+    { value: 'approved', label: t('tariffRequests.tabApproved') },
+    { value: 'rejected', label: t('tariffRequests.tabRejected') },
 ])
 
 function applyFilters() {
@@ -37,7 +39,7 @@ function setStatus(value) { statusFilter.value = value; applyFilters() }
 
 // Подтверждение = «деньги получены», поэтому спрашиваем явно
 async function approve(item) {
-    if (!(await confirmDialog(t('tariffRequests.confirmApprove', { tariff: item.tariff?.name_ru || item.tariff?.name || '' }), { danger: false }))) return
+    if (!(await confirmDialog(t('tariffRequests.confirmApprove', { tariff: item.tariff?.name_ru || item.tariff?.name || '' }), { danger: false, title: t('actions.approve') }))) return
     router.patch(route('tariff-requests.approve', item.id), {}, { preserveScroll: true })
 }
 
@@ -53,124 +55,119 @@ function doReject() {
 }
 
 function formatDate(value) {
-    return value ? new Date(value).toLocaleDateString() : '—'
+    return value ? new Date(value).toLocaleDateString('ru', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'
 }
 </script>
 
 <template>
   <AppLayout>
     <template #header>{{ t('tariffRequests.title') }}</template>
+    <template #description>{{ t('tariffRequests.hint') }}</template>
 
-    <div class="mb-4 flex items-center gap-2 rounded-card bg-blue/8 px-4 py-3 text-[12px] font-semibold text-blue">
-      <Icon kind="coin" :size="14" class="flex-none" />
-      {{ t('tariffRequests.hint') }}
-    </div>
-
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-      <div class="w-full sm:w-72">
-        <SearchInput
-          v-model="search"
-          :placeholder="t('tariffRequests.searchPlaceholder')"
-          @submit="applyFilters"
-        />
-      </div>
-      <div class="flex flex-wrap gap-2">
+    <div class="mb-4 flex flex-wrap items-center gap-2.5">
+      <SearchInput
+        v-model="search"
+        :placeholder="t('tariffRequests.searchPlaceholder')"
+        class="w-full sm:w-[280px]"
+        @submit="applyFilters"
+      />
+      <div class="seg">
         <button
-          v-for="chip in chips"
-          :key="chip.value"
+          v-for="chip in chips" :key="chip.value"
+          type="button"
           @click="setStatus(chip.value)"
-          class="flex items-center gap-1.5 rounded-[20px] px-3.5 py-1.5 text-[13px] font-bold transition"
-          :class="statusFilter === chip.value
-            ? 'bg-[var(--accent)] text-white shadow-[0_4px_12px_var(--accent-tint)]'
-            : 'bg-white dark:bg-dcard border border-line dark:border-dline text-ink dark:text-slate-200 hover:bg-surface dark:hover:bg-white/5'"
-        >
-          {{ chip.label }}
-          <span
-            v-if="chip.count"
-            class="rounded-pill px-1.5 py-px text-[11px] font-extrabold"
-            :class="statusFilter === chip.value ? 'bg-white/25 text-white' : chip.tint"
-          >{{ chip.count }}</span>
-        </button>
+          :aria-pressed="statusFilter === chip.value"
+          class="seg-item"
+          :class="statusFilter === chip.value ? 'seg-item-active' : ''"
+        >{{ chip.label }}<template v-if="chip.count"> ({{ chip.count }})</template></button>
       </div>
+      <span class="ml-auto whitespace-nowrap text-[12.5px] tabular-nums text-[var(--text-muted)]">
+        {{ t('dataTable.countOf', { shown: requests.data.length, total: requests.total }) }}
+      </span>
     </div>
 
-    <div class="rounded-card bg-white shadow-soft dark:bg-dcard overflow-hidden">
+    <div class="card overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-surface/50 dark:bg-dbg/50">
-            <tr>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('tariffRequests.colApplicant') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('tariffRequests.colTariff') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('tariffRequests.colAmount') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.status') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.date') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('tariffRequests.colProcessedBy') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.actions') }}</th>
+        <table class="w-full min-w-[760px]">
+          <thead>
+            <tr :class="thead">
+              <th :class="th" class="w-[72px]">{{ t('common.id') }}</th>
+              <th :class="th">{{ t('tariffRequests.colApplicant') }}</th>
+              <th :class="th">{{ t('tariffRequests.colTariff') }}</th>
+              <th :class="th" class="text-right">{{ t('tariffRequests.colAmount') }}</th>
+              <th :class="th">{{ t('common.status') }}</th>
+              <th :class="th" class="hidden md:table-cell">{{ t('common.date') }}</th>
+              <th :class="th" class="hidden lg:table-cell">{{ t('tariffRequests.colProcessedBy') }}</th>
+              <th :class="th" class="text-right">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in requests.data" :key="item.id" class="hover:bg-surface/30 dark:hover:bg-white/3 transition">
-              <td class="px-4 py-3 border-b border-line dark:border-dline text-[13px] font-data text-muted">{{ item.id }}</td>
-              <td class="px-4 py-3 border-b border-line dark:border-dline">
-                <div class="text-[13px] font-bold text-ink dark:text-slate-100">{{ item.user?.name || '—' }}</div>
-                <div class="text-[12px] text-muted">{{ item.user?.phone }}</div>
+            <tr v-for="item in requests.data" :key="item.id" :class="tr" class="relative">
+              <!-- Ждущая заявка заметна сразу: тонкая янтарная полоса слева -->
+              <td :class="td" class="relative font-data tabular-nums text-[var(--text-muted)]">
+                <span v-if="item.status === 'pending'" class="absolute inset-y-2 left-0 w-[3px] rounded-full bg-amber-500"></span>
+                {{ item.id }}
               </td>
-              <td class="px-4 py-3 border-b border-line dark:border-dline text-[13px] text-ink dark:text-slate-200">
-                {{ item.tariff?.name_ru || item.tariff?.name || '—' }}
+              <td :class="td">
+                <div class="max-w-[200px] truncate font-semibold text-[var(--text)]">{{ item.user?.name || '—' }}</div>
+                <div class="font-data text-[12px] text-[var(--text-muted)]">{{ item.user?.phone }}</div>
               </td>
-              <td class="px-4 py-3 border-b border-line dark:border-dline text-[13px] font-bold text-ink dark:text-slate-200">
-                {{ item.amount }} {{ t('tariffRequests.amountUnit') }}
+              <td :class="td" class="text-[var(--text)]">{{ item.tariff?.name_ru || item.tariff?.name || '—' }}</td>
+              <td :class="td" class="whitespace-nowrap text-right font-data font-semibold tabular-nums text-[var(--text)]">
+                {{ Number(item.amount).toLocaleString('ru-RU') }} {{ t('tariffRequests.amountUnit') }}
               </td>
-              <td class="px-4 py-3 border-b border-line dark:border-dline">
+              <td :class="td">
                 <span :title="item.status === 'rejected' && item.comment ? item.comment : undefined">
                   <StatusBadge :status="item.status" />
                 </span>
               </td>
-              <td class="px-4 py-3 border-b border-line dark:border-dline text-[12px] text-muted">
-                {{ formatDate(item.created_at) }}
-              </td>
-              <td class="px-4 py-3 border-b border-line dark:border-dline text-[12px] text-muted">
-                {{ item.processor?.name || '—' }}
-              </td>
-              <td class="px-4 py-3 border-b border-line dark:border-dline">
-                <div v-if="item.status === 'pending'" class="flex gap-1">
-                  <button
-                    @click="approve(item)"
-                    class="flex h-8 w-8 items-center justify-center rounded-[8px] bg-green/15 text-green transition hover:bg-green/25"
-                    :title="t('actions.approve')" :aria-label="t('actions.approve')"
-                  ><Icon kind="check" :size="14" /></button>
-                  <button
-                    @click="openReject(item)"
-                    class="flex h-8 w-8 items-center justify-center rounded-[8px] bg-red/15 text-red transition hover:bg-red/25"
-                    :title="t('actions.reject')" :aria-label="t('actions.reject')"
-                  ><Icon kind="close" :size="14" /></button>
+              <td :class="td" class="hidden whitespace-nowrap font-data tabular-nums text-[var(--text-secondary)] md:table-cell">{{ formatDate(item.created_at) }}</td>
+              <td :class="td" class="hidden text-[var(--text-secondary)] lg:table-cell">{{ item.processor?.name || '—' }}</td>
+              <td :class="td">
+                <div v-if="item.status === 'pending'" class="flex items-center justify-end gap-1.5">
+                  <button type="button" @click="approve(item)" class="btn btn-sm btn-green-soft" :title="t('actions.approve')">
+                    <Icon kind="check" :size="15" />{{ t('actions.approve') }}
+                  </button>
+                  <button type="button" @click="openReject(item)" class="icon-btn icon-btn-danger" :title="t('actions.reject')" :aria-label="t('actions.reject')">
+                    <Icon kind="close" :size="16" />
+                  </button>
                 </div>
-                <span v-else class="text-[12px] text-muted">—</span>
+                <div v-else class="text-right text-[var(--text-muted)]">—</div>
               </td>
             </tr>
             <tr v-if="!requests.data.length">
-              <td colspan="8" class="px-4 py-10 text-center text-sm text-muted">{{ t('tariffRequests.empty') }}</td>
+              <td colspan="8">
+                <EmptyState
+                  :icon="search || statusFilter ? 'search' : 'receipt'"
+                  :title="t('tariffRequests.empty')"
+                  :text="search || statusFilter ? t('common.emptyFiltered') : ''"
+                >
+                  <button v-if="search || statusFilter" type="button" class="btn btn-secondary" @click="search = ''; setStatus('')">{{ t('common.resetFilters') }}</button>
+                </EmptyState>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <Pagination :links="requests.links" />
+      <Pagination :links="requests.links" :from="requests.from" :to="requests.to" :total="requests.total" />
     </div>
 
-    <div v-if="rejectTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="rejectTarget = null">
-      <div class="w-full max-w-md rounded-card bg-white p-6 shadow-soft dark:bg-dcard">
-        <h3 class="mb-4 text-[17px] font-extrabold text-ink dark:text-slate-100">{{ t('tariffRequests.rejectTitle') }}</h3>
-        <label class="mb-1.5 block text-[12px] font-bold text-muted">{{ t('tariffRequests.rejectCommentLabel') }}</label>
+    <!-- Отказ: комментарий обязателен — он уходит пользователю -->
+    <div v-if="rejectTarget" class="fixed inset-0 z-[600] flex items-center justify-center bg-[#0A0C1A]/50 p-4" @click.self="rejectTarget = null">
+      <div role="dialog" aria-modal="true" class="card w-full max-w-[440px] p-6 shadow-lg2">
+        <h3 class="mb-1 text-[16px] font-semibold text-[var(--text)]">{{ t('tariffRequests.rejectTitle') }}</h3>
+        <p class="mb-4 text-[13px] text-[var(--text-muted)]">{{ rejectTarget.user?.name || rejectTarget.user?.phone }} · {{ rejectTarget.tariff?.name_ru || rejectTarget.tariff?.name }}</p>
+        <label for="tariff-reject-comment" class="field-label">{{ t('tariffRequests.rejectCommentLabel') }}</label>
         <textarea
+          id="tariff-reject-comment"
           v-model="rejectComment"
           rows="3"
-          class="input mb-5"
+          class="input mb-5 resize-none"
           :placeholder="t('tariffRequests.rejectCommentPlaceholder')"
         ></textarea>
-        <div class="flex gap-2">
-          <button @click="rejectTarget = null" class="flex-1 rounded-btn border-2 border-line py-[11px] text-[13px] font-bold text-muted hover:border-blue hover:text-blue transition dark:border-dline">{{ t('actions.cancel') }}</button>
-          <button @click="doReject" :disabled="!rejectComment.trim()" class="flex-1 rounded-btn bg-red py-[11px] text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40 transition">{{ t('actions.reject') }}</button>
+        <div class="flex justify-end gap-2">
+          <button type="button" @click="rejectTarget = null" class="btn btn-secondary">{{ t('actions.cancel') }}</button>
+          <button type="button" @click="doReject" :disabled="!rejectComment.trim()" class="btn btn-danger">{{ t('actions.reject') }}</button>
         </div>
       </div>
     </div>

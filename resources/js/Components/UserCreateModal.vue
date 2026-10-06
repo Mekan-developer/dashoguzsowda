@@ -147,7 +147,7 @@ watch(() => props.open, (open) => {
                   { value: 'admin', title: t('role.admin') },
                 ]"
                 :key="opt.value" type="button"
-                class="rounded-[12px] px-3 py-3 text-center text-[13px] font-bold transition"
+                class="rounded-[8px] px-3 py-3 text-center text-[13px] font-bold transition"
                 :style="form.role === opt.value
                   ? { border: '1px solid var(--accent)', background: 'var(--accent-tint)', color: 'var(--accent)' }
                   : { border: '1px solid var(--field-border)', background: 'var(--field-bg)', color: 'var(--text)' }"
@@ -161,7 +161,7 @@ watch(() => props.open, (open) => {
               {{ t('common.phone') }}<span class="ml-0.5 text-red">*</span>
             </label>
             <div
-              class="phone-box flex items-stretch overflow-hidden rounded-[10px]"
+              class="phone-box flex items-stretch overflow-hidden rounded-[8px]"
               :class="{ 'phone-box--error': phoneCheck === 'taken' || form.errors.phone }"
               :style="{ background: 'var(--field-bg)' }"
             >
@@ -200,7 +200,7 @@ watch(() => props.open, (open) => {
                   { value: 'sms',    title: t('userModal.smsConfirm'), hint: t('userModal.smsConfirmHint') },
                 ]"
                 :key="opt.value" type="button"
-                class="rounded-[12px] p-3.5 text-left transition"
+                class="rounded-[8px] p-3.5 text-left transition"
                 :style="form.activation === opt.value
                   ? { border: '1px solid var(--accent)', background: 'var(--accent-tint)' }
                   : { border: '1px solid var(--field-border)', background: 'var(--field-bg)' }"
@@ -302,7 +302,7 @@ watch(() => props.open, (open) => {
             <div class="mt-4 grid grid-cols-2 gap-3.5">
               <div>
                 <label class="mb-1.5 block text-[12px] font-bold uppercase tracking-wide" :style="{ color: 'var(--text-muted)' }">{{ t('userModal.gender') }}</label>
-                <div class="flex rounded-[10px] p-1" :style="{ background: 'var(--field-bg)', border: '1px solid var(--field-border)' }">
+                <div class="flex rounded-[8px] p-1" :style="{ background: 'var(--field-bg)', border: '1px solid var(--field-border)' }">
                   <button
                     v-for="g in [{ value: '', label: t('userModal.notSet') }, { value: 'male', label: t('userModal.maleShort') }, { value: 'female', label: t('userModal.femaleShort') }]"
                     :key="g.value" type="button"

@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import Toasts from '@/Components/Toasts.vue'
 import ConfirmHost from '@/Components/ConfirmHost.vue'
 import Icon from '@/Components/Icon.vue'
+import SearchInput from '@/Components/SearchInput.vue'
 
 const { t, locale } = useI18n()
 
@@ -175,6 +176,40 @@ function isActive(routeName) {
 
 const eyebrow = computed(() => sections.value.find(s => s.items.some(i => isActive(i.routeName)))?.eyebrow ?? '')
 
+// ── Глобальный поиск (Ctrl+K) ──────────────────────────────────────────────
+// Ведёт в список объявлений с тем же фильтром search, что и поле на странице.
+// На самой странице объявлений подхватывает текущий запрос.
+const globalSearch = ref(page.component === 'Listings/Index' ? (page.props.filters?.search ?? '') : '')
+function submitGlobalSearch(value) {
+    // Очистка вне списка объявлений никуда не ведёт
+    if (!value && page.component !== 'Listings/Index') return
+    router.get(route('listings.index'), value ? { search: value } : {})
+}
+
+// ── Загрузка страницы ──────────────────────────────────────────────────────
+// Долгий переход (фильтр, пагинация) приглушает контент вместо спиннера на
+// весь экран. Фоновые перезапросы колокольчика (only: notifications) не в счёт.
+const navigating = ref(false)
+let navTimer = null
+const offStart = router.on('start', (event) => {
+    const only = event.detail.visit.only || []
+    if (only.length && only.every(k => ['notifications', 'navCounts', 'createForm'].includes(k))) return
+    clearTimeout(navTimer)
+    navTimer = setTimeout(() => { navigating.value = true }, 200)
+})
+const offFinish = router.on('finish', () => {
+    clearTimeout(navTimer)
+    navigating.value = false
+})
+onUnmounted(() => { offStart(); offFinish(); clearTimeout(navTimer) })
+
+// ── Theme menu ─────────────────────────────────────────────────────────────
+const themeMenuOpen = ref(false)
+function setTheme(isDark) {
+    dark.value = isDark
+    themeMenuOpen.value = false
+}
+
 // ── User menu ──────────────────────────────────────────────────────────────
 const userMenuOpen = ref(false)
 
@@ -326,52 +361,105 @@ function logout() {
     <!-- ── MAIN AREA ─────────────────────────────────────────────────────── -->
     <div class="flex flex-1 flex-col min-w-0 overflow-hidden bg-[var(--content-bg)]">
 
-      <!-- Top bar: lang/theme/notifications/profile cluster -->
-      <div class="flex h-[68px] flex-none items-center justify-end border-b border-[var(--card-border)] bg-[var(--card-bg)] dark:bg-[#14172A] px-[26px]">
-        <div class="flex items-center gap-3.5">
-          <!-- Язык -->
-          <div class="flex flex-col items-center gap-1">
-            <div class="flex items-center gap-[2px] rounded-[8px] bg-[var(--field-bg)] dark:bg-white/[.06] p-[3px]">
-              <button
-                v-for="l in ['ru', 'tk']" :key="l"
-                @click="setLang(l)"
-                class="min-w-[38px] rounded-[6px] px-[13px] py-[6.5px] text-[12px] font-bold uppercase tracking-[.02em] transition-colors cursor-pointer"
-                :class="locale === l
-                  ? 'bg-[var(--accent)] text-white'
-                  : 'text-[var(--text-muted)] dark:text-white/[.42] hover:text-[var(--text)]'"
-              >{{ l }}</button>
-            </div>
-            <span class="text-[9.5px] text-[var(--text-muted)] dark:text-white/[.42]">{{ t('topbar.langLabel') }}</span>
-          </div>
+      <!--
+        Top bar: поиск слева, справа — язык / тема / уведомления / профиль.
+        Высота 72px — как блок лого в сайдбаре: нижние границы идут одной линией.
+        Все контролы одной высоты (40px), поэтому стоят на одной оси.
+      -->
+      <header class="flex h-[72px] flex-none items-center gap-4 border-b border-[var(--card-border)] bg-[var(--card-bg)] px-4 dark:bg-[var(--sidebar-bg)] sm:px-8">
+        <!-- Глобальный поиск -->
+        <SearchInput
+          v-model="globalSearch"
+          :placeholder="t('topbar.searchPlaceholder')"
+          shortcut
+          class="hidden w-full max-w-[380px] !rounded-[8px] border border-[var(--field-border)] md:flex"
+          @submit="submitGlobalSearch"
+        />
 
-          <div class="h-[30px] w-px bg-[var(--card-border)]"></div>
+        <div class="ml-auto flex items-center gap-2 sm:gap-3">
+          <!-- Язык — сегментированный контрол -->
+          <div
+            role="group"
+            :aria-label="t('topbar.langLabel')"
+            class="flex h-10 items-center gap-0.5 rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] p-[3px]"
+          >
+            <button
+              v-for="l in ['ru', 'tk']" :key="l"
+              type="button"
+              @click="setLang(l)"
+              :aria-pressed="locale === l"
+              class="h-full min-w-[38px] cursor-pointer rounded-[6px] px-2.5 text-[12px] font-semibold uppercase tracking-[.04em] transition-colors duration-150 ease-out"
+              :class="locale === l
+                ? 'bg-[var(--accent)] text-white'
+                : 'text-[var(--text-muted)] hover:text-[var(--text)]'"
+            >{{ l }}</button>
+          </div>
 
           <!-- Тема -->
-          <div class="flex flex-col items-center gap-1">
+          <div class="relative">
             <button
-              @click="dark = !dark"
-              class="flex h-9 w-9 items-center justify-center rounded-[8px] text-[var(--text-secondary)] dark:text-white/[.68] hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
+              type="button"
+              @click="themeMenuOpen = !themeMenuOpen"
+              :aria-expanded="themeMenuOpen"
+              aria-haspopup="menu"
+              :title="t('topbar.theme')"
+              class="flex h-10 cursor-pointer items-center gap-2 rounded-[8px] px-2.5 text-[13px] font-medium text-[var(--text-secondary)] transition-colors duration-150 ease-out hover:bg-[var(--nav-hover)] hover:text-[var(--text)]"
             >
               <Icon :kind="dark ? 'moon' : 'sun'" :size="17" />
+              <span class="hidden lg:inline">{{ t('topbar.theme') }}</span>
+              <Icon kind="chevronDown" :size="14" class="hidden text-[var(--text-muted)] transition-transform duration-150 lg:block" :class="themeMenuOpen ? 'rotate-180' : ''" />
             </button>
-            <span class="w-20 text-center whitespace-nowrap text-[9.5px] text-[var(--text-muted)] dark:text-white/[.42]">{{ dark ? t('topbar.lightTheme') : t('topbar.darkTheme') }}</span>
+
+            <Transition name="menu">
+              <div
+                v-if="themeMenuOpen"
+                v-click-outside="() => themeMenuOpen = false"
+                role="menu"
+                class="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-[10px] border border-[var(--card-border)] bg-[var(--card-bg)] p-1 shadow-[var(--card-shadow)]"
+              >
+                <button
+                  v-for="opt in [{ isDark: false, icon: 'sun', label: t('topbar.lightTheme') }, { isDark: true, icon: 'moon', label: t('topbar.darkTheme') }]"
+                  :key="opt.icon"
+                  type="button"
+                  role="menuitemradio"
+                  :aria-checked="dark === opt.isDark"
+                  @click="setTheme(opt.isDark)"
+                  class="flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-left text-[13px] font-medium transition-colors duration-150"
+                  :class="dark === opt.isDark ? 'text-[var(--text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)] hover:text-[var(--text)]'"
+                >
+                  <Icon :kind="opt.icon" :size="16" />
+                  <span class="flex-1">{{ opt.label }}</span>
+                  <Icon v-if="dark === opt.isDark" kind="check" :size="14" class="text-[var(--accent)] dark:text-[var(--nav-indicator)]" />
+                </button>
+              </div>
+            </Transition>
           </div>
 
-          <div class="h-[30px] w-px bg-[var(--card-border)]"></div>
-
           <!-- Уведомления -->
-          <div class="relative flex flex-col items-center gap-1">
+          <div class="relative">
             <button
+              type="button"
               @click="notificationsOpen = !notificationsOpen"
-              class="relative flex h-9 w-9 items-center justify-center rounded-[8px] text-[var(--text-secondary)] dark:text-white/[.68] hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
+              :aria-expanded="notificationsOpen"
+              :title="t('topbar.notifications')"
+              :aria-label="t('topbar.notifications')"
+              class="relative flex h-10 cursor-pointer items-center gap-2 rounded-[8px] px-2.5 text-[13px] font-medium text-[var(--text-secondary)] transition-colors duration-150 ease-out hover:bg-[var(--nav-hover)] hover:text-[var(--text)]"
+              :class="notificationsOpen ? 'bg-[var(--nav-hover)] text-[var(--text)]' : ''"
             >
-              <Icon kind="bell" :size="17" />
+              <span class="relative flex">
+                <Icon kind="bell" :size="17" />
+                <!-- Есть новые — маленькая точка у колокольчика, число — в меню -->
+                <span
+                  v-if="notificationsTotal > 0"
+                  class="absolute -right-[3px] -top-[2px] h-2 w-2 rounded-full bg-[var(--badge-bg)] ring-2 ring-[var(--card-bg)] dark:ring-[var(--sidebar-bg)]"
+                ></span>
+              </span>
+              <span class="hidden xl:inline">{{ t('topbar.notifications') }}</span>
               <span
                 v-if="notificationsTotal > 0"
-                class="absolute -right-1 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-[4px] border-2 border-[var(--card-bg)] dark:border-[#14172A] bg-[var(--badge-bg)] px-[3px] text-[9.5px] font-bold text-white"
+                class="hidden h-[18px] min-w-[18px] rounded-[4px] bg-[var(--badge-bg)] px-1 text-center text-[11px] font-semibold leading-[18px] tabular-nums text-white xl:inline-block"
               >{{ notificationsTotal }}</span>
             </button>
-            <span class="w-20 text-center whitespace-nowrap text-[9.5px] text-[var(--text-muted)] dark:text-white/[.42]">{{ t('topbar.notifications') }}</span>
 
             <Transition name="menu">
               <div
@@ -399,38 +487,45 @@ function logout() {
 
           <div class="h-[30px] w-px bg-[var(--card-border)]"></div>
 
-          <!-- Профиль -->
+          <div class="mx-1 hidden h-6 w-px bg-[var(--card-border)] sm:block"></div>
+
+          <!-- Профиль: аватар, имя, роль и шеврон — одна кликабельная область -->
           <div class="relative">
             <button
+              type="button"
               @click="userMenuOpen = !userMenuOpen"
-              class="flex items-center gap-2.5 rounded-[8px] px-2 py-1.5 hover:bg-[var(--nav-hover)] dark:hover:bg-white/[.07] transition-colors cursor-pointer"
+              :aria-expanded="userMenuOpen"
+              :aria-label="t('topbar.openMenu')"
+              class="flex h-11 cursor-pointer items-center gap-2.5 rounded-[8px] pl-1 pr-2 transition-colors duration-150 ease-out hover:bg-[var(--nav-hover)]"
+              :class="userMenuOpen ? 'bg-[var(--nav-hover)]' : ''"
             >
               <div class="relative h-9 w-9 flex-none">
-                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-tint)] dark:bg-[rgba(109,99,242,.18)] text-[12.5px] font-bold text-[var(--accent)]">
+                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-tint)] text-[12.5px] font-semibold text-[var(--accent)] dark:text-[var(--sidebar-text-strong)]">
                   {{ initials }}
                 </div>
-                <span class="absolute -bottom-0.5 -right-0.5 h-[10px] w-[10px] rounded-full bg-[#4ADE80] border-2 border-[var(--card-bg)] dark:border-[#14172A]"></span>
+                <span class="absolute -bottom-0.5 -right-0.5 h-[10px] w-[10px] rounded-full border-2 border-[var(--card-bg)] bg-[var(--status-ok)] dark:border-[var(--sidebar-bg)]"></span>
               </div>
-              <div class="hidden w-[120px] flex-col items-start leading-[1.25] sm:flex">
-                <span class="block w-full truncate text-[13px] font-bold text-[var(--text)] dark:text-[#F5F5FA]">{{ user?.name }}</span>
-                <span class="block w-full truncate text-[10.5px] text-[var(--text-muted)] dark:text-white/[.42]">{{ roleLabel }}</span>
+              <div class="hidden max-w-[140px] flex-col items-start leading-tight sm:flex">
+                <span class="block w-full truncate text-[13px] font-semibold text-[var(--text)]">{{ user?.name }}</span>
+                <span class="block w-full truncate text-[11.5px] text-[var(--text-muted)]">{{ roleLabel }}</span>
               </div>
-              <Icon kind="chevronDown" :size="14" class="text-[var(--text-muted)] dark:text-white/[.42]" />
+              <Icon kind="chevronDown" :size="14" class="text-[var(--text-muted)] transition-transform duration-150" :class="userMenuOpen ? 'rotate-180' : ''" />
             </button>
 
             <Transition name="menu">
               <div
                 v-if="userMenuOpen"
                 v-click-outside="() => userMenuOpen = false"
-                class="absolute right-0 top-full mt-2 w-48 rounded-[10px] bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--card-border)] z-50 overflow-hidden"
+                class="absolute right-0 top-full mt-2 w-52 rounded-[10px] bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--card-border)] z-50 overflow-hidden"
               >
                 <div class="px-4 py-3 border-b border-[var(--card-border)]">
-                  <div class="text-[13px] font-bold text-[var(--text)]">{{ user?.name }}</div>
-                  <div class="text-[11px] text-[var(--text-muted)]">{{ user?.phone }}</div>
+                  <div class="text-[13px] font-semibold text-[var(--text)]">{{ user?.name }}</div>
+                  <div class="text-[11.5px] text-[var(--text-muted)]">{{ user?.phone }}</div>
                 </div>
                 <button
+                  type="button"
                   @click="logout"
-                  class="flex w-full items-center gap-2 px-4 py-3 text-[13px] font-semibold text-red hover:bg-red/5 transition"
+                  class="flex w-full items-center gap-2 px-4 py-3 text-[13px] font-semibold text-red hover:bg-red/5 transition-colors duration-150"
                 >
                   <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
                   {{ t('topbar.logout') }}
@@ -439,19 +534,23 @@ function logout() {
             </Transition>
           </div>
         </div>
-      </div>
+      </header>
 
-      <!-- Page header row -->
-      <div class="flex flex-none items-center justify-between px-8 pb-2 pt-[26px]">
-        <div>
-          <div v-if="eyebrow" class="mb-1 text-[11.5px] text-[var(--text-muted)]">{{ eyebrow }}</div>
-          <div class="text-[22px] font-extrabold text-[var(--text)]"><slot name="header" /></div>
+      <!-- Page header: хлебная крошка (раздел меню) + заголовок, справа — действия -->
+      <div class="flex flex-none flex-wrap items-end justify-between gap-x-4 gap-y-3 px-4 pb-5 pt-7 sm:px-8">
+        <div class="min-w-0">
+          <!-- Хлебная крошка: страница может задать свою (карточка сущности), иначе — раздел меню -->
+          <nav v-if="$slots.breadcrumb || eyebrow" class="mb-1 flex min-w-0 items-center gap-1.5 text-[12.5px] font-medium text-[var(--text-muted)]">
+            <slot name="breadcrumb">{{ eyebrow }}</slot>
+          </nav>
+          <div role="heading" aria-level="1" class="text-[28px] font-bold leading-tight tracking-[-.01em] text-[var(--text)]"><slot name="header" /></div>
+          <p v-if="$slots.description" class="mt-1 text-[13.5px] text-[var(--text-muted)]"><slot name="description" /></p>
         </div>
-        <div><slot name="actions" /></div>
+        <div class="flex items-center gap-2"><slot name="actions" /></div>
       </div>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto px-8 pb-8 pt-2">
+      <main class="flex-1 overflow-y-auto px-4 pb-8 transition-opacity duration-150 sm:px-8" :class="navigating ? 'pointer-events-none opacity-60' : ''" :aria-busy="navigating">
         <slot />
       </main>
     </div>

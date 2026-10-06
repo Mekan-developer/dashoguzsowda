@@ -91,21 +91,25 @@ async function doDelete() {
 
 <template>
   <AppLayout>
+    <template #breadcrumb>
+      <Link :href="route('videos.index')" class="transition-colors duration-150 hover:text-link">{{ t('nav.videos') }}</Link>
+      <span>/</span>
+      <span>#{{ video.id }}</span>
+    </template>
     <template #header>
-      <div class="flex items-center gap-2 text-[14px]">
-        <Link :href="route('videos.index')" class="text-muted hover:text-blue transition">{{ t('nav.videos') }}</Link>
-        <span class="text-muted">/</span>
-        <span class="text-ink dark:text-slate-100 max-w-[300px] truncate">{{ video.title }}</span>
-      </div>
+      <span class="flex min-w-0 items-center gap-3">
+        <span class="max-w-[640px] truncate">{{ video.title }}</span>
+        <StatusBadge :status="video.status" />
+      </span>
     </template>
 
     <div class="grid gap-5 lg:grid-cols-[1fr_360px]">
       <!-- Плеер + информация — в одной карточке: вертикальное видео слева, данные справа -->
       <div class="space-y-5">
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5 grid gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
+        <div class="card p-5 grid gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
           <div>
             <!-- Вертикальный формат 9:16 — как в мобильной ленте -->
-            <div class="mx-auto w-full max-w-[200px] overflow-hidden rounded-[12px] bg-navy aspect-[9/16]">
+            <div class="mx-auto aspect-[9/16] w-full max-w-[200px] overflow-hidden rounded-[8px] bg-navy">
               <video
                 v-if="video.video_url"
                 :src="video.video_url"
@@ -121,43 +125,43 @@ async function doDelete() {
 
             <p
               v-if="!video.is_processed"
-              class="mt-3 flex items-center justify-center gap-1.5 text-[12px] font-bold text-orange"
+              class="mt-3 flex items-center justify-center gap-1.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300"
             >
               <Icon kind="clock" :size="12" />{{ t('videos.notProcessed') }}
             </p>
           </div>
 
           <div>
-            <h3 class="text-[15px] font-extrabold text-ink dark:text-slate-100 mb-4">{{ t('videos.info') }}</h3>
+            <h2 class="card-title mb-4">{{ t('videos.info') }}</h2>
 
             <!-- Заголовок и категория — правит модератор (UpdateVideoRequest) -->
             <div class="mb-4">
-              <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.title') }}:</p>
+              <p class="field-label mb-1">{{ t('common.title') }}:</p>
               <div v-if="editing" class="space-y-3">
                 <input
                   v-model="title"
                   type="text"
                   maxlength="255"
-                  class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-bold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
+                  class="input"
                   @keyup.enter="saveEdit"
                   @keyup.esc="cancelEdit"
                 />
                 <div>
-                  <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.category') }}:</p>
+                  <p class="field-label mb-1">{{ t('common.category') }}:</p>
                   <select
                     v-model="categoryId"
-                    class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] font-semibold text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
+                    class="input"
                   >
                     <option value="">{{ t('common.category') }}</option>
                     <option v-for="c in categories" :key="c.id" :value="c.id">{{ nameOf(c) }}</option>
                   </select>
                 </div>
                 <div>
-                  <p class="text-[12px] font-semibold text-muted mb-1">{{ t('videos.tags') }}:</p>
+                  <p class="field-label mb-1">{{ t('videos.tags') }}:</p>
                   <input
                     v-model="tagsInput"
                     type="text"
-                    class="w-full rounded-btn border-2 border-line bg-white px-3 py-2 text-[13px] text-ink outline-none transition focus:border-blue dark:border-dline dark:bg-dbg dark:text-slate-200"
+                    class="input"
                     :placeholder="t('listings.tagsPlaceholder')"
                   />
                 </div>
@@ -165,28 +169,28 @@ async function doDelete() {
                   <button
                     @click="saveEdit"
                     :disabled="!title.trim() || !categoryId"
-                    class="rounded-btn bg-blue px-4 py-2 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40"
+                    class="btn btn-primary"
                   >{{ t('actions.save') }}</button>
                   <button
                     @click="cancelEdit"
-                    class="rounded-btn border-2 border-line px-4 py-2 text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline"
+                    class="btn btn-secondary"
                   >{{ t('actions.cancel') }}</button>
                 </div>
               </div>
               <div v-else class="space-y-3">
                 <div class="flex items-start gap-2">
-                  <span class="flex-1 text-[15px] font-bold text-ink dark:text-slate-200">{{ video.title }}</span>
+                  <span class="flex-1 text-[15px] font-semibold text-[var(--text)]">{{ video.title }}</span>
                   <button
                     @click="editing = true; tagsInput = (video.tags || []).join(', ')"
-                    class="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[7px] text-muted transition hover:bg-blue hover:text-white"
+                    class="icon-btn"
                     :title="t('actions.edit')" :aria-label="t('actions.edit')"
                   >
-                    <Icon kind="pencil" :size="14" />
+                    <Icon kind="pencil" :size="16" />
                   </button>
                 </div>
                 <div>
-                  <p class="text-[12px] font-semibold text-muted mb-1">{{ t('common.category') }}:</p>
-                  <span class="text-[13px] font-bold text-ink dark:text-slate-200">
+                  <p class="field-label mb-1">{{ t('common.category') }}:</p>
+                  <span class="text-[13px] font-semibold text-[var(--text)]">
                     {{ nameOf(video.category) }}
                   </span>
                 </div>
@@ -195,31 +199,31 @@ async function doDelete() {
 
             <div class="grid grid-cols-2 gap-4 text-[13px]">
               <div>
-                <span class="text-muted font-semibold">{{ t('videos.duration') }}:</span><br>
-                <span class="font-data font-bold text-ink dark:text-slate-200">{{ formatDuration(video.duration_seconds) }}</span>
+                <span class="text-[var(--text-muted)]">{{ t('videos.duration') }}:</span><br>
+                <span class="font-data font-semibold text-[var(--text)]">{{ formatDuration(video.duration_seconds) }}</span>
               </div>
               <div>
-                <span class="text-muted font-semibold">{{ t('common.date') }}:</span><br>
-                <span class="font-data font-bold text-ink dark:text-slate-200">{{ formatDate(video.created_at) }}</span>
+                <span class="text-[var(--text-muted)]">{{ t('common.date') }}:</span><br>
+                <span class="font-data font-semibold text-[var(--text)]">{{ formatDate(video.created_at) }}</span>
               </div>
               <div>
-                <span class="text-muted font-semibold">{{ t('videos.likes') }}:</span><br>
-                <span class="inline-flex items-center gap-1.5 font-data font-bold text-ink dark:text-slate-200">
-                  <Icon kind="heart" :size="14" class="text-pink" />{{ video.likes_count ?? 0 }}
+                <span class="text-[var(--text-muted)]">{{ t('videos.likes') }}:</span><br>
+                <span class="inline-flex items-center gap-1.5 font-data font-semibold text-[var(--text)]">
+                  <Icon kind="heart" :size="14" class="text-[var(--text-muted)]" />{{ video.likes_count ?? 0 }}
                 </span>
               </div>
               <div>
-                <span class="text-muted font-semibold">{{ t('common.views') }}:</span><br>
-                <span class="inline-flex items-center gap-1.5 font-data font-bold text-ink dark:text-slate-200">
+                <span class="text-[var(--text-muted)]">{{ t('common.views') }}:</span><br>
+                <span class="inline-flex items-center gap-1.5 font-data font-semibold text-[var(--text)]">
                   <Icon kind="eye" :size="14" />{{ video.views ?? 0 }}
                 </span>
               </div>
             </div>
 
             <div v-if="video.tags?.length" class="mt-4 pt-4 border-t border-line dark:border-dline">
-              <p class="text-[12px] font-semibold text-muted mb-2">{{ t('videos.tags') }}:</p>
+              <p class="field-label mb-2">{{ t('videos.tags') }}:</p>
               <div class="flex flex-wrap gap-1.5">
-                <span v-for="tag in video.tags" :key="tag" class="rounded-pill bg-blue-light px-2.5 py-0.5 text-[11px] font-bold text-blue">#{{ tag }}</span>
+                <span v-for="tag in video.tags" :key="tag" class="inline-flex h-6 items-center rounded-full bg-[var(--accent-tint)] px-2.5 text-[12px] font-medium text-link">#{{ tag }}</span>
               </div>
             </div>
           </div>
@@ -229,52 +233,51 @@ async function doDelete() {
       <!-- Сайдбар -->
       <div class="space-y-4">
         <!-- Автор -->
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5">
-          <h3 class="text-[13px] font-extrabold text-ink dark:text-slate-100 mb-3 uppercase tracking-wide">{{ t('common.author') }}</h3>
+        <div class="card p-5">
+          <h3 class="card-title mb-3">{{ t('common.author') }}</h3>
           <div class="flex items-center gap-3">
-            <div class="h-10 w-10 flex-shrink-0 rounded-full bg-blue flex items-center justify-center text-[14px] font-extrabold text-white">
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--accent-tint)] text-[14px] font-semibold text-link">
               {{ (video.user?.name || video.user?.phone || '?').charAt(0).toUpperCase() }}
             </div>
             <div>
-              <div class="text-[13px] font-bold text-ink dark:text-slate-200">{{ video.user?.name || '—' }}</div>
+              <div class="text-[13px] font-semibold text-[var(--text)]">{{ video.user?.name || '—' }}</div>
               <div class="text-[12px] font-data text-muted">{{ video.user?.phone }}</div>
             </div>
           </div>
           <div
             v-if="tariffLine"
             class="mt-3 text-[12px]"
-            :class="tariffLine.exhausted ? 'font-bold text-orange' : 'text-muted'"
+            :class="tariffLine.exhausted ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-muted'"
           >
             {{ tariffLine.text }}
             <template v-if="tariffLine.exhausted"> {{ t('videos.limitSuffix') }}</template>
           </div>
           <div v-if="video.user_id" class="mt-3">
-            <Link :href="route('users.show', video.user_id)" class="text-[12px] font-bold text-blue hover:underline">{{ t('videos.profileLink') }}</Link>
+            <Link :href="route('users.show', video.user_id)" class="text-[13px] font-medium text-link hover:underline">{{ t('videos.profileLink') }}</Link>
           </div>
         </div>
 
         <!-- Модерация -->
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5">
-          <h3 class="text-[13px] font-extrabold text-ink dark:text-slate-100 mb-3 uppercase tracking-wide">{{ t('videos.moderation') }}</h3>
-          <div class="mb-3"><StatusBadge :status="video.status" /></div>
-          <div v-if="video.rejection_reason" class="mb-3 rounded-btn bg-red/10 p-3 text-[12px] font-semibold text-red">
+        <div class="card p-5">
+          <h3 class="card-title mb-3">{{ t('videos.moderation') }}</h3>
+                    <div v-if="video.rejection_reason" class="mb-3 rounded-[8px] bg-red-500/10 px-3.5 py-3 text-[13px] text-red-700 dark:text-red-300">
             {{ nameOf(video.rejection_reason) }}
           </div>
           <div class="space-y-2">
             <button
               v-if="video.status !== 'approved'"
               @click="approve"
-              class="w-full rounded-btn bg-green/10 border-2 border-green/20 py-[9px] text-[13px] font-bold text-green transition hover:bg-green hover:text-white"
+              class="btn btn-green-soft w-full"
             >{{ t('videos.approveBtn') }}</button>
             <button
               v-if="video.status !== 'rejected'"
               @click="showRejectModal = true"
-              class="w-full rounded-btn bg-red/10 border-2 border-red/20 py-[9px] text-[13px] font-bold text-red transition hover:bg-red hover:text-white"
+              class="btn btn-red-soft w-full"
             >{{ t('videos.rejectBtn') }}</button>
             <button
               v-if="isAdmin"
               @click="doDelete"
-              class="w-full rounded-btn border-2 border-line py-[9px] text-[13px] font-bold text-muted transition hover:border-red hover:text-red dark:border-dline"
+              class="btn btn-secondary w-full hover:!text-red"
             >{{ t('videos.deleteBtn') }}</button>
           </div>
         </div>
@@ -282,18 +285,18 @@ async function doDelete() {
     </div>
 
     <!-- Отклонение: выбор причины из справочника -->
-    <div v-if="showRejectModal" class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="showRejectModal = false">
-      <div class="w-[440px] rounded-card bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,.18)] dark:bg-dcard">
-        <h3 class="mb-4 text-[17px] font-extrabold text-ink dark:text-slate-100">{{ t('videos.rejectTitle') }}</h3>
+    <div v-if="showRejectModal" class="fixed inset-0 z-[600] flex items-center justify-center bg-[#0A0C1A]/50 p-4" @click.self="showRejectModal = false">
+      <div class="card w-full max-w-[440px] p-6 shadow-lg2">
+        <h3 class="mb-4 text-[16px] font-semibold text-[var(--text)]">{{ t('videos.rejectTitle') }}</h3>
         <div class="space-y-1 mb-5">
           <label v-for="r in rejectionReasons" :key="r.id" class="flex cursor-pointer items-center gap-3 rounded-btn p-3 transition hover:bg-surface dark:hover:bg-white/5">
             <input type="radio" :value="r.id" v-model="rejectReason" class="accent-blue" />
             <span class="text-[13px] font-semibold text-ink dark:text-slate-200">{{ nameOf(r) }}</span>
           </label>
         </div>
-        <div class="flex gap-2.5">
-          <button @click="showRejectModal = false" class="flex-1 rounded-btn border-2 border-line py-[11px] text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline">{{ t('actions.cancel') }}</button>
-          <button @click="doReject" :disabled="!rejectReason" class="flex-1 rounded-btn bg-red py-[11px] text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-40">{{ t('actions.reject') }}</button>
+        <div class="flex justify-end gap-2">
+          <button @click="showRejectModal = false" class="btn btn-secondary">{{ t('actions.cancel') }}</button>
+          <button @click="doReject" :disabled="!rejectReason" class="btn btn-danger">{{ t('actions.reject') }}</button>
         </div>
       </div>
     </div>

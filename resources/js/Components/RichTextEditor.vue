@@ -70,12 +70,12 @@ function setLink() {
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-btn border-2 border-line dark:border-dline">
+  <div class="overflow-hidden rounded-[8px] border border-[var(--field-border)]">
     <!-- Панель: набор кнопок = набор тегов, которые переживут сохранение -->
     <div v-if="editor" class="flex flex-wrap items-center gap-1 border-b border-line bg-surface px-2 py-1.5 dark:border-dline dark:bg-dbg">
       <button type="button" :title="t('editor.bold')" :class="buttonClass(editor.isActive('bold'))"
               @click="editor.chain().focus().toggleBold().run()">
-        <span class="font-black">B</span>
+        <span class="font-bold">B</span>
       </button>
       <button type="button" :title="t('editor.italic')" :class="buttonClass(editor.isActive('italic'))"
               @click="editor.chain().focus().toggleItalic().run()">

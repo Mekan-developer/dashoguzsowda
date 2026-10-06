@@ -132,7 +132,7 @@ watch(() => props.open, (open) => {
       <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-3.5">
         <DrawerField :label="t('common.type')" :error="form.errors.type" required>
           <!-- Товар / услуга — сегментами, как пол в панели пользователя -->
-          <div class="flex rounded-[10px] p-1" :style="{ background: 'var(--field-bg)', border: '1px solid var(--field-border)' }">
+          <div class="flex rounded-[8px] p-1" :style="{ background: 'var(--field-bg)', border: '1px solid var(--field-border)' }">
             <button
               v-for="opt in [{ value: 'goods', label: t('listings.product') }, { value: 'services', label: t('listings.service') }]"
               :key="opt.value" type="button"
@@ -193,11 +193,11 @@ watch(() => props.open, (open) => {
         >
           <div
             v-for="(url, i) in previews" :key="url"
-            class="group relative aspect-square overflow-hidden rounded-[10px] border border-[var(--field-border)]"
+            class="group relative aspect-square overflow-hidden rounded-[8px] border border-[var(--field-border)]"
           >
             <img :src="url" class="h-full w-full object-cover" alt="" />
             <!-- Первое фото — обложка в ленте -->
-            <span v-if="i === 0" class="absolute bottom-1 left-1 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">1</span>
+            <span v-if="i === 0" class="absolute bottom-1 left-1 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] font-semibold text-white">1</span>
             <button
               type="button"
               class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 focus:opacity-100"
@@ -208,11 +208,11 @@ watch(() => props.open, (open) => {
           <button
             v-if="form.photos.length < MAX_PHOTOS"
             type="button"
-            class="flex aspect-square flex-col items-center justify-center gap-1 rounded-[10px] border-[1.5px] border-dashed border-[var(--field-border)] bg-[var(--field-bg)] text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            class="flex aspect-square flex-col items-center justify-center gap-1 rounded-[8px] border-[1.5px] border-dashed border-[var(--field-border)] bg-[var(--field-bg)] text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
             @click="photoInput.click()"
           >
             <Icon kind="plus" :size="18" />
-            <span class="text-[11px] font-semibold">{{ form.photos.length }}/{{ MAX_PHOTOS }}</span>
+            <span class="text-[12px] font-semibold">{{ form.photos.length }}/{{ MAX_PHOTOS }}</span>
           </button>
         </div>
         <input

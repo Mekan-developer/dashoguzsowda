@@ -29,19 +29,23 @@ async function requestClose() {
     <Transition name="drawer">
       <div v-if="open" class="fixed inset-0 z-[500] flex justify-end">
         <!-- Overlay -->
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="requestClose"></div>
+        <div class="absolute inset-0 bg-[#0A0C1A]/50" @click="requestClose"></div>
 
         <!-- Panel -->
         <div
-          class="relative flex flex-col bg-white shadow-[0_0_60px_rgba(0,0,0,.2)] dark:bg-dcard overflow-hidden font-golos"
+          class="relative flex max-w-full flex-col overflow-hidden border-l border-[var(--card-border)] bg-[var(--card-bg)] font-golos shadow-lg2"
           :style="{ width }"
+          role="dialog" aria-modal="true"
         >
           <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-5 border-b border-line dark:border-dline">
-            <h2 class="text-[16px] font-extrabold text-ink dark:text-slate-100">{{ title || t('drawer.defaultTitle') }}</h2>
+          <div class="flex flex-none items-center justify-between gap-4 border-b border-[var(--card-border)] px-6 py-4">
+            <h2 class="text-[17px] font-semibold text-[var(--text)]">{{ title || t('drawer.defaultTitle') }}</h2>
             <button
+              type="button"
               @click="requestClose"
-              class="flex h-8 w-8 items-center justify-center rounded-[7px] text-muted hover:bg-surface dark:hover:bg-white/10 transition"
+              :aria-label="t('actions.close')"
+              :title="t('actions.close')"
+              class="btn-ghost flex h-[34px] w-[34px] items-center justify-center rounded-[8px] transition-colors duration-150"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -55,7 +59,7 @@ async function requestClose() {
           </div>
 
           <!-- Footer -->
-          <div v-if="$slots.footer" class="flex-shrink-0 border-t border-line dark:border-dline px-6 py-4">
+          <div v-if="$slots.footer" class="flex-shrink-0 border-t border-[var(--card-border)] px-6 py-4">
             <slot name="footer" />
           </div>
         </div>
@@ -65,7 +69,8 @@ async function requestClose() {
 </template>
 
 <style scoped>
-.drawer-enter-active, .drawer-leave-active { transition: all .3s ease; }
+.drawer-enter-active, .drawer-leave-active { transition: all .2s ease-out; }
+.drawer-enter-active > div, .drawer-leave-active > div { transition: opacity .2s ease-out, transform .2s ease-out; }
 .drawer-enter-from .absolute { opacity: 0; }
 .drawer-enter-from > div:last-child { transform: translateX(100%); }
 .drawer-leave-to .absolute { opacity: 0; }

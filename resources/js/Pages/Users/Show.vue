@@ -1,10 +1,14 @@
 <script setup>
 import { computed } from 'vue'
-import { router, usePage } from '@inertiajs/vue3'
-import { Link } from '@inertiajs/vue3'
+import { router, usePage, Link } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
+import StatCard from '@/Components/StatCard.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import Icon from '@/Components/Icon.vue'
+import { th, td, tr, thead } from '@/table'
+import { confirmDialog } from '@/confirm'
 
 const { t } = useI18n()
 
@@ -12,6 +16,30 @@ const { t } = useI18n()
 const isAdmin = computed(() => usePage().props.auth?.user?.role === 'admin')
 
 const props = defineProps({ user: Object, userListings: Array, stats: Object })
+
+const displayName = computed(() => props.user.name || props.user.phone)
+
+const basicRows = computed(() => [
+    { label: t('users.gender'),    value: props.user.gender === 'male' ? t('users.male') : props.user.gender === 'female' ? t('users.female') : '—' },
+    { label: t('users.birthDate'), value: props.user.birth_date ? formatDate(props.user.birth_date) : '—', data: true },
+    { label: t('common.region'),   value: props.user.region?.name_ru || '—' },
+    { label: t('common.city'),     value: props.user.city?.name_ru || '—' },
+])
+const accountRows = computed(() => [
+    { label: t('common.phone'),       value: props.user.phone || '—', data: true },
+    { label: t('common.tariff'),      value: props.user.tariff?.name || t('users.freeTariff') },
+    { label: t('users.colRegDate'),   value: formatDate(props.user.created_at), data: true },
+])
+
+async function block() {
+    if (!(await confirmDialog(t('users.blockConfirm', { name: displayName.value }), { title: t('users.blockTitle') }))) return
+    router.patch(route('users.block', props.user.id))
+}
+async function unblock() {
+    if (!(await confirmDialog(t('users.unblockConfirm', { name: displayName.value }), { danger: false }))) return
+    router.patch(route('users.unblock', props.user.id))
+}
+
 
 function formatDate(d) {
     if (!d) return '—'
@@ -21,116 +49,103 @@ function formatDate(d) {
 
 <template>
   <AppLayout>
+    <template #breadcrumb>
+      <Link :href="route('users.index')" class="transition-colors duration-150 hover:text-link">{{ t('nav.users') }}</Link>
+      <span>/</span>
+      <span class="truncate">#{{ user.id }}</span>
+    </template>
     <template #header>
-      <div class="flex items-center gap-2">
-        <Link :href="route('users.index')" class="text-muted hover:text-blue transition text-[14px]">{{ t('nav.users') }}</Link>
-        <span class="text-muted">/</span>
-        <span>{{ user.name || user.phone }}</span>
-      </div>
+      <span class="flex items-center gap-3">
+        <span class="truncate">{{ user.name || user.phone }}</span>
+        <StatusBadge :status="user.status" />
+      </span>
+    </template>
+    <template v-if="user.name" #description><span class="font-data">{{ user.phone }}</span></template>
+
+    <!-- Действия — только admin (routes/web.php → role:admin) -->
+    <template v-if="isAdmin" #actions>
+      <button v-if="user.status === 'active'" type="button" class="btn btn-red-soft" @click="block">
+        <Icon kind="lock" :size="16" />{{ t('actions.block') }}
+      </button>
+      <button v-else type="button" class="btn btn-green-soft" @click="unblock">
+        <Icon kind="check" :size="16" />{{ t('actions.unblock') }}
+      </button>
     </template>
 
-    <div class="grid gap-5" style="grid-template-columns: 320px 1fr;">
-      <!-- Profile Card -->
-      <div class="space-y-4">
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-6">
-          <div class="text-center mb-5">
-            <div class="mx-auto h-16 w-16 rounded-full bg-blue flex items-center justify-center text-[24px] font-extrabold text-white mb-3">
-              {{ (user.name || user.phone || '?').charAt(0).toUpperCase() }}
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <!-- Левая колонка: сведения -->
+      <div class="space-y-5">
+        <section class="card">
+          <h2 class="card-title border-b border-[var(--card-border)] px-5 py-4">{{ t('users.basicInfo') }}</h2>
+          <dl class="divide-y divide-[var(--card-border)] px-5">
+            <div v-for="row in basicRows" :key="row.label" class="flex justify-between gap-4 py-3 text-[13.5px]">
+              <dt class="text-[var(--text-muted)]">{{ row.label }}</dt>
+              <dd class="text-right font-medium text-[var(--text)]" :class="row.data ? 'font-data tabular-nums' : ''">{{ row.value }}</dd>
             </div>
-            <h2 class="text-[17px] font-extrabold text-ink dark:text-slate-100">{{ user.name || '—' }}</h2>
-            <p class="text-[13px] font-data text-muted">{{ user.phone }}</p>
-            <div class="mt-2">
-              <StatusBadge :status="user.status" />
+          </dl>
+        </section>
+
+        <section class="card">
+          <h2 class="card-title border-b border-[var(--card-border)] px-5 py-4">{{ t('users.accountInfo') }}</h2>
+          <dl class="divide-y divide-[var(--card-border)] px-5">
+            <div v-for="row in accountRows" :key="row.label" class="flex justify-between gap-4 py-3 text-[13.5px]">
+              <dt class="text-[var(--text-muted)]">{{ row.label }}</dt>
+              <dd class="text-right font-medium text-[var(--text)]" :class="row.data ? 'font-data tabular-nums' : ''">{{ row.value }}</dd>
             </div>
-          </div>
-
-          <div class="space-y-2.5 text-[13px]">
-            <div class="flex justify-between"><span class="text-muted font-semibold">{{ t('users.gender') }}</span><span class="font-bold text-ink dark:text-slate-200">{{ user.gender === 'male' ? t('users.male') : user.gender === 'female' ? t('users.female') : '—' }}</span></div>
-            <div class="flex justify-between"><span class="text-muted font-semibold">{{ t('users.birthDate') }}</span><span class="font-bold text-ink dark:text-slate-200 font-data">{{ user.birth_date ? formatDate(user.birth_date) : '—' }}</span></div>
-            <div class="flex justify-between"><span class="text-muted font-semibold">{{ t('common.region') }}</span><span class="font-bold text-ink dark:text-slate-200">{{ user.region?.name_ru || '—' }}</span></div>
-            <div class="flex justify-between"><span class="text-muted font-semibold">{{ t('common.city') }}</span><span class="font-bold text-ink dark:text-slate-200">{{ user.city?.name_ru || '—' }}</span></div>
-            <div class="flex justify-between"><span class="text-muted font-semibold">{{ t('common.tariff') }}</span><span class="font-bold text-ink dark:text-slate-200">{{ user.tariff?.name || t('users.freeTariff') }}</span></div>
-            <div class="flex justify-between"><span class="text-muted font-semibold">{{ t('users.colRegDate') }}</span><span class="font-bold font-data text-ink dark:text-slate-200">{{ formatDate(user.created_at) }}</span></div>
-          </div>
-
-          <div v-if="user.blocked_reason" class="mt-4 rounded-btn bg-red/10 p-3 text-[12px] font-semibold text-red">
-            <strong>{{ t('users.blockReason') }}</strong> {{ user.blocked_reason }}
-          </div>
-
-          <div v-if="user.note" class="mt-4 rounded-btn bg-surface p-3 text-[12px] text-muted dark:bg-dbg">
-            <strong>{{ t('users.note') }}</strong> {{ user.note }}
-          </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="rounded-card bg-white shadow-soft dark:bg-dcard p-5">
-          <h3 class="text-[13px] font-extrabold text-ink dark:text-slate-100 mb-3 uppercase tracking-wide">{{ t('users.stats') }}</h3>
-          <div class="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <div class="font-data text-[20px] font-black text-blue">{{ stats.listings }}</div>
-              <div class="text-[11px] text-muted font-semibold">{{ t('users.listingsShort') }}</div>
+          </dl>
+          <div v-if="user.blocked_reason || user.note" class="space-y-3 border-t border-[var(--card-border)] p-5">
+            <div v-if="user.blocked_reason" class="rounded-[8px] bg-red-500/10 px-3.5 py-3 text-[13px] text-red-700 dark:text-red-300">
+              <span class="font-semibold">{{ t('users.blockReason') }}</span> {{ user.blocked_reason }}
             </div>
-            <div>
-              <div class="font-data text-[20px] font-black text-teal">{{ stats.videos }}</div>
-              <div class="text-[11px] text-muted font-semibold">{{ t('users.videosShort') }}</div>
-            </div>
-            <div>
-              <div class="font-data text-[20px] font-black text-red">{{ stats.complaints }}</div>
-              <div class="text-[11px] text-muted font-semibold">{{ t('users.complaintsShort') }}</div>
+            <div v-if="user.note" class="rounded-[8px] bg-[var(--nav-hover)] px-3.5 py-3 text-[13px] text-[var(--text-secondary)]">
+              <span class="font-semibold">{{ t('users.note') }}</span> {{ user.note }}
             </div>
           </div>
-        </div>
-
-        <!-- Actions — только admin (routes/web.php → role:admin) -->
-        <div v-if="isAdmin" class="rounded-card bg-white shadow-soft dark:bg-dcard p-5 space-y-2">
-          <button
-            v-if="user.status === 'active'"
-            @click="router.patch(route('users.block', user.id))"
-            class="w-full rounded-btn border-2 border-red/20 bg-red/5 py-[9px] text-[13px] font-bold text-red hover:bg-red hover:text-white transition"
-          >{{ t('actions.block') }}</button>
-          <button
-            v-else
-            @click="router.patch(route('users.unblock', user.id))"
-            class="w-full rounded-btn border-2 border-green/20 bg-green/5 py-[9px] text-[13px] font-bold text-green hover:bg-green hover:text-white transition"
-          >{{ t('actions.unblock') }}</button>
-        </div>
+        </section>
       </div>
 
-      <!-- Listings -->
-      <div class="rounded-card bg-white shadow-soft dark:bg-dcard overflow-hidden">
-        <div class="px-[22px] py-[18px] border-b border-line dark:border-dline">
-          <span class="text-[15px] font-extrabold text-ink dark:text-slate-100">{{ t('users.userListings') }}</span>
+      <!-- Правая колонка: активность -->
+      <div class="min-w-0 space-y-5">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard :label="t('users.listingsShort')"   :value="stats.listings"   icon="listing" />
+          <StatCard :label="t('users.videosShort')"     :value="stats.videos"     icon="video" />
+          <StatCard :label="t('users.complaintsShort')" :value="stats.complaints" icon="flag" :tone="stats.complaints ? 'danger' : 'accent'" />
         </div>
-        <table class="w-full">
-          <thead class="bg-surface/50 dark:bg-dbg/50">
-            <tr>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline w-16">{{ t('common.id') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.title') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.category') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.status') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline">{{ t('common.date') }}</th>
-              <th class="px-4 py-[11px] text-left text-[11px] font-bold uppercase tracking-[.07em] text-muted border-b-2 border-line dark:border-dline"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="l in userListings" :key="l.id" class="hover:bg-surface/30 dark:hover:bg-white/3">
-              <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ l.id }}</td>
-              <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-bold text-ink dark:text-slate-200">{{ l.title }}</td>
-              <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline text-muted">{{ l.category?.name_ru || '—' }}</td>
-              <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline"><StatusBadge :status="l.status" /></td>
-              <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline font-data text-muted">{{ formatDate(l.created_at) }}</td>
-              <td class="px-4 py-[13px] text-[13px] border-b border-line dark:border-dline">
-                <Link :href="route('listings.show', l.id)" class="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-blue-light text-blue transition hover:bg-blue hover:text-white">
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
-                </Link>
-              </td>
-            </tr>
-            <tr v-if="!userListings?.length">
-              <td colspan="6" class="px-4 py-8 text-center text-[13px] text-muted">{{ t('users.noListings') }}</td>
-            </tr>
-          </tbody>
-        </table>
+
+        <section class="card overflow-hidden">
+          <h2 class="card-title border-b border-[var(--card-border)] px-5 py-4">{{ t('users.userListings') }}</h2>
+          <div v-if="userListings?.length" class="overflow-x-auto">
+            <table class="w-full min-w-[560px]">
+              <thead>
+                <tr :class="thead">
+                  <th :class="th" class="w-[72px]">{{ t('common.id') }}</th>
+                  <th :class="th">{{ t('common.title') }}</th>
+                  <th :class="th" class="hidden md:table-cell">{{ t('common.category') }}</th>
+                  <th :class="th">{{ t('common.status') }}</th>
+                  <th :class="th" class="hidden md:table-cell">{{ t('common.date') }}</th>
+                  <th :class="th" class="text-right">{{ t('common.actions') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="l in userListings" :key="l.id" class="h-[60px] border-b border-[var(--card-border)] transition-colors duration-150 last:border-b-0 hover:bg-[var(--nav-hover)]">
+                  <td :class="td" class="font-data tabular-nums text-[var(--text-muted)]">{{ l.id }}</td>
+                  <td :class="td"><Link :href="route('listings.show', l.id)" class="block max-w-[280px] truncate font-semibold text-[var(--text)] hover:text-link">{{ l.title }}</Link></td>
+                  <td :class="td" class="hidden text-[var(--text-secondary)] md:table-cell">{{ l.category?.name_ru || '—' }}</td>
+                  <td :class="td"><StatusBadge :status="l.status" /></td>
+                  <td :class="td" class="hidden font-data tabular-nums text-[var(--text-secondary)] md:table-cell">{{ formatDate(l.created_at) }}</td>
+                  <td :class="td" class="text-right">
+                    <Link :href="route('listings.show', l.id)" class="icon-btn" :title="t('actions.show')" :aria-label="t('actions.show')">
+                      <Icon kind="eye" :size="16" />
+                    </Link>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <EmptyState v-else compact icon="listing" :title="t('users.noListings')" />
+        </section>
       </div>
     </div>
   </AppLayout>
 </template>
+

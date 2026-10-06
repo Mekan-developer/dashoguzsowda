@@ -1,5 +1,6 @@
 <script setup>
 import { useI18n } from 'vue-i18n'
+import Icon from '@/Components/Icon.vue'
 
 defineProps({
     open:         { type: Boolean, default: false },
@@ -19,21 +20,32 @@ const { t } = useI18n()
     <Transition name="ov">
       <div
         v-if="open"
-        class="fixed inset-0 z-[600] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        class="fixed inset-0 z-[600] flex items-center justify-center bg-[#0A0C1A]/50 p-4"
         @click.self="$emit('cancel')"
       >
-        <div class="w-[400px] rounded-card bg-white p-6 shadow-[0_24px_48px_rgba(0,0,0,.18)] dark:bg-dcard">
-          <h3 class="mb-2 text-[17px] font-extrabold text-ink dark:text-slate-100">{{ title || t('confirm.title') }}</h3>
-          <p class="mb-6 text-[13px] text-muted">{{ message || t('confirm.message') }}</p>
-          <div class="flex gap-2.5">
+        <div role="alertdialog" aria-modal="true" class="card w-full max-w-[420px] p-6 shadow-lg2">
+          <div class="mb-5 flex items-start gap-3.5">
+            <!-- Иконка подсказывает характер действия, не только цвет кнопки -->
+            <span
+              class="flex h-9 w-9 flex-none items-center justify-center rounded-full"
+              :class="danger ? 'bg-red/10 text-red' : 'bg-[var(--accent-tint)] text-link'"
+            ><Icon :kind="danger ? 'trash' : 'check'" :size="17" /></span>
+            <div class="min-w-0">
+              <h3 class="text-[16px] font-semibold text-[var(--text)]">{{ title || t('confirm.title') }}</h3>
+              <p class="mt-1 text-[13.5px] leading-relaxed text-[var(--text-secondary)]">{{ message || t('confirm.message') }}</p>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2">
             <button
+              type="button"
               @click="$emit('cancel')"
-              class="flex-1 rounded-btn border-2 border-line bg-white py-[11px] text-[13px] font-bold text-muted transition hover:border-blue hover:text-blue dark:bg-dcard dark:border-dline"
+              class="btn btn-secondary"
             >{{ cancelLabel || t('actions.cancel') }}</button>
             <button
+              type="button"
               @click="$emit('confirm')"
-              class="flex-1 rounded-btn py-[11px] text-[13px] font-bold text-white transition hover:opacity-90"
-              :class="danger ? 'bg-red' : 'bg-blue'"
+              class="btn"
+              :class="danger ? 'btn-danger' : 'btn-primary'"
             >{{ confirmLabel || t('common.confirm') }}</button>
           </div>
         </div>
@@ -43,6 +55,6 @@ const { t } = useI18n()
 </template>
 
 <style scoped>
-.ov-enter-active, .ov-leave-active { transition: all .2s ease; }
+.ov-enter-active, .ov-leave-active { transition: opacity .16s ease-out; }
 .ov-enter-from, .ov-leave-to { opacity: 0; }
 </style>

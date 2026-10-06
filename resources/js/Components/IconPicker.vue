@@ -73,17 +73,17 @@ function clear() {
     <input ref="fileInput" type="file" accept=".svg,image/svg+xml" class="hidden" @change="onFileSelected" />
 
     <div class="flex items-center gap-3">
-      <div class="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-[14px] border border-[var(--field-border)] bg-[var(--field-bg)] overflow-hidden">
+      <div class="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] overflow-hidden">
         <img v-if="currentPreview" :src="currentPreview" class="h-10 w-10 object-contain" alt="" />
         <Icon v-else kind="image" :size="20" class="text-[var(--text-muted)]" />
       </div>
-      <div class="flex-1 text-[11px] text-[var(--text-muted)]">
+      <div class="flex-1 text-[12px] text-[var(--text-muted)]">
         {{ t('iconPicker.hint') }}
       </div>
       <button
         v-if="currentPreview"
         type="button" @click="clear"
-        class="rounded-[10px] px-3 py-[7px] text-[12px] font-semibold text-red transition-colors hover:bg-red/10 flex-shrink-0"
+        class="rounded-[8px] px-3 py-[7px] text-[12px] font-semibold text-red transition-colors hover:bg-red/10 flex-shrink-0"
       >{{ t('actions.delete') }}</button>
     </div>
 
@@ -92,7 +92,7 @@ function clear() {
         v-for="icon in library" :key="icon.path" type="button"
         @click="pick(icon)"
         :title="icon.slug"
-        class="flex h-11 w-11 items-center justify-center rounded-[10px] border-2 transition-colors"
+        class="flex h-11 w-11 items-center justify-center rounded-[8px] border-2 transition-colors"
         :class="iconPath === icon.path
           ? 'border-[var(--accent)] bg-[var(--accent-tint)]'
           : 'border-[var(--field-border)] bg-[var(--field-bg)] hover:border-[var(--accent)]'"
@@ -103,7 +103,7 @@ function clear() {
       <button
         type="button" @click="openUpload"
         :title="t('iconPicker.uploadNew')"
-        class="flex h-11 w-11 items-center justify-center rounded-[10px] border-2 border-dashed transition-colors"
+        class="flex h-11 w-11 items-center justify-center rounded-[8px] border-2 border-dashed transition-colors"
         :class="iconFile
           ? 'border-[var(--accent)] bg-[var(--accent-tint)]'
           : 'border-[var(--field-border)] text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent)]'"
@@ -112,6 +112,6 @@ function clear() {
       </button>
     </div>
 
-    <p v-if="error" class="mt-1.5 text-[11px] font-semibold text-red">{{ error }}</p>
+    <p v-if="error" class="mt-1.5 text-[12px] font-semibold text-red">{{ error }}</p>
   </div>
 </template>

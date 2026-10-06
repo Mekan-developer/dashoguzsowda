@@ -1,7 +1,10 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import CreateButton from '@/Components/CreateButton.vue'
+import Icon from '@/Components/Icon.vue'
+import SearchInput from '@/Components/SearchInput.vue'
+import StatusBadge from '@/Components/StatusBadge.vue'
+import EmptyState from '@/Components/EmptyState.vue'
 
 const { t } = useI18n()
 
@@ -20,7 +23,15 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'create', 'update', 'toggle', 'destroy'])
 
-const fieldClass = 'w-full rounded-btn border-2 border-line bg-surface py-2 px-3 text-[13px] font-semibold text-ink outline-none focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200'
+const fieldClass = 'input'
+
+// Поиск внутри колонки (по обоим языкам)
+const query = ref('')
+const visibleItems = computed(() => {
+    const q = query.value.trim().toLowerCase()
+    if (!q) return props.items
+    return props.items.filter(i => i.name_ru?.toLowerCase().includes(q) || i.name_tk?.toLowerCase().includes(q))
+})
 
 const adding    = ref(false)
 const addForm   = ref({ name_ru: '', name_tk: '' })
@@ -63,84 +74,97 @@ watch(() => props.ready, (r) => { if (!r) { adding.value = false; editingId.valu
 </script>
 
 <template>
-  <div class="flex flex-col overflow-hidden rounded-card bg-white shadow-soft dark:bg-dcard">
-    <!-- Header + breadcrumb -->
-    <div class="flex items-center justify-between gap-2 border-b border-line px-5 py-4 dark:border-dline">
+  <div class="card flex min-h-0 flex-col overflow-hidden">
+    <!-- Шапка колонки: название, родитель, добавление -->
+    <div class="flex h-[60px] flex-none items-center justify-between gap-2 border-b border-[var(--card-border)] px-4">
       <div class="min-w-0">
-        <span class="text-[15px] font-extrabold text-ink dark:text-slate-100">{{ title }}</span>
-        <span v-if="crumb" class="ml-1.5 text-[13px] text-muted">— {{ crumb }}</span>
+        <div class="card-title">{{ title }}</div>
+        <div v-if="crumb" class="truncate text-[12px] text-[var(--text-muted)]">{{ crumb }}</div>
       </div>
-      <CreateButton :label="t('geo.add')" :disabled="!ready" @click="startAdd" />
+      <button type="button" class="btn btn-secondary btn-sm" :disabled="!ready" @click="startAdd">
+        <Icon kind="plus" :size="15" />{{ t('geo.add') }}
+      </button>
     </div>
 
-    <!-- Parent not selected -->
-    <div v-if="!ready" class="flex h-48 items-center justify-center px-5">
-      <p class="text-center text-[13px] text-muted">{{ notReadyText }}</p>
+    <!-- Родитель не выбран -->
+    <div v-if="!ready" class="flex flex-1 items-center justify-center">
+      <EmptyState compact icon="pin" :title="notReadyText" />
     </div>
 
-    <!-- List -->
-    <div v-else class="divide-y divide-line dark:divide-dline">
-      <!-- Inline add row -->
-      <div v-if="adding" class="bg-blue/5 px-4 py-3 dark:bg-blue/10">
-        <div class="flex flex-col gap-2">
-          <input v-model="addForm.name_ru" :placeholder="t('geo.nameRuPlaceholder')" @keyup.enter="submitAdd" :class="fieldClass" />
-          <input v-model="addForm.name_tk" :placeholder="t('geo.nameTkPlaceholder')" @keyup.enter="submitAdd" :class="fieldClass" />
-          <p v-if="errors.name_ru || errors.name_tk" class="text-[11px] font-semibold text-red">{{ errors.name_ru || errors.name_tk }}</p>
-          <div class="flex gap-2">
-            <button @click="submitAdd" class="rounded-btn bg-blue px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">{{ t('actions.save') }}</button>
-            <button @click="adding = false" class="rounded-btn border-2 border-line px-3 py-1 text-[12px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline">{{ t('actions.cancel') }}</button>
-          </div>
-        </div>
+    <template v-else>
+      <!-- Поиск по колонке — на клиенте -->
+      <div v-if="items.length > 6" class="flex-none border-b border-[var(--card-border)] p-3">
+        <SearchInput v-model="query" size="sm" :placeholder="t('common.search')" class="!rounded-[8px]" />
       </div>
 
-      <!-- Rows -->
-      <div
-        v-for="item in items" :key="item.id"
-        class="transition"
-        :class="[
-          selectable && editingId !== item.id ? 'cursor-pointer hover:bg-surface dark:hover:bg-white/5' : '',
-          selectable && selectedId === item.id ? 'bg-blue/5 dark:bg-blue/10' : '',
-        ]"
-        @click="rowClick(item)"
-      >
-        <!-- Inline edit -->
-        <div v-if="editingId === item.id" class="bg-blue/5 px-4 py-3 dark:bg-blue/10" @click.stop>
+      <div class="min-h-0 flex-1 divide-y divide-[var(--card-border)] overflow-y-auto">
+        <!-- Добавление -->
+        <div v-if="adding" class="bg-[var(--nav-hover)] p-4">
           <div class="flex flex-col gap-2">
-            <input v-model="editForm.name_ru" :placeholder="t('geo.nameRuPlaceholder')" @keyup.enter="submitEdit(item)" :class="fieldClass" />
-            <input v-model="editForm.name_tk" :placeholder="t('geo.nameTkPlaceholder')" @keyup.enter="submitEdit(item)" :class="fieldClass" />
-            <p v-if="errors.name_ru || errors.name_tk" class="text-[11px] font-semibold text-red">{{ errors.name_ru || errors.name_tk }}</p>
-            <div class="flex gap-2">
-              <button @click="submitEdit(item)" class="rounded-btn bg-blue px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">{{ t('actions.save') }}</button>
-              <button @click="editingId = null" class="rounded-btn border-2 border-line px-3 py-1 text-[12px] font-bold text-muted transition hover:border-blue hover:text-blue dark:border-dline">{{ t('actions.cancel') }}</button>
+            <input v-model="addForm.name_ru" :placeholder="t('geo.nameRuPlaceholder')" :aria-label="t('geo.nameRuPlaceholder')" @keyup.enter="submitAdd" :class="fieldClass" />
+            <input v-model="addForm.name_tk" :placeholder="t('geo.nameTkPlaceholder')" :aria-label="t('geo.nameTkPlaceholder')" @keyup.enter="submitAdd" :class="fieldClass" />
+            <p v-if="errors.name_ru || errors.name_tk" class="text-[12px] font-medium text-red">{{ errors.name_ru || errors.name_tk }}</p>
+            <div class="flex justify-end gap-2">
+              <button type="button" @click="adding = false" class="btn btn-secondary btn-sm">{{ t('actions.cancel') }}</button>
+              <button type="button" @click="submitAdd" class="btn btn-primary btn-sm">{{ t('actions.save') }}</button>
             </div>
           </div>
         </div>
 
-        <!-- Display -->
-        <div v-else class="flex items-center justify-between gap-2 px-5 py-3">
-          <div class="min-w-0">
-            <div class="truncate text-[13px] font-bold text-ink dark:text-slate-200">{{ item.name_ru }}</div>
-            <div class="truncate text-[11px] text-muted">{{ subtitle(item) }}</div>
+        <!-- Строки -->
+        <div
+          v-for="item in visibleItems" :key="item.id"
+          class="group relative transition-colors duration-150"
+          :class="[
+            selectable && editingId !== item.id ? 'cursor-pointer' : '',
+            selectable && selectedId === item.id ? 'bg-[var(--nav-item-active)]' : (selectable ? 'hover:bg-[var(--nav-hover)]' : ''),
+          ]"
+          @click="rowClick(item)"
+        >
+          <span v-if="selectable && selectedId === item.id" class="absolute inset-y-2 left-0 w-[3px] rounded-full bg-[var(--nav-indicator)]"></span>
+
+          <!-- Редактирование -->
+          <div v-if="editingId === item.id" class="bg-[var(--nav-hover)] p-4" @click.stop>
+            <div class="flex flex-col gap-2">
+              <input v-model="editForm.name_ru" :placeholder="t('geo.nameRuPlaceholder')" :aria-label="t('geo.nameRuPlaceholder')" @keyup.enter="submitEdit(item)" :class="fieldClass" />
+              <input v-model="editForm.name_tk" :placeholder="t('geo.nameTkPlaceholder')" :aria-label="t('geo.nameTkPlaceholder')" @keyup.enter="submitEdit(item)" :class="fieldClass" />
+              <p v-if="errors.name_ru || errors.name_tk" class="text-[12px] font-medium text-red">{{ errors.name_ru || errors.name_tk }}</p>
+              <div class="flex justify-end gap-2">
+                <button type="button" @click="editingId = null" class="btn btn-secondary btn-sm">{{ t('actions.cancel') }}</button>
+                <button type="button" @click="submitEdit(item)" class="btn btn-primary btn-sm">{{ t('actions.save') }}</button>
+              </div>
+            </div>
           </div>
-          <div class="flex flex-shrink-0 items-center gap-1.5">
+
+          <!-- Просмотр -->
+          <div v-else class="flex min-h-[60px] items-center gap-2 px-4 py-2.5">
+            <div class="min-w-0 flex-1">
+              <div class="truncate text-[13.5px] text-[var(--text)]" :class="selectedId === item.id ? 'font-semibold' : 'font-medium'">{{ item.name_ru }}</div>
+              <div class="truncate text-[12px] text-[var(--text-muted)]">{{ subtitle(item) }}</div>
+            </div>
             <button
+              type="button"
               @click.stop="emit('toggle', item)"
               :title="item.is_hidden ? t('actions.show') : t('actions.hide')"
-              class="rounded-pill px-2 py-0.5 text-[10px] font-bold transition"
-              :class="item.is_hidden ? 'bg-muted/10 text-muted hover:bg-muted/20' : 'bg-green/10 text-green hover:bg-green/20'"
-            >{{ item.is_hidden ? t('geo.hidden') : t('geo.shown') }}</button>
-            <button @click.stop="startEdit(item)" :title="t('actions.edit')" class="flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-surface text-muted transition hover:bg-blue hover:text-white dark:bg-dbg">
-              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              class="flex-none rounded-full outline-none transition-opacity duration-150 hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              <StatusBadge :status="item.is_hidden ? 'suspended' : 'active'" :label="item.is_hidden ? t('geo.hidden') : t('geo.shown')" />
             </button>
-            <button @click.stop="emit('destroy', item)" :title="t('actions.delete')" class="flex h-[28px] w-[28px] items-center justify-center rounded-[7px] bg-red/10 text-red transition hover:bg-red hover:text-white">
-              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline stroke-width="2" stroke-linecap="round" points="3 6 5 6 21 6"/><path stroke-width="2" stroke-linecap="round" d="M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
-            </button>
+            <div class="flex flex-none items-center gap-1 opacity-100 transition-opacity duration-150 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+              <button type="button" @click.stop="startEdit(item)" :title="t('actions.edit')" :aria-label="t('actions.edit')" class="icon-btn !h-8 !w-8">
+                <Icon kind="pencil" :size="15" />
+              </button>
+              <button type="button" @click.stop="emit('destroy', item)" :title="t('actions.delete')" :aria-label="t('actions.delete')" class="icon-btn icon-btn-danger !h-8 !w-8">
+                <Icon kind="trash" :size="15" />
+              </button>
+            </div>
+            <Icon v-if="selectable" kind="chevronDown" :size="14" class="flex-none -rotate-90 text-[var(--text-muted)]" />
           </div>
         </div>
-      </div>
 
-      <!-- Empty -->
-      <div v-if="!items.length && !adding" class="px-5 py-8 text-center text-[13px] text-muted">{{ emptyText }}</div>
-    </div>
+        <!-- Пусто -->
+        <EmptyState v-if="!visibleItems.length && !adding" compact :icon="query ? 'search' : 'pin'" :title="query ? t('dataTable.empty') : emptyText" />
+      </div>
+    </template>
   </div>
 </template>

@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/Components/Icon.vue'
 import Pagination from '@/Components/Pagination.vue'
 import SearchInput from '@/Components/SearchInput.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import StatusBadge from '@/Components/StatusBadge.vue'
 
 /**
  * Глобальный компонент таблицы с поиском, фильтром, пагинацией и действиями.
@@ -50,7 +52,7 @@ const props = defineProps({
     actions: {
         type: Array,
         default: () => [],
-        // [{ icon, title, handler, color: 'default'|'red' }]
+        // [{ icon, title, handler, color: 'default'|'red'|'green', visible?: (item) => bool }]
     },
     // Фильтры (статус, тип и т.д.)
     filters: {
@@ -72,6 +74,9 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    // Пустое состояние: иконка и пояснение под заголовком
+    emptyIcon: { type: String, default: 'search' },
+    emptyText: { type: String, default: '' },
     // Показывать встроенную панель поиска/счётчика (выключить, если страница строит свою — поиск/фильтры/счётчик — над таблицей сама)
     showToolbar: {
         type: Boolean,
@@ -144,58 +149,62 @@ const getCellClass = (column, value) => {
 <template>
   <div class="space-y-4">
     <!-- Фильтры и поиск -->
-    <div v-if="showToolbar" class="flex gap-3 items-center">
+    <div v-if="showToolbar" class="flex flex-wrap items-center gap-2.5">
       <!-- Поиск -->
       <SearchInput
         :model-value="searchQuery"
         @update:model-value="onSearch"
         :placeholder="searchPlaceholder || t('dataTable.searchPlaceholder')"
-        class="flex-1 max-w-xs"
+        class="w-full sm:w-[280px]"
       />
 
+      <!-- Дополнительные фильтры страницы (сегменты, select) — в той же строке -->
+      <slot name="toolbar" />
+
       <!-- Счётчик -->
-      <div class="text-[12px] text-[var(--text-muted)] font-semibold whitespace-nowrap" v-if="items.length">
+      <div class="ml-auto whitespace-nowrap text-[12.5px] tabular-nums text-[var(--text-muted)]" v-if="items.length">
         {{ t('dataTable.countOf', { shown: filtered.length, total: items.length }) }}
       </div>
     </div>
 
     <!-- Таблица -->
-    <div class="rounded-[12px] bg-white dark:bg-dcard border border-line dark:border-dline overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-surface dark:bg-dbg">
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+      <table class="w-full min-w-[640px]">
+        <thead class="border-b border-[var(--card-border)] bg-black/[.015] dark:bg-white/[.02]">
           <tr>
             <th
               v-for="col in columns"
               :key="col.key"
-              class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase"
+              class="h-11 whitespace-nowrap px-5 text-left text-[11.5px] font-semibold uppercase tracking-[.06em] text-[var(--text-muted)]"
               :style="col.width ? { width: col.width } : {}"
             >
               {{ col.label }}
             </th>
-            <th v-if="actions.length" class="px-3 py-3 w-24"></th>
+            <th v-if="actions.length" class="h-11 whitespace-nowrap px-5 text-right text-[11.5px] font-semibold uppercase tracking-[.06em] text-[var(--text-muted)]">{{ t('common.actions') }}</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-line dark:divide-dline">
+        <tbody class="divide-y divide-[var(--card-border)]">
           <tr
             v-for="item in filtered"
             :key="item.id"
-            class="hover:bg-[var(--nav-hover)] transition cursor-pointer"
+            class="cursor-pointer transition-colors duration-150 hover:bg-[var(--nav-hover)]"
             @dblclick="emit('dblclick', item)"
           >
             <!-- Ячейки -->
             <td
               v-for="col in columns"
               :key="col.key"
-              class="px-4 py-3"
+              class="h-[64px] px-5 py-2.5 text-[13.5px]"
             >
               <!-- Image -->
               <div v-if="col.type === 'image'">
                 <div
                   v-if="renderCell(item, col)"
-                  class="h-10 w-10 rounded-[9px] bg-cover bg-center flex-shrink-0"
+                  class="h-11 w-11 rounded-[8px] border border-[var(--card-border)] bg-cover bg-center flex-shrink-0"
                   :style="{ backgroundImage: renderCell(item, col) }"
                 ></div>
-                <div v-else class="h-10 w-10 rounded-[9px] bg-[var(--field-bg)] flex items-center justify-center flex-shrink-0">
+                <div v-else class="h-11 w-11 rounded-[8px] border border-[var(--card-border)] bg-[var(--field-bg)] flex items-center justify-center flex-shrink-0">
                   <Icon kind="image" :size="14" class="text-[var(--text-muted)]" />
                 </div>
               </div>
@@ -214,18 +223,17 @@ const getCellClass = (column, value) => {
 
               <!-- Badge -->
               <div v-else-if="col.type === 'badge'" class="inline-block">
-                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold" :class="getCellClass(col, item[col.key])">
+                <span class="inline-flex h-6 items-center rounded-full px-2.5 text-[11.5px] font-semibold" :class="getCellClass(col, item[col.key])">
                   {{ renderCell(item, col)?.label ?? item[col.key] }}
                 </span>
               </div>
 
               <!-- Status -->
-              <div v-else-if="col.type === 'status'" class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full" :class="item[col.key] ? 'bg-[var(--status-ok)]' : 'bg-[var(--text-muted)]'"></div>
-                <span class="text-[11px] font-bold" :class="getCellClass(col, item[col.key])">
-                  {{ item[col.key] ? t('status.published') : t('status.draft') }}
-                </span>
-              </div>
+              <StatusBadge
+                v-else-if="col.type === 'status'"
+                :status="item[col.key] ? 'approved' : 'suspended'"
+                :label="item[col.key] ? t('status.published') : t('status.draft')"
+              />
 
               <!-- Custom slot -->
               <slot v-else :name="`cell-${col.key}`" :item="item" :value="renderCell(item, col)">
@@ -234,20 +242,19 @@ const getCellClass = (column, value) => {
             </td>
 
             <!-- Действия -->
-            <td v-if="actions.length" class="px-3 py-3">
-              <div class="flex gap-1 justify-end">
+            <td v-if="actions.length" class="px-5 py-2.5">
+              <div class="flex justify-end gap-1.5">
                 <button
-                  v-for="(action, ai) in actions"
+                  v-for="(action, ai) in actions.filter(a => !a.visible || a.visible(item))"
                   :key="action.key || ai"
+                  type="button"
                   :title="actionTitle(action, item)"
                   :aria-label="actionTitle(action, item)"
                   @click.stop="handleAction(action, item)"
-                  class="h-8 w-8 flex items-center justify-center rounded-[8px] transition-colors flex-shrink-0"
-                  :class="action.color === 'red'
-                    ? 'bg-[var(--field-bg)] text-[var(--text-secondary)] hover:bg-red/20 hover:text-red'
-                    : 'bg-[var(--field-bg)] text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
+                  class="icon-btn"
+                  :class="{ red: 'icon-btn-danger', green: 'icon-btn-success' }[action.color] || ''"
                 >
-                  <Icon :kind="actionIcon(action, item)" :size="14" />
+                  <Icon :kind="actionIcon(action, item)" :size="16" />
                 </button>
               </div>
             </td>
@@ -255,15 +262,18 @@ const getCellClass = (column, value) => {
 
           <!-- Пустое состояние -->
           <tr v-if="filtered.length === 0">
-            <td :colspan="columns.length + (actions.length ? 1 : 0)" class="px-4 py-10 text-center text-[var(--text-muted)] text-sm">
-              {{ emptyMessage || t('dataTable.empty') }}
+            <td :colspan="columns.length + (actions.length ? 1 : 0)">
+              <EmptyState :icon="emptyIcon" :title="emptyMessage || t('dataTable.empty')" :text="emptyText">
+                <slot name="empty-action" />
+              </EmptyState>
             </td>
           </tr>
         </tbody>
       </table>
-    </div>
+      </div>
 
-    <!-- Пагинация -->
-    <Pagination v-if="pagination?.links" :links="pagination.links" />
+      <!-- Пагинация -->
+      <Pagination v-if="pagination?.links" :links="pagination.links" :from="pagination.from" :to="pagination.to" :total="pagination.total" />
+    </div>
   </div>
 </template>

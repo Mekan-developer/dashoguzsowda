@@ -3,12 +3,17 @@ import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import ChatDialogList from '@/Components/ChatDialogList.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import StatusBadge from '@/Components/StatusBadge.vue'
+import Icon from '@/Components/Icon.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = defineProps({ chatUser: Object, messages: Array, dialogs: Array })
 
 const replyText     = ref('')
+const inputEl       = ref(null)
 const messagesEl    = ref(null)
 const localMessages = ref([...(props.messages ?? [])])
 
@@ -44,10 +49,18 @@ function scrollToBottom() {
     })
 }
 
+// Поле ответа растёт по тексту до 140px, дальше прокручивается
+function autoGrow() {
+    const el = inputEl.value
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px'
+}
+
 function sendReply() {
     if (!replyText.value.trim()) return
     router.post(route('chat.reply', props.chatUser.id), { text: replyText.value }, {
-        onSuccess: () => { replyText.value = ''; scrollToBottom() },
+        onSuccess: () => { replyText.value = ''; nextTick(autoGrow); scrollToBottom() },
         preserveState: false,
     })
 }
@@ -56,9 +69,14 @@ function formatTime(d) {
     if (!d) return ''
     return new Date(d).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
 }
-function formatDate2(d) {
-    if (!d) return '—'
-    return new Date(d).toLocaleDateString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+// Разделители по дням в переписке
+function dayKey(msg) {
+    return msg?.created_at ? new Date(msg.created_at).toDateString() : null
+}
+function dayLabel(d) {
+    const date = new Date(d)
+    if (date.toDateString() === new Date().toDateString()) return t('chat.today')
+    return date.toLocaleDateString(locale.value, { day: 'numeric', month: 'long', year: 'numeric' })
 }
 </script>
 
@@ -66,97 +84,96 @@ function formatDate2(d) {
   <AppLayout>
     <template #header>{{ t('nav.chat') }}</template>
 
-    <div class="flex h-[calc(100vh-136px)] rounded-card overflow-hidden shadow-soft">
-      <!-- Dialogs sidebar -->
-      <div class="w-[300px] flex-shrink-0 bg-white border-r border-line dark:bg-dcard dark:border-dline overflow-y-auto">
-        <div class="px-4 py-3 border-b border-line dark:border-dline">
-          <span class="text-[13px] font-extrabold text-ink dark:text-slate-100">{{ t('chat.dialogs') }}</span>
+    <div class="card flex h-[calc(100vh-212px)] min-h-[460px] overflow-hidden">
+      <!-- Диалоги (на узком экране скрыты — есть ссылка «К диалогам») -->
+      <aside class="hidden w-[320px] flex-none flex-col border-r border-[var(--card-border)] md:flex">
+        <div class="flex h-[64px] flex-none items-center border-b border-[var(--card-border)] px-4">
+          <h2 class="card-title">{{ t('chat.dialogs') }}</h2>
         </div>
-        <div class="divide-y divide-line dark:divide-dline">
-          <Link
-            v-for="d in dialogs" :key="d.id"
-            :href="route('chat.show', d.id)"
-            class="flex items-center gap-2.5 px-4 py-3 transition hover:bg-surface dark:hover:bg-white/5"
-            :class="d.id === chatUser.id ? 'bg-blue/5 dark:bg-blue/10' : ''"
-          >
-            <div class="h-8 w-8 rounded-full bg-blue flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0">
-              {{ (d.name || d.phone || '?').charAt(0).toUpperCase() }}
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="text-[12px] font-bold text-ink dark:text-slate-200 truncate">{{ d.name || d.phone }}</div>
-              <div class="text-[11px] text-muted truncate">{{ d.messages?.[0]?.text || '' }}</div>
-            </div>
-            <span v-if="d.unread_count > 0" class="h-4 min-w-[16px] rounded-full bg-blue text-[9px] font-extrabold text-white flex items-center justify-center px-1">{{ d.unread_count }}</span>
-          </Link>
+        <div class="flex-1 overflow-y-auto">
+          <ChatDialogList :dialogs="dialogs" :active-id="chatUser.id" />
         </div>
-      </div>
+      </aside>
 
-      <!-- Chat area -->
-      <div class="flex flex-1 flex-col bg-white dark:bg-dcard">
-        <!-- Header -->
-        <div class="flex items-center gap-3 border-b border-line dark:border-dline px-5 py-3.5 flex-shrink-0">
-          <div class="h-9 w-9 rounded-full bg-blue flex items-center justify-center text-[13px] font-extrabold text-white">
+      <!-- Переписка -->
+      <section class="flex min-w-0 flex-1 flex-col">
+        <!-- Шапка: кто это и переход в профиль -->
+        <header class="flex h-[64px] flex-none items-center gap-3 border-b border-[var(--card-border)] px-4 sm:px-5">
+          <Link :href="route('chat.index')" class="icon-btn md:hidden" :title="t('chat.back')" :aria-label="t('chat.back')">
+            <Icon kind="chevronLeft" :size="16" />
+          </Link>
+          <div class="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-[var(--accent-tint)] text-[14px] font-semibold text-link">
             {{ (chatUser.name || chatUser.phone || '?').charAt(0).toUpperCase() }}
           </div>
-          <div>
-            <div class="text-[14px] font-extrabold text-ink dark:text-slate-100">{{ chatUser.name || '—' }}</div>
-            <div class="text-[12px] font-data text-muted">{{ chatUser.phone }}</div>
+          <div class="min-w-0">
+            <div class="truncate text-[14px] font-semibold text-[var(--text)]">{{ chatUser.name || chatUser.phone }}</div>
+            <div class="font-data text-[12px] text-[var(--text-muted)]">{{ chatUser.phone }}</div>
           </div>
-          <div class="ml-auto">
-            <Link :href="route('users.show', chatUser.id)" class="text-[12px] font-bold text-blue hover:underline">{{ t('chat.profileLink') }}</Link>
-          </div>
-        </div>
+          <StatusBadge v-if="chatUser.status" :status="chatUser.status" class="hidden sm:inline-flex" />
+          <Link :href="route('users.show', chatUser.id)" class="btn btn-secondary btn-sm ml-auto">
+            <Icon kind="users" :size="15" /><span class="hidden sm:inline">{{ t('chat.profileLink') }}</span>
+          </Link>
+        </header>
 
-        <!-- Messages -->
-        <div ref="messagesEl" class="flex-1 overflow-y-auto p-5 space-y-3">
-          <div
-            v-for="msg in localMessages" :key="msg.id"
-            class="flex"
-            :class="msg.sender === 'admin' ? 'justify-end' : 'justify-start'"
-          >
-            <div
-              class="max-w-[70%] rounded-card px-4 py-2.5 text-[13px] font-semibold"
-              :class="msg.sender === 'admin'
-                ? 'bg-blue text-white'
-                : 'bg-surface text-ink dark:bg-dbg dark:text-slate-200'"
-            >
-              {{ msg.text }}
-              <div class="mt-1 flex items-center gap-1 text-[10px]" :class="msg.sender === 'admin' ? 'justify-end' : ''">
-                <span class="opacity-60">{{ formatTime(msg.created_at) }}</span>
-                <!-- Статус только на своих ответах: входящие оператор читает самим фактом открытия диалога -->
-                <svg
-                  v-if="msg.sender === 'admin'"
-                  class="h-3.5 w-3.5 flex-shrink-0"
-                  :class="msg.is_read ? 'opacity-100' : 'opacity-60'"
-                  viewBox="0 0 20 20" fill="none" stroke="currentColor"
-                  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-                  role="img"
-                  :aria-label="msg.is_read ? t('chat.markRead') : t('chat.markSent')"
-                >
-                  <title>{{ msg.is_read ? t('chat.markRead') : t('chat.markSent') }}</title>
-                  <path d="M1.5 10.6 5.2 14.3 12.4 5.9" />
-                  <path v-if="msg.is_read" d="M7.6 14.3 14.8 5.9" />
-                </svg>
+        <!-- Сообщения, сгруппированные по дням -->
+        <div ref="messagesEl" class="flex-1 overflow-y-auto bg-black/[.012] px-4 py-5 dark:bg-white/[.012] sm:px-6">
+          <template v-for="(msg, i) in localMessages" :key="msg.id">
+            <div v-if="dayKey(msg) !== dayKey(localMessages[i - 1])" class="my-4 flex items-center gap-3 first:mt-0">
+              <span class="h-px flex-1 bg-[var(--card-border)]"></span>
+              <span class="text-[11.5px] font-medium text-[var(--text-muted)]">{{ dayLabel(msg.created_at) }}</span>
+              <span class="h-px flex-1 bg-[var(--card-border)]"></span>
+            </div>
+            <div class="mb-2 flex" :class="msg.sender === 'admin' ? 'justify-end' : 'justify-start'">
+              <div
+                class="max-w-[min(70%,560px)] whitespace-pre-line break-words px-3.5 py-2 text-[13.5px] leading-relaxed"
+                :class="msg.sender === 'admin'
+                  ? 'rounded-[12px] rounded-br-[4px] bg-[var(--accent)] text-white'
+                  : 'rounded-[12px] rounded-bl-[4px] border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--text)]'"
+              >
+                {{ msg.text }}
+                <div class="mt-0.5 flex items-center gap-1 font-data text-[10.5px]" :class="msg.sender === 'admin' ? 'justify-end text-white/70' : 'text-[var(--text-muted)]'">
+                  <span>{{ formatTime(msg.created_at) }}</span>
+                  <!-- Статус только на своих ответах: входящие оператор читает самим фактом открытия диалога -->
+                  <svg
+                    v-if="msg.sender === 'admin'"
+                    class="h-3.5 w-3.5 flex-shrink-0"
+                    :class="msg.is_read ? 'text-white' : ''"
+                    viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                    role="img"
+                    :aria-label="msg.is_read ? t('chat.markRead') : t('chat.markSent')"
+                  >
+                    <title>{{ msg.is_read ? t('chat.markRead') : t('chat.markSent') }}</title>
+                    <path d="M1.5 10.6 5.2 14.3 12.4 5.9" />
+                    <path v-if="msg.is_read" d="M7.6 14.3 14.8 5.9" />
+                  </svg>
+                </div>
               </div>
             </div>
-          </div>
-          <div v-if="!localMessages?.length" class="text-center text-[13px] text-muted py-8">{{ t('chat.noMessages') }}</div>
+          </template>
+          <EmptyState v-if="!localMessages?.length" compact icon="chat" :title="t('chat.noMessages')" />
         </div>
 
-        <!-- Input -->
-        <div class="flex-shrink-0 flex gap-2 border-t border-line dark:border-dline p-4">
-          <input
-            v-model="replyText"
-            @keydown.enter.prevent="sendReply"
-            :placeholder="t('chat.inputPlaceholder')"
-            class="flex-1 rounded-btn border-2 border-line bg-surface px-4 py-2.5 text-[13px] font-semibold outline-none focus:border-blue dark:bg-dbg dark:border-dline dark:text-slate-200 transition"
-          />
-          <button
-            @click="sendReply"
-            class="rounded-btn bg-blue px-5 py-2.5 text-[13px] font-bold text-white hover:bg-blue-dark transition"
-          >{{ t('actions.send') }}</button>
-        </div>
-      </div>
+        <!-- Ответ -->
+        <form class="flex-none border-t border-[var(--card-border)] p-3 sm:p-4" @submit.prevent="sendReply">
+          <div class="flex items-end gap-2">
+            <textarea
+              ref="inputEl"
+              v-model="replyText"
+              rows="1"
+              :placeholder="t('chat.inputPlaceholder')"
+              :aria-label="t('chat.inputPlaceholder')"
+              class="input max-h-[140px] flex-1 resize-none"
+              @input="autoGrow"
+              @keydown.enter.exact.prevent="sendReply"
+            ></textarea>
+            <button type="submit" class="btn btn-primary" :disabled="!replyText.trim()">
+              <Icon kind="send" :size="16" /><span class="hidden sm:inline">{{ t('actions.send') }}</span>
+            </button>
+          </div>
+          <p class="mt-1.5 hidden text-[11.5px] text-[var(--text-muted)] sm:block">{{ t('chat.sendHint') }}</p>
+        </form>
+      </section>
     </div>
   </AppLayout>
 </template>

@@ -9,6 +9,8 @@ import Pagination from '@/Components/Pagination.vue'
 import { confirmDialog } from '@/confirm'
 import SearchInput from '@/Components/SearchInput.vue'
 import Icon from '@/Components/Icon.vue'
+import EmptyState from '@/Components/EmptyState.vue'
+import { th, td, tr, thead } from '@/table'
 
 const { t, locale } = useI18n()
 
@@ -52,6 +54,10 @@ function setStatusFilter(value) {
 }
 
 const hasActiveFilters = computed(() => !!(searchQuery.value || statusFilter.value || reasonFilter.value))
+function resetFilters() {
+    searchQuery.value = ''; statusFilter.value = ''; reasonFilter.value = ''
+    applyFilters()
+}
 
 // Справочники двуязычные — показываем имя активного языка
 const nameOf = (item) => (locale.value === 'tk' && item?.name_tk) ? item.name_tk : item?.name_ru
@@ -90,176 +96,175 @@ function resolve(complaint, note) {
   <AppLayout>
     <template #header>{{ t('nav.complaints') }}</template>
 
-    <div class="space-y-4">
-      <!-- Поиск + фильтры -->
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="w-full sm:w-80">
-          <SearchInput
-            :model-value="searchQuery"
-            :placeholder="t('complaints.searchPlaceholder')"
-            @update:model-value="onSearchInput"
-            @submit="applyFilters"
-          />
-        </div>
-        <div class="flex gap-2 flex-wrap">
-          <button
-            v-for="chip in statusChips"
-            :key="chip.value"
-            @click="setStatusFilter(chip.value)"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-btn text-sm font-bold transition"
-            :class="statusFilter === chip.value
-              ? 'bg-blue text-white'
-              : 'bg-white dark:bg-dcard border border-line dark:border-dline text-ink dark:text-slate-200 hover:bg-surface dark:hover:bg-white/5'"
-          >
-            {{ chip.label }}
-            <span
-              v-if="chip.count"
-              class="rounded-full px-1.5 text-[10px]"
-              :class="statusFilter === chip.value ? 'bg-white/20' : 'bg-surface dark:bg-white/10 text-muted'"
-            >{{ chip.count }}</span>
-          </button>
-        </div>
-        <select
-          :value="reasonFilter"
-          @change="reasonFilter = $event.target.value; applyFilters()"
-          class="input w-auto text-sm"
-        >
-          <option value="">{{ t('complaints.allReasons') }}</option>
-          <option v-for="reason in reasons" :key="reason.id" :value="reason.id">{{ nameOf(reason) }}</option>
-        </select>
+    <!-- Поиск + статус + причина — одна строка одной высоты -->
+    <div class="mb-4 flex flex-wrap items-center gap-2.5">
+      <SearchInput
+        :model-value="searchQuery"
+        :placeholder="t('complaints.searchPlaceholder')"
+        class="w-full sm:w-[300px]"
+        @update:model-value="onSearchInput"
+        @submit="applyFilters"
+      />
+      <div class="seg">
+        <button
+          v-for="chip in statusChips" :key="chip.value"
+          type="button"
+          @click="setStatusFilter(chip.value)"
+          :aria-pressed="statusFilter === chip.value"
+          class="seg-item"
+          :class="statusFilter === chip.value ? 'seg-item-active' : ''"
+        >{{ chip.label }} ({{ chip.count ?? 0 }})</button>
       </div>
+      <select
+        :value="reasonFilter"
+        @change="reasonFilter = $event.target.value; applyFilters()"
+        :aria-label="t('complaints.colReason')"
+        class="filter-select"
+      >
+        <option value="">{{ t('complaints.allReasons') }}</option>
+        <option v-for="reason in reasons" :key="reason.id" :value="reason.id">{{ nameOf(reason) }}</option>
+      </select>
+      <span class="ml-auto whitespace-nowrap text-[12.5px] tabular-nums text-[var(--text-muted)]">
+        {{ t('dataTable.countOf', { shown: complaints.data.length, total: complaints.total }) }}
+      </span>
+    </div>
 
-      <!-- Таблица -->
-      <div class="rounded-card bg-white dark:bg-dcard border border-line dark:border-dline overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-surface dark:bg-dbg">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase w-16">{{ t('common.id') }}</th>
-                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('users.colUser') }}</th>
-                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('listings.colListing') }}</th>
-                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('complaints.colReason') }}</th>
-                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('common.status') }}</th>
-                <th class="px-4 py-3 text-left text-xs font-extrabold text-muted uppercase">{{ t('common.date') }}</th>
-                <th class="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-line dark:divide-dline">
-              <tr
-                v-for="c in complaints.data"
-                :key="c.id"
-                @click="openDetails(c)"
-                class="cursor-pointer hover:bg-surface/50 dark:hover:bg-white/2 transition"
-              >
-                <td class="px-4 py-3 font-data text-xs text-muted">{{ c.id }}</td>
-                <td class="px-4 py-3">
-                  <div class="font-semibold text-ink dark:text-slate-100">{{ c.user?.name || '—' }}</div>
-                  <div class="text-xs text-muted">{{ c.user?.phone }}</div>
-                </td>
-                <td class="px-4 py-3">
-                  <Link
-                    v-if="c.listing"
-                    :href="route('listings.show', c.listing.id)"
-                    @click.stop
-                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-blue hover:underline"
-                  >
-                    <Icon kind="listing" :size="14" class="flex-shrink-0" />
-                    <span class="max-w-[200px] truncate">{{ c.listing.title }}</span>
-                  </Link>
-                  <span v-else class="text-xs text-muted">—</span>
-                </td>
-                <td class="px-4 py-3">
-                  <span class="inline-flex rounded-pill bg-orange/10 px-2.5 py-0.5 text-[11px] font-bold text-orange">
-                    {{ nameOf(c.complaint_reason) || '—' }}
-                  </span>
-                  <div v-if="c.text" class="mt-1 max-w-[240px] truncate text-xs text-muted">{{ c.text }}</div>
-                </td>
-                <td class="px-4 py-3"><StatusBadge :status="c.status" /></td>
-                <td class="px-4 py-3 text-xs text-muted whitespace-nowrap">{{ formatDate(c.created_at) }}</td>
-                <td class="px-4 py-3 text-right">
+    <div class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[720px]">
+          <thead>
+            <tr :class="thead">
+              <th :class="th" class="w-[72px]">{{ t('common.id') }}</th>
+              <th :class="th">{{ t('complaints.complainant') }}</th>
+              <th :class="th">{{ t('listings.colListing') }}</th>
+              <th :class="th">{{ t('complaints.colReason') }}</th>
+              <th :class="th">{{ t('common.status') }}</th>
+              <th :class="th" class="hidden md:table-cell">{{ t('common.date') }}</th>
+              <th :class="th" class="text-right">{{ t('common.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="c in complaints.data" :key="c.id"
+              @click="openDetails(c)"
+              :class="tr" class="cursor-pointer"
+            >
+              <td :class="td" class="font-data tabular-nums text-[var(--text-muted)]">{{ c.id }}</td>
+              <td :class="td">
+                <div class="max-w-[200px] truncate font-semibold text-[var(--text)]">{{ c.user?.name || '—' }}</div>
+                <div class="font-data text-[12px] text-[var(--text-muted)]">{{ c.user?.phone }}</div>
+              </td>
+              <td :class="td">
+                <Link
+                  v-if="c.listing"
+                  :href="route('listings.show', c.listing.id)"
+                  @click.stop
+                  class="inline-flex max-w-[240px] items-center gap-1.5 text-link hover:underline"
+                >
+                  <Icon kind="listing" :size="14" class="flex-shrink-0" />
+                  <span class="truncate">{{ c.listing.title }}</span>
+                </Link>
+                <span v-else class="text-[var(--text-muted)]">—</span>
+              </td>
+              <td :class="td">
+                <div class="max-w-[240px] truncate text-[var(--text)]">{{ nameOf(c.complaint_reason) || '—' }}</div>
+                <div v-if="c.text" class="mt-0.5 max-w-[240px] truncate text-[12px] text-[var(--text-muted)]">{{ c.text }}</div>
+              </td>
+              <td :class="td"><StatusBadge :status="c.status" /></td>
+              <td :class="td" class="hidden whitespace-nowrap font-data tabular-nums text-[var(--text-secondary)] md:table-cell">{{ formatDate(c.created_at) }}</td>
+              <td :class="td">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button type="button" @click.stop="openDetails(c)" class="icon-btn" :title="t('actions.show')" :aria-label="t('actions.show')"><Icon kind="eye" :size="16" /></button>
                   <button
                     v-if="c.status !== 'resolved'"
+                    type="button"
                     @click.stop="askResolve(c)"
-                    class="px-3 py-1 rounded-btn bg-green/10 text-green text-xs font-bold hover:bg-green/20 transition"
-                  >{{ t('complaints.resolveBtn') }}</button>
-                </td>
-              </tr>
-              <tr v-if="!complaints.data?.length">
-                <td colspan="7" class="px-4 py-10 text-center text-muted text-sm">
-                  {{ hasActiveFilters ? t('complaints.emptyFiltered') : t('complaints.empty') }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                    class="icon-btn icon-btn-success"
+                    :title="t('complaints.resolveBtn')" :aria-label="t('complaints.resolveBtn')"
+                  ><Icon kind="check" :size="16" /></button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!complaints.data?.length">
+              <td colspan="7">
+                <EmptyState
+                  :icon="hasActiveFilters ? 'search' : 'flag'"
+                  :title="hasActiveFilters ? t('complaints.emptyFiltered') : t('complaints.empty')"
+                  :text="hasActiveFilters ? t('common.emptyFiltered') : ''"
+                >
+                  <button v-if="hasActiveFilters" type="button" class="btn btn-secondary" @click="resetFilters">{{ t('common.resetFilters') }}</button>
+                </EmptyState>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      <Pagination :links="complaints.links" />
+      <Pagination :links="complaints.links" :from="complaints.from" :to="complaints.to" :total="complaints.total" />
     </div>
 
     <!-- Drawer: детали жалобы -->
     <AppDrawer :open="drawer" :title="t('complaints.drawerTitle')" @close="drawer = false">
       <template v-if="selected">
-        <div class="mb-4 flex items-center justify-between">
+        <div class="mb-5 flex items-center justify-between">
           <StatusBadge :status="selected.status" />
-          <span class="text-xs text-muted">{{ formatDate(selected.created_at) }}</span>
+          <span class="font-data text-[12.5px] text-[var(--text-muted)]">#{{ selected.id }} · {{ formatDate(selected.created_at) }}</span>
         </div>
 
         <div class="mb-4">
-          <div class="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-muted">{{ t('complaints.complainant') }}</div>
+          <div class="field-label">{{ t('complaints.complainant') }}</div>
           <Link
             v-if="selected.user"
             :href="route('users.show', selected.user.id)"
-            class="text-sm font-semibold text-blue hover:underline"
+            class="text-[13.5px] font-medium text-link hover:underline"
           >{{ selected.user.name || selected.user.phone }}</Link>
-          <span v-else class="text-sm text-muted">—</span>
-          <div v-if="selected.user?.name" class="text-xs text-muted">{{ selected.user.phone }}</div>
+          <span v-else class="text-[13.5px] text-[var(--text-muted)]">—</span>
+          <div v-if="selected.user?.name" class="font-data text-[12px] text-[var(--text-muted)]">{{ selected.user.phone }}</div>
         </div>
 
         <div class="mb-4">
-          <div class="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-muted">{{ t('listings.colListing') }}</div>
+          <div class="field-label">{{ t('listings.colListing') }}</div>
           <Link
             v-if="selected.listing"
             :href="route('listings.show', selected.listing.id)"
-            class="inline-flex items-center gap-1.5 text-sm font-semibold text-blue hover:underline"
+            class="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-link hover:underline"
           >
             <Icon kind="listing" :size="15" class="flex-shrink-0" />
             {{ selected.listing.title }}
           </Link>
-          <span v-else class="text-sm text-muted">—</span>
+          <span v-else class="text-[13.5px] text-[var(--text-muted)]">—</span>
         </div>
 
         <div class="mb-4">
-          <div class="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-muted">{{ t('complaints.colReason') }}</div>
-          <span class="inline-flex rounded-pill bg-orange/10 px-2.5 py-1 text-xs font-bold text-orange">
+          <div class="field-label">{{ t('complaints.colReason') }}</div>
+          <span class="inline-flex h-6 items-center rounded-full bg-amber-500/10 px-2.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300">
             {{ nameOf(selected.complaint_reason) || '—' }}
           </span>
         </div>
 
         <div class="mb-4">
-          <div class="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-muted">{{ t('reviews.colText') }}</div>
+          <div class="field-label">{{ t('reviews.colText') }}</div>
           <p
             v-if="selected.text"
-            class="whitespace-pre-line rounded-btn bg-surface dark:bg-dbg px-3.5 py-3 text-sm leading-relaxed text-ink dark:text-slate-200"
+            class="whitespace-pre-line rounded-[8px] bg-[var(--field-bg)] px-3.5 py-3 text-[13.5px] leading-relaxed text-[var(--text)]"
           >{{ selected.text }}</p>
-          <span v-else class="text-sm text-muted">{{ t('complaints.noText') }}</span>
+          <span v-else class="text-[13.5px] text-[var(--text-muted)]">{{ t('complaints.noText') }}</span>
         </div>
 
         <!-- Решена: кто и как -->
         <template v-if="selected.status === 'resolved'">
           <div v-if="selected.resolver" class="mb-4">
-            <div class="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-muted">{{ t('complaints.resolvedBy') }}</div>
-            <div class="text-sm font-semibold text-ink dark:text-slate-100">{{ selected.resolver.name }}</div>
+            <div class="field-label">{{ t('complaints.resolvedBy') }}</div>
+            <div class="text-[13.5px] font-medium text-[var(--text)]">{{ selected.resolver.name }}</div>
           </div>
           <div v-if="selected.resolution_note" class="mb-4">
-            <div class="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-muted">{{ t('complaints.resolutionNote') }}</div>
-            <p class="whitespace-pre-line rounded-btn bg-green/5 px-3.5 py-3 text-sm leading-relaxed text-ink dark:text-slate-200">{{ selected.resolution_note }}</p>
+            <div class="field-label">{{ t('complaints.resolutionNote') }}</div>
+            <p class="whitespace-pre-line rounded-[8px] bg-emerald-500/10 px-3.5 py-3 text-[13.5px] leading-relaxed text-[var(--text)]">{{ selected.resolution_note }}</p>
           </div>
         </template>
 
         <!-- Новая: заметка + решение -->
         <div v-else class="mb-4">
-          <div class="mb-1.5 text-[12px] font-bold uppercase tracking-wide text-muted">{{ t('complaints.resolutionNote') }}</div>
+          <div class="field-label">{{ t('complaints.resolutionNote') }}</div>
           <textarea
             v-model="resolutionNote"
             :placeholder="t('complaints.resolutionNotePlaceholder')"
@@ -269,11 +274,14 @@ function resolve(complaint, note) {
         </div>
       </template>
 
+      <!-- Главное действие модерации — справа, основной кнопкой -->
       <template v-if="selected && selected.status !== 'resolved'" #footer>
-        <button
-          @click="resolve(selected, resolutionNote)"
-          class="w-full rounded-btn bg-green py-[11px] text-[13px] font-bold text-white transition hover:opacity-90"
-        >{{ t('complaints.markResolved') }}</button>
+        <div class="flex justify-end gap-2">
+          <button type="button" @click="drawer = false" class="btn btn-secondary">{{ t('actions.cancel') }}</button>
+          <button type="button" @click="resolve(selected, resolutionNote)" class="btn btn-success">
+            <Icon kind="check" :size="16" />{{ t('complaints.markResolved') }}
+          </button>
+        </div>
       </template>
     </AppDrawer>
 

@@ -24,8 +24,8 @@ const props = defineProps({
 })
 
 const typeMeta = computed(() => ({
-    regular: { label: t('news.typeRegular'), cls: 'bg-blue/10 text-blue' },
-    ad:      { label: t('news.typeAd'),      cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+    regular: { label: t('news.typeRegular'), cls: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+    ad:      { label: t('news.typeAd'),      cls: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
 }))
 
 // Значения совпадают с ad_link_type в API: мобилка открывает магазин через
@@ -76,6 +76,11 @@ function onSearchInput(value) {
     searchQuery.value = value
     clearTimeout(searchDebounce)
     searchDebounce = setTimeout(applyFilters, 350)
+}
+const hasFilters = computed(() => !!(searchQuery.value || statusFilter.value !== ''))
+function resetFilters() {
+    searchQuery.value = ''; statusFilter.value = ''
+    applyFilters()
 }
 function setStatusFilter(value) {
     statusFilter.value = value
@@ -148,12 +153,7 @@ async function destroy(n) {
 
 <template>
   <AppLayout>
-    <template #header>
-      <span class="inline-flex items-center gap-2 align-middle">
-        {{ t('nav.news') }}
-        <span class="rounded-pill border border-[var(--field-border)] bg-[var(--field-bg)] px-2.5 py-0.5 text-[11.5px] font-bold text-[var(--text-secondary)]">{{ news.total }}</span>
-      </span>
-    </template>
+    <template #header>{{ t('nav.news') }}</template>
 
     <template #actions>
       <CreateButton :label="t('news.addNew')" @click="openCreate" />
@@ -161,30 +161,29 @@ async function destroy(n) {
 
     <div class="space-y-4">
       <!-- Панель: поиск + сегментированный фильтр + счётчик показанных/всего -->
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
         <SearchInput
           :model-value="searchQuery"
           @update:model-value="onSearchInput"
           @submit="applyFilters"
           :placeholder="t('news.searchPlaceholder')"
-          class="min-w-[220px] flex-1 sm:max-w-[340px]"
+          class="w-full sm:w-[280px]"
         />
 
         <!-- Фильтр по статусу — сегментированный контрол -->
-        <div class="inline-flex gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
+        <div class="seg">
           <button
             v-for="chip in statusChips" :key="chip.value"
             type="button"
             @click="setStatusFilter(chip.value)"
-            class="rounded-[8px] px-[15px] py-[7px] text-[12.5px] font-semibold transition-colors"
-            :class="statusFilter === chip.value
-              ? 'bg-[var(--accent)] text-white shadow-[0_4px_10px_-3px_var(--accent)]'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
-          >{{ chip.label }}</button>
+            :aria-pressed="statusFilter === chip.value"
+            class="seg-item"
+            :class="statusFilter === chip.value ? 'seg-item-active' : ''"
+          >{{ chip.label }} ({{ chip.count ?? 0 }})</button>
         </div>
 
         <!-- Показано из всего -->
-        <span class="ml-auto text-[12.5px] font-semibold text-[var(--text-muted)]">
+        <span class="ml-auto whitespace-nowrap text-[12.5px] tabular-nums text-[var(--text-muted)]">
           {{ t('dataTable.countOf', { shown: news.data.length, total: news.total }) }}
         </span>
       </div>
@@ -196,24 +195,36 @@ async function destroy(n) {
         :pagination="news"
         :actions="dataTableActions"
         :show-toolbar="false"
+        empty-icon="news"
+        :empty-message="hasFilters ? t('dataTable.empty') : t('news.emptyTitle')"
+        :empty-text="hasFilters ? t('common.emptyFiltered') : t('news.emptyText')"
         @dblclick="openEdit"
       >
+        <template #empty-action>
+          <button v-if="hasFilters" type="button" class="btn btn-secondary" @click="resetFilters">{{ t('common.resetFilters') }}</button>
+          <CreateButton v-else :label="t('news.addNew')" @click="openCreate" />
+        </template>
         <!-- Custom ячейка для даты (форматирование) -->
         <template #cell-created_at="{ value }">
-          {{ new Date(value).toLocaleDateString('ru') }}
+          <span class="font-data tabular-nums font-medium text-[var(--text-secondary)]">{{ new Date(value).toLocaleDateString('ru') }}</span>
         </template>
       </DataTable>
     </div>
 
     <AppDrawer :open="drawer" :title="editItem ? t('news.editTitle') : t('news.newTitle')" @close="drawer = false">
-      <!-- Переключатель языка формы -->
-      <div class="mb-4 inline-flex gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
-        <button
-          v-for="l in ['ru', 'tk']" :key="l" type="button"
-          @click="lang = l"
-          class="rounded-[8px] px-5 py-1.5 text-[12px] font-bold uppercase transition-colors"
-          :class="lang === l ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
-        >{{ l }}</button>
+      <!-- ── Содержание ── -->
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h3 class="card-title">{{ t('news.sectionContent') }}</h3>
+        <!-- Переключатель языка формы -->
+        <div class="seg !h-9" role="group">
+          <button
+            v-for="l in ['ru', 'tk']" :key="l" type="button"
+            @click="lang = l"
+            :aria-pressed="lang === l"
+            class="seg-item uppercase"
+            :class="lang === l ? 'seg-item-active' : ''"
+          >{{ l }}</button>
+        </div>
       </div>
 
       <DrawerField :label="lang === 'ru' ? t('news.titleRu') : t('news.titleTk')" :required="lang === 'ru'" :error="lang === 'ru' ? errors.title_ru : errors.title_tk">
@@ -225,12 +236,12 @@ async function destroy(n) {
           v-model="content"
           :placeholder="lang === 'ru' ? t('news.contentPlaceholderRu') : t('news.contentPlaceholderTk')"
         />
-        <p class="mt-1.5 text-[11px] font-semibold">
-          <span :class="(form.content_ru || '').trim() ? 'text-green' : 'text-muted'">
+        <p class="mt-1.5 text-[12px] font-medium">
+          <span :class="(form.content_ru || '').trim() ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted'">
             {{ (form.content_ru || '').trim() ? t('news.ruFilled') : t('news.ruEmpty') }}
           </span>
           <span class="text-muted"> · </span>
-          <span :class="(form.content_tk || '').trim() ? 'text-green' : 'text-muted'">
+          <span :class="(form.content_tk || '').trim() ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted'">
             {{ (form.content_tk || '').trim() ? t('news.tkFilled') : t('news.tkEmpty') }}
           </span>
         </p>
@@ -246,13 +257,17 @@ async function destroy(n) {
         />
       </DrawerField>
 
+      <!-- ── Публикация ── -->
+      <h3 class="card-title mb-4 mt-2 border-t border-[var(--card-border)] pt-5">{{ t('news.sectionPublication') }}</h3>
+
       <DrawerField :label="t('news.typeLabel')" :error="errors.type">
-        <div class="grid grid-cols-2 gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
+        <div class="seg grid grid-cols-2 !h-10">
           <button
             v-for="(meta, value) in typeMeta" :key="value" type="button"
             @click="form.type = value"
-            class="rounded-[8px] px-2 py-[7px] text-[12px] font-bold transition-colors"
-            :class="form.type === value ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
+            :aria-pressed="form.type === value"
+            class="seg-item"
+            :class="form.type === value ? 'seg-item-active' : ''"
           >{{ meta.label }}</button>
         </div>
       </DrawerField>
@@ -260,12 +275,13 @@ async function destroy(n) {
       <!-- Блок рекламной ссылки (показывается только если тип = ad) -->
       <template v-if="form.type === 'ad'">
         <DrawerField :label="t('news.linkTypeLabel')" :required="true" :error="errors.ad_link_type">
-          <div class="grid grid-cols-3 gap-1 rounded-[11px] border border-[var(--field-border)] bg-[var(--field-bg)] p-1">
+          <div class="seg grid grid-cols-3 !h-10">
             <button
               v-for="(label, value) in adLinkTypeMeta" :key="value" type="button"
               @click="selectAdLinkType(value)"
-              class="rounded-[8px] px-2 py-[7px] text-[12px] font-bold transition-colors"
-              :class="form.ad_link_type === value ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--nav-hover)]'"
+              :aria-pressed="form.ad_link_type === value"
+              class="seg-item"
+              :class="form.ad_link_type === value ? 'seg-item-active' : ''"
             >{{ label }}</button>
           </div>
         </DrawerField>
@@ -277,14 +293,14 @@ async function destroy(n) {
             :placeholder="t('news.entityIdPlaceholder')"
             class="input"
           />
-          <p v-if="adLinkHint" class="mt-1 text-[11px] text-[var(--text-muted)]">{{ adLinkHint }}</p>
+          <p v-if="adLinkHint" class="mt-1.5 text-[12px] text-[var(--text-muted)]">{{ adLinkHint }}</p>
         </DrawerField>
       </template>
 
-      <div class="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3">
+      <div class="mt-5 flex items-center justify-between gap-4 rounded-[8px] border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3">
         <div>
-          <div class="text-[13px] font-bold text-[var(--text)]">{{ t('news.publishNow') }}</div>
-          <div class="mt-0.5 text-[11px] text-[var(--text-muted)]">{{ t('news.draftHint') }}</div>
+          <div class="text-[13.5px] font-semibold text-[var(--text)]">{{ t('news.publishNow') }}</div>
+          <div class="mt-0.5 text-[12px] text-[var(--text-muted)]">{{ t('news.draftHint') }}</div>
         </div>
         <ToggleSwitch v-model="form.is_published" />
       </div>
