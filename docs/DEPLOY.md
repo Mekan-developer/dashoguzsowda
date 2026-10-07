@@ -1,73 +1,205 @@
-# Деплой на Ubuntu-сервер
+# Деплой на сервер
 
-Схема: **host nginx** (80/443, TLS-терминация, свои сертификаты) → **nginx в
-докере** (`127.0.0.1:8000`, статика + маршрутизация) → **php-fpm** / **Reverb**.
-Рядом: MySQL, Redis, Horizon, scheduler, Socket.IO OTP-шлюз. Наружу открыты
-host nginx (80/443) и порт 3000 OTP-шлюза — последний обязательно ограничить
-по source IP, см. раздел ниже. Host nginx — системный пакет на сервере, живёт
-вне этого репозитория и вне docker-стека, настраивается один раз при подготовке
-сервера (раздел 1).
+## Как устроен прод
 
-Обновление кода — `git pull` + пересборка образа на сервере.
+```
+интернет ──443──▶ nginx на сервере (TLS, свои сертификаты)
+                    │  docker/nginx/host/dashoguzsowda.com.tm.conf
+                    ▼
+                 127.0.0.1:8000 ── nginx в контейнере (public/, статика)
+                                     ├─▶ app:9000      php-fpm (админка, API)
+                                     └─▶ reverb:8080   WebSocket (/app)
+телефон-шлюз ──3000──▶ sms-gateway (OTP)
+
+рядом:  horizon (очереди)  scheduler (cron)  db (MySQL 8)  redis
+```
+
+- **Код живёт в образах**, на сервере исходники нужны только для сборки.
+  В PHP-образ попадает белый список каталогов (`docker/php/Dockerfile`):
+  `app bootstrap config database lang public resources/views routes vendor`.
+- **Наружу** открыты только 80/443 (nginx на сервере) и 3000 (OTP-шлюз).
+  Контейнерный nginx слушает `127.0.0.1:8000`, MySQL и Redis не публикуются.
+- **Окружение** — `.env.production` на сервере. Контейнеры получают его как
+  переменные (`env_file`), файлом в контейнер он не попадает.
+- **Данные** — в именованных томах:
+
+  | Том | Что |
+  |---|---|
+  | `dashoguzsowda_db_data` | MySQL |
+  | `dashoguzsowda_redis_data` | Redis (очереди, кэш, сессии, OTP) |
+  | `dashoguzsowda_storage_app` | загрузки: фото, видео, аватары |
+  | `dashoguzsowda_storage_logs` | логи Laravel |
+
+  Префикс — имя проекта, закреплённое в `docker-compose.yml` (`name:`).
+  **Не задавать `COMPOSE_PROJECT_NAME`** в `.env.production`: с другим
+  именем compose создаст новые пустые тома, и сайт поднимется с пустой базой.
+- **Миграции** применяет контейнер `app` при каждом старте
+  (`RUN_MIGRATIONS=true`), остальные PHP-контейнеры их не трогают.
+
+## Сокращение команд
+
+Все команды ниже — через алиас:
+
+```bash
+echo "alias dc='docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml'" >> ~/.bashrc
+source ~/.bashrc
+```
+
+| Часть | Зачем |
+|---|---|
+| `--env-file .env.production` | Из него compose подставляет пароли БД/Redis, `OTP_SECRET` и `VITE_*` в сервисы и сборку. Без флага возьмётся `.env`, которого на сервере нет |
+| `-f docker-compose.prod.yml` | Прод-оверрайд: тома, порт только на localhost, пароль Redis, ротация логов. Без него поднимется дев-конфигурация |
+
+Команды выполняются из `/srv/dashoguzsowda`.
+
+## Зеркала
+
+С сервера закрыта часть внешних хостов, поэтому всё ставится через зеркала:
+
+| Что | Откуда | Где задаётся |
+|---|---|---|
+| Базовые образы (php, node, nginx, mysql, redis) | Nexus `docker-proxy` | `registry-mirrors` в `/etc/docker/daemon.json` |
+| apt внутри PHP-образа | Nexus `debian-proxy` | `APT_MIRROR` (запасной — `https://mirror.yandex.ru/debian`, в разы медленнее) |
+| composer | Nexus `composer-proxy` | `COMPOSER_MIRROR` |
+| npm | Nexus `npm-proxy` | `NPM_REGISTRY` |
+| apt на самом сервере (Ubuntu) | `mirror.yandex.ru/ubuntu` | `/etc/apt/sources.list*` |
+| Docker Engine | пакеты — `mirror.yandex.ru/mirrors/docker`, ключ — `download.docker.com` | см. ниже |
+
+Проверить доступность с сервера:
+
+```bash
+for u in https://nexus.telecom.tm/repository/debian-proxy/dists/trixie/Release \
+         https://nexus.telecom.tm/repository/composer-proxy/packages.json \
+         https://nexus.telecom.tm/repository/npm-proxy/vue \
+         https://nexus.telecom.tm/repository/docker-proxy/v2/; do
+  printf "%s  %s\n" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$u")" "$u"
+done
+```
+
+`000` — хост недоступен. Для `docker-proxy` нормален `401`/`200`.
+Проверять без VPN: через VPN Nexus не отвечает.
+
+**Часы сервера должны идти верно.** Если время отстаёт, любое HTTPS-зеркало
+отвечает `x509: certificate ... is not yet valid`, а приложение пишет неверные
+даты в заказы и сроки тарифов:
+
+```bash
+timedatectl                      # System clock synchronized: yes
+sudo timedatectl set-ntp true
+```
+
+Если внешние NTP закрыты — прописать внутренний (`NTP=<адрес>` в
+`/etc/systemd/timesyncd.conf`, затем `sudo systemctl restart systemd-timesyncd`).
 
 ---
 
-## 1. Подготовка сервера
+## Первая установка
 
-Ubuntu 22.04/24.04, минимум 2 vCPU / 4 ГБ RAM / 40 ГБ диска (видео занимают
-много — под `/var/lib/docker` желательно отдельный том).
+### 1. Сервер
+
+Ubuntu 22.04/24.04, от 2 vCPU / 4 ГБ RAM / 40 ГБ диска (видео растут быстро —
+под `/var/lib/docker` лучше отдельный том).
 
 ```bash
-# Docker Engine + compose plugin
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER   # перелогиниться после этого
+# Ubuntu-пакеты — с зеркала Яндекса
+sudo sed -i 's|http://\(archive\|security\).ubuntu.com|https://mirror.yandex.ru|g' \
+    /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null
+sudo apt update
 
-# Host nginx — TLS-терминация перед docker-стеком, настройка в разделе 2
-sudo apt update && sudo apt install -y nginx
+# nginx на сервере — TLS перед docker
+sudo apt install -y nginx
 
-# Firewall: наружу только SSH и HTTP(S)
+# Docker Engine — пакеты с зеркала Яндекса, ключ подписи — с download.docker.com
+# (на Яндексе ключа нет). Если download.docker.com закрыт — пакеты Ubuntu:
+#   sudo apt install -y docker.io docker-compose-v2
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://mirror.yandex.ru/mirrors/docker $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo usermod -aG docker $USER    # перелогиниться
+
+# Базовые образы — через Nexus
+echo '{ "registry-mirrors": ["https://nexus.telecom.tm/repository/docker-proxy"] }' \
+  | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
+
+# Firewall для самого сервера
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-
-# Порт OTP-шлюза — ТОЛЬКО с IP телефона-шлюза, не для всех.
-# Почему это критично — см. раздел «OTP-шлюз на порту 3000» ниже.
-sudo ufw allow from <IP_ТЕЛЕФОНА_ШЛЮЗА> to any port 3000 proto tcp
-
 sudo ufw enable
 ```
 
-Порту 8000 (контейнерный nginx, `docker-compose.yml`) отдельное правило ufw не
-нужно — он слушает только `127.0.0.1`, наружу не торчит, ходит в него только
-host nginx с той же машины.
+Порт 3000 (OTP) отдельно открывать не нужно и **ограничить через ufw нельзя**:
+порты, опубликованные Docker, обходят ufw — см. «OTP-шлюз».
 
-DNS: A-запись `dashoguzsowda.com.tm` → IP сервера. Домен обслуживает только
-админку и мобильное API; OTP-шлюз работает напрямую по порту 3000.
+DNS: A-запись `dashoguzsowda.com.tm` → IP сервера.
 
-## 2. Код и конфигурация
+### 2. Код и окружение
 
 ```bash
-sudo mkdir -p /srv/dzsowda && sudo chown $USER:$USER /srv/dzsowda
-git clone <repo-url> /srv/dzsowda
-cd /srv/dzsowda
+sudo mkdir -p /srv/dashoguzsowda && sudo chown $USER:$USER /srv/dashoguzsowda
+git clone <repo-url> /srv/dashoguzsowda
+cd /srv/dashoguzsowda
 
-cp .env.production.example .env
+cp .env.production.example .env.production
+nano .env.production
 ```
 
-Заполнить `.env` — все поля с пустым значением обязательны:
+Все пустые значения обязательны:
 
 ```bash
 openssl rand -base64 24   # DB_PASSWORD, DB_ROOT_PASSWORD, REDIS_PASSWORD
 openssl rand -hex 16      # REVERB_APP_KEY, REVERB_APP_SECRET
-openssl rand -hex 24      # OTP_SECRET (тот же прописать в телефоне-шлюзе)
+openssl rand -hex 24      # OTP_SECRET (тот же — в телефоне-шлюзе)
 ```
 
-`APP_KEY` генерируется после первой сборки образа (шаг 3).
+`UID`/`GID` — вывод `id -u` / `id -g` на сервере. `APP_KEY` — на шаге 4.
 
-### SSL-сертификаты
+Ключ Firebase (каталог монтируется в контейнеры только для чтения):
 
-Используются собственные сертификаты (не Let's Encrypt), их читает host
-nginx напрямую с диска сервера — например, из `/etc/nginx/ssl/<домен>/`:
+```bash
+mkdir -p storage/app/firebase
+cp service-account.json storage/app/firebase/
+chmod 644 storage/app/firebase/service-account.json
+```
+
+### 3. Сборка
+
+```bash
+dc build
+```
+
+Собираются три образа: `dzsowda-php` (app, horizon, reverb, scheduler),
+`dzsowda-nginx`, `dzsowda-sms`. Значения `VITE_*` вкомпилируются в JS
+админки — поменялись `REVERB_APP_KEY` или домен, нужна пересборка.
+
+### 4. Ключ приложения
+
+```bash
+dc run --rm artisan key:generate --show
+```
+
+Результат (`base64:...`) — в `APP_KEY=` в `.env.production`.
+
+### 5. Запуск
+
+```bash
+dc up -d
+dc logs -f app       # ждать "ready to handle connections"
+dc ps                # horizon, db, redis — healthy
+```
+
+Начальные данные (роли, регионы, категории, бесплатный тариф) — один раз:
+
+```bash
+dc exec app php artisan db:seed --force
+```
+
+### 6. nginx на сервере
+
+Сертификаты свои (не Let's Encrypt):
 
 ```bash
 sudo mkdir -p /etc/nginx/ssl/dashoguzsowda.com.tm
@@ -76,410 +208,212 @@ sudo chmod 644 /etc/nginx/ssl/dashoguzsowda.com.tm/fullchain.pem
 sudo chmod 600 /etc/nginx/ssl/dashoguzsowda.com.tm/privkey.pem
 ```
 
-`fullchain.pem` — сертификат домена + промежуточные сертификаты CA в одном
-файле. Если CA выдал файлы по отдельности или ключ зашифрован — собрать цепочку
-и расшифровать ключ стандартными командами `cat`/`openssl rsa -in ... -out ...`.
-
-Переключение на автоматический выпуск (certbot) — отдельная настройка host
-nginx, вне этого репозитория.
-
-### Конфиг host nginx
-
-`/etc/nginx/sites-available/dashoguzsowda.com.tm`:
-
-```nginx
-map $http_upgrade $connection_upgrade {
-    default upgrade;
-    ''      close;
-}
-
-server {
-    listen 80;
-    server_name dashoguzsowda.com.tm;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name dashoguzsowda.com.tm;
-
-    ssl_certificate     /etc/nginx/ssl/dashoguzsowda.com.tm/fullchain.pem;
-    ssl_certificate_key /etc/nginx/ssl/dashoguzsowda.com.tm/privkey.pem;
-
-    # Совпадает с лимитом в docker/nginx/conf.d/nginx.conf — если поднимать
-    # один, поднимать и второй, иначе host nginx обрежет запрос раньше, чем
-    # он дойдёт до контейнера.
-    client_max_body_size 150M;
-    proxy_read_timeout 300s;
-    proxy_send_timeout 300s;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $connection_upgrade;
-    }
-
-    # Опционально: HTTPS-доступ к тестовой странице OTP-шлюза, см. раздел
-    # «OTP-шлюз на порту 3000». Нужно, только пока SMS_GATEWAY_TEST_PAGE=true —
-    # можно не добавлять эти два location сразу, а вписать при отладке.
-    location = /test-otp.html {
-        proxy_pass http://127.0.0.1:3000/test;
-    }
-
-    location /otp/ {
-        rewrite ^/otp/(.*)$ /$1 break;
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $connection_upgrade;
-        proxy_set_header Host $host;
-    }
-}
-```
+`fullchain.pem` — сертификат домена и промежуточные CA одним файлом, ключ —
+без пароля.
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/dashoguzsowda.com.tm /etc/nginx/sites-enabled/
+sudo cp docker/nginx/host/dashoguzsowda.com.tm.conf /etc/nginx/sites-available/dashoguzsowda.com.tm
+sudo ln -sf /etc/nginx/sites-available/dashoguzsowda.com.tm /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-`bootstrap/app.php` уже вызывает `trustProxies(at: '*')`, поэтому Laravel
-корректно увидит `X-Forwarded-Proto` от host nginx и `SESSION_SECURE_COOKIE`
-отработает как надо — на стороне приложения ничего донастраивать не нужно.
+Конфиг в репозитории — источник правды: поменяли его, скопировать заново
+и `reload`.
 
-### Ключ Firebase для push-уведомлений
-
-```bash
-mkdir -p storage/app/firebase
-# скопировать service-account.json в storage/app/firebase/
-chmod 600 storage/app/firebase/service-account.json
-```
-
-## 3. Сборка и первый запуск
+### 7. Проверка снаружи
 
 ```bash
-CO="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+curl -I https://dashoguzsowda.com.tm               # 200/302, сертификат валиден
+curl https://dashoguzsowda.com.tm/up               # 200
+curl https://dashoguzsowda.com.tm/api/v1/about     # JSON
+curl -I http://dashoguzsowda.com.tm                # 301 на https
 ```
-
-`docker-compose.prod.yml` — это оверрайд (без db/redis/build для app), сам по
-себе не разворачивается: нужны оба файла, `-f docker-compose.prod.yml` в
-одиночку упадёт с ошибкой «no image specified». Дальше в этом документе `$CO`
-подразумевает оба флага — переобъявить в каждой новой SSH-сессии.
-
-### Требования к сети на время сборки
-
-php-стейдж образа собирается на `php:8.3-fpm` (Debian trixie), системные
-пакеты (включая **ffmpeg**) ставятся через apt, а не apk. Сборочной машине
-нужен доступ к:
-
-| Хост | Зачем |
-|---|---|
-| `registry-1.docker.io` | базовые образы php / node / nginx / mysql / redis |
-| apt-зеркало (`APT_MIRROR`, по умолчанию `nexus.telecom.tm/repository/debian-proxy`) | системные пакеты Debian, включая ffmpeg |
-| `repo.packagist.org`, `github.com`, `codeload.github.com` | composer-зависимости |
-| `registry.npmjs.org` | npm-зависимости для сборки Vite |
-
-По умолчанию `APT_MIRROR` в `docker/php/Dockerfile` уже указывает на
-внутреннее зеркало — если сервер и так в закрытой сети, публичный
-`deb.debian.org` не требуется. Переопределяется через `.env` (build-arg
-`APT_MIRROR` в `docker-compose.yml` прокидывается в `Dockerfile`).
-
-Проверить одной командой:
-
-```bash
-for u in https://registry-1.docker.io/v2/ https://nexus.telecom.tm/repository/debian-proxy/dists/trixie/Release \
-         https://repo.packagist.org/packages.json https://registry.npmjs.org/vue https://github.com; do
-  printf "%s  %s\n" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$u")" "$u"
-done
-```
-
-`000` означает, что хост недоступен. Для composer/npm есть зеркала —
-задаются в `.env`, правок в коде не требуют:
-
-| Заблокирован | Переменная в `.env` | Проверенное значение |
-|---|---|---|
-| `repo.packagist.org` | `COMPOSER_MIRROR` | `https://nexus.telecom.tm/repository/composer-proxy/` |
-| `registry.npmjs.org` | `NPM_REGISTRY` | `https://nexus.telecom.tm/repository/npm-proxy/` |
-
-### Если хосты перенаправлены через /etc/hosts
-
-Контейнеры сборки **не наследуют** `/etc/hosts` сервера. Если какой-то домен
-на сервере перенаправлен на рабочий IP, то же сопоставление нужно продублировать
-в `docker-compose.prod.yml` — иначе внутри сборки имя резолвится в реальный
-адрес и соединение не проходит:
-
-```yaml
-  app:
-    build:
-      extra_hosts:
-        - "github.com:4.237.22.38"
-```
-
-Проверить, как имя резолвится именно из контейнера:
-
-```bash
-docker run --rm alpine sh -c 'getent hosts github.com'
-```
-
-Проверить зеркало перед сборкой:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://nexus.telecom.tm/repository/debian-proxy/dists/trixie/Release
-curl -s -o /dev/null -w "%{http_code}\n" https://nexus.telecom.tm/repository/composer-proxy/packages.json
-curl -s -o /dev/null -w "%{http_code}\n" https://nexus.telecom.tm/repository/npm-proxy/vue
-```
-
-### Запасной путь для ассетов
-
-Если ни один npm-реестр не открывается, `public/build` можно собрать заранее на
-машине, где уже есть `node_modules`, и закоммитить — Dockerfile увидит готовый
-`public/build/manifest.json` и пропустит npm:
-
-```bash
-# на машине с node_modules, с прод-значениями VITE_*
-VITE_REVERB_APP_KEY=<ключ> VITE_REVERB_HOST=dashoguzsowda.com.tm \
-VITE_REVERB_PORT=443 VITE_REVERB_SCHEME=https npm run build
-
-git add -f public/build && git commit -m "chore: prebuilt assets" && git push
-```
-
-Важно: значения `VITE_*` вкомпилируются в бандл на этапе сборки, поэтому
-собирать нужно именно с прод-значениями, а не с localhost.
-
-Если совсем ничего не открывается — собрать образ целиком там, где доступ есть,
-и перенести:
-
-```bash
-# на машине со сборкой
-docker save dzsowda-php:local dzsowda-nginx:local dzsowda-sms:local | gzip > images.tar.gz
-# на сервере
-gunzip -c images.tar.gz | docker load
-$CO up -d   # без --build
-```
-
-### Сборка
-
-```bash
-$CO build
-
-# APP_KEY (записать результат в .env)
-docker run --rm dzsowda-php:local php artisan key:generate --show
-
-$CO up -d
-$CO logs -f app
-```
-
-Entrypoint `app` сам дожидается MySQL, накатывает миграции (`migrate --force`),
-создаёт симлинк `public/storage` и прогревает `config/route/view/event` кэши.
-Остальные PHP-контейнеры миграции не запускают.
-
-Начальные данные (роли, регионы, категории, дефолтный тариф):
-
-```bash
-$CO exec app php artisan db:seed --force
-```
-
-Проверка:
-
-```bash
-curl -I https://dashoguzsowda.com.tm            # 200, сертификат валиден
-curl https://dashoguzsowda.com.tm/up            # healthcheck Laravel
-$CO ps                                          # все healthy
-sudo systemctl status nginx                     # host nginx поднят
-```
-
-## 4. Обновление версии
-
-```bash
-cd /srv/dzsowda
-git pull
-
-CO="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
-$CO build
-$CO up -d
-
-# опционально: убрать старые образы
-docker image prune -f
-```
-
-Миграции применяются автоматически при старте `app`. Короткий простой во время
-рестарта есть — zero-downtime потребует второй реплики и отдельного шага.
-
-Если менялся `.env` (кроме `VITE_*`) — достаточно рестарта, кэши пересобираются
-в entrypoint:
-
-```bash
-$CO restart app horizon scheduler reverb
-```
-
-Если менялись `REVERB_APP_KEY` или `APP_DOMAIN` — **нужна пересборка**: эти
-значения вкомпилированы в JS-бандл на этапе сборки образа.
-
-## 5. Эксплуатация
-
-```bash
-CO="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
-
-$CO logs -f app horizon          # логи
-$CO exec app php artisan queue:failed
-$CO exec app php artisan queue:retry all
-$CO exec app php artisan horizon:status
-$CO exec app php artisan tinker
-```
-
-Horizon-дашборд доступен на `https://dashoguzsowda.com.tm/horizon` (только для admin).
-
-### Бэкапы
-
-Что нужно бэкапить: БД, том с загрузками, `.env`, ключ Firebase.
-
-```bash
-# База (сервис называется db, не mysql)
-$CO exec -T db \
-  mysqldump -uroot -p"$DB_ROOT_PASSWORD" --single-transaction --routines \
-  "$DB_DATABASE" | gzip > /srv/backups/db-$(date +%F).sql.gz
-
-# Загрузки пользователей — точное имя тома узнать через:
-docker volume ls | grep storage_app
-
-docker run --rm -v <имя_тома_из_команды_выше>:/data -v /srv/backups:/backup alpine \
-  tar czf /backup/storage-$(date +%F).tar.gz -C /data .
-```
-
-Имя проекта в compose берётся из `COMPOSE_PROJECT_NAME` в `.env` (по
-умолчанию, если не задано — из имени папки, `/srv/dzsowda` → `dzsowda`),
-отсюда префикс у томов — не считать его равным `dzsowda-prod`, а проверять
-через `docker volume ls`.
-
-### Продление сертификатов
-
-Сертификаты свои, продление ручное. После замены файлов в
-`/etc/nginx/ssl/dashoguzsowda.com.tm/` достаточно перезагрузить host nginx без
-простоя:
-
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-Срок действия текущего сертификата:
-
-```bash
-openssl x509 -enddate -noout -in /etc/nginx/ssl/dashoguzsowda.com.tm/fullchain.pem
-```
-
-### OTP-шлюз на порту 3000
-
-Телефон Flutter SMS-шлюза подключается напрямую на `3000`. У этого порта есть
-особенность, которую нужно учитывать при настройке firewall.
-
-`socket-server/index.js` проверяет секрет при подключении (`io.use(...)`):
-клиент обязан передать `OTP_SECRET` в `socket.handshake.auth.secret` (либо
-`?secret=`, либо заголовком `X-Otp-Secret`), иначе handshake отклоняется с
-ошибкой `unauthorized`. Тот же секрет требуется на `POST /emit-otp` в заголовке
-`X-Otp-Secret`.
-
-Это единственная защита: рассылка идёт через `io.emit(...)`, то есть **любой
-прошедший проверку сокет получает OTP-коды всех пользователей**, а `cors.origin`
-— `*`. Секрет утёк → чужие коды читаются. Поэтому порт дополнительно
-открывается только для IP телефона-шлюза:
-
-```bash
-sudo ufw allow from <IP_ТЕЛЕФОНА_ШЛЮЗА> to any port 3000 proto tcp
-sudo ufw status numbered      # убедиться, что нет правила "3000 ALLOW Anywhere"
-```
-
-Проверить, что снаружи порт закрыт (с любой другой машины):
-
-```bash
-nc -zv -w5 <IP_СЕРВЕРА> 3000    # должно быть timeout / refused
-```
-
-Если у телефона динамический IP (мобильный оператор), фиксированное правило не
-сработает: телефон перестанет подключаться после смены адреса. Тогда варианты —
-держать телефон на статическом IP или в VPN до сервера, либо (менее безопасно)
-открыть порт всем и полагаться только на `OTP_SECRET`.
-
-Диагностика, когда телефон «не подключается»:
-
-```bash
-# Логи шлюза: видно и успешные подключения, и отказ по секрету.
-# Сервис в compose называется sms-gateway (container_name: dzsowda_socket).
-$CO logs -f sms-gateway
-#   [gateway] client connected: <id> (total: 1)          — телефон на связи
-#   [gateway] отклонено подключение с неверным секретом: <ip>  — секрет не совпал
-
-# Сколько телефонов подключено сейчас (то же показывает админка → Настройки → SMS-шлюз):
-curl -s http://127.0.0.1:3000/health     # {"status":"ok","clients":1}
-
-# Порт виден с самого телефона / из его сети?
-nc -zv -w5 <IP_СЕРВЕРА> 3000
-```
-
-`clients: 0` при рабочем `/health` = сеть в порядке, проблема в секрете или в
-том, что телефон вообще не подключился. Обрыв на уровне TCP = firewall/ufw.
-
-Если этого мало — есть страница-тестер, которая симулирует телефон в браузере
-(подключение с секретом + приём OTP-событий + прямой вызов `/emit-otp`):
-
-```bash
-# в .env сервера
-SMS_GATEWAY_TEST_PAGE=true
-$CO up -d sms-gateway
-```
-
-Открывать одним из двух способов:
-
-| Адрес | Когда |
-|---|---|
-| `https://<домен>/test-otp.html` | из интернета, по TLS — работает откуда угодно |
-| `http://<IP_СЕРВЕРА>:3000/test` | из LAN телефона или через `ssh -L 3000:127.0.0.1:3000` |
-
-HTTPS-вариант проксирует host nginx (см. `location /otp/` и
-`location = /test-otp.html` в конфиге из раздела 2): `/test-otp.html` →
-страница, `/otp/*` → сам шлюз (`/otp/socket.io/*` и `/otp/emit-otp`, префикс
-`/otp` перед проксированием обрезается). Префикс нужен потому, что браузер
-разрешает странице по https обращаться только к своему origin: `ws://` на порт
-3000 он заблокирует как mixed content, а кросс-origin `POST` — по CORS.
-
-После отладки вернуть `SMS_GATEWAY_TEST_PAGE=false` и перезапустить
-`sms-gateway`. Пока флаг включён, `/otp/socket.io` и `/otp/emit-otp` доступны
-из интернета — защищает их только `OTP_SECRET`, и любой прошедший проверку
-сокет получает OTP-коды всех пользователей.
-
-Трафик от host nginx до шлюза (127.0.0.1:3000) и от телефона до сервера на
-порт 3000 напрямую идёт по HTTP без TLS, то есть коды передаются в открытом
-виде на этом отрезке. В пределах доверенной сети это приемлемо, через
-интернет — нет.
-
-### Доступ к БД
-
-Порт 3306 наружу не публикуется. Для phpMyAdmin/DBeaver — SSH-туннель:
-
-```bash
-ssh -L 3306:127.0.0.1:3306 user@server \
-  docker compose -f /srv/dzsowda/docker-compose.yml -f /srv/dzsowda/docker-compose.prod.yml exec db true
-```
-
-Проще — временно поднять phpMyAdmin из dev-компоуза или работать через
-`exec db mysql -u...`.
 
 ---
 
-## Что осталось сделать вручную перед публичным запуском
+## Переход со старой схемы (Caddy)
 
-1. **Прописать `OTP_SECRET` в телефоне-отправителе SMS.** Одно и то же значение
-   в `.env` сервера и в настройках приложения на телефоне. Телефон подключается
-   к `http://<IP_СЕРВЕРА>:3000`, передавая секрет в `auth: {'secret': ...}` —
-   контракт и пример на Flutter в
-   [socket-server/README.md](../socket-server/README.md).
-2. **Ограничить порт 3000 в ufw** по IP телефона — см. раздел
-   «OTP-шлюз на порту 3000».
-3. **Проверить отправку кода** на реальном номере: `SMS_DRIVER=modem` в `.env`,
-   телефон подключён (`/health` показывает `clients: 1`), запросить код через
-   мобильное приложение.
-4. **Проверить FCM** на реальном устройстве после деплоя (ключ, `FIREBASE_PROJECT_ID`).
-5. **Настроить мониторинг диска** — видео и WebP-варианты растут быстро.
+До этой схемы TLS держал контейнер `dz_sowda_caddy` от прежнего стека
+(проект `dzsowda-prod`), а окружение лежало в `.env`. Переход — один раз:
+
+```bash
+cd /srv/dashoguzsowda
+
+# 0. Часы и бэкап базы — до всего остального
+timedatectl
+docker exec dzsowda_mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines "$MYSQL_DATABASE"' \
+  | gzip > ~/db-before-migration-$(date +%F).sql.gz
+
+# 1. Локальные правки на сервере — посмотреть и убрать, иначе pull упрётся.
+#    docker/db.env pull удалит: записать из него MYSQL_ROOT_PASSWORD — это
+#    пароль root живой базы, он нужен в DB_ROOT_PASSWORD на шаге 2
+git status && git diff
+cat docker/db.env
+git pull
+
+# 2. Окружение: .env → .env.production, сверить с .env.production.example
+cp .env .env.production
+diff <(grep -o '^[A-Z_]*=' .env.production.example | sort) <(grep -o '^[A-Z_]*=' .env.production | sort)
+#    В .env.production обязательно: DB_HOST=db, DB_ROOT_PASSWORD (как у
+#    живой базы), VITE_REVERB_HOST=dashoguzsowda.com.tm, APP_URL с https.
+#    COMPOSE_PROJECT_NAME — удалить.
+
+# 3. Ключ Firebase — на хосте в storage/app/firebase/ (см. «Первая установка», шаг 2)
+
+# 4. Имя проекта: тома должны называться dashoguzsowda_*
+docker volume ls | grep -E 'db_data|storage_app'
+
+# 5. Сборка и перезапуск стека (не down: сеть и тома остаются)
+dc build
+dc up -d --remove-orphans
+dc logs -f app
+
+# 6. nginx на сервере вместо Caddy — секунды простоя между этими командами.
+#    apt сам попробует запустить nginx и не сможет (80/443 занял Caddy) —
+#    это ожидаемо, пакет при этом установится
+sudo apt install -y nginx
+sudo mkdir -p /etc/nginx/ssl/dashoguzsowda.com.tm
+sudo cp docker/caddy/certs/fullchain.pem docker/caddy/certs/privkey.pem /etc/nginx/ssl/dashoguzsowda.com.tm/
+#    + конфиг, как в «Первая установка», шаг 6, но без reload
+sudo nginx -t
+docker rm -f dz_sowda_caddy && sudo systemctl restart nginx
+
+# 7. Проверка — «Первая установка», шаг 7. Затем убрать остатки Caddy
+docker volume rm dzsowda-prod_caddy_data dzsowda-prod_caddy_config
+docker network rm dzsowda-prod_laravel
+rm -rf docker/caddy      # сертификаты уже в /etc/nginx/ssl
+```
+
+Если на шаге 4 тома называются иначе (не `dashoguzsowda_*`) — **остановиться**
+и не запускать `up`: стек поднимется с пустой базой. Данные живут в старых
+томах, их нужно сначала перенести.
+
+---
+
+## Обновление
+
+```bash
+cd /srv/dashoguzsowda
+git pull
+dc build
+dc up -d
+dc logs -f app
+docker image prune -f      # старые слои
+```
+
+Миграции применяются сами при старте `app`. Простой — несколько секунд,
+пока пересоздаются контейнеры.
+
+Поменялся только `.env.production` (кроме `VITE_*`) — пересборка не нужна:
+
+```bash
+dc up -d      # пересоздаст контейнеры с новым окружением
+```
+
+## Эксплуатация
+
+```bash
+dc ps
+dc logs -f app horizon                     # stdout контейнеров
+dc exec app tail -f storage/logs/laravel-$(date +%F).log
+dc exec app php artisan horizon:status
+dc exec app php artisan queue:failed
+dc exec app php artisan queue:retry all
+dc run --rm artisan migrate:status
+```
+
+Horizon-дашборд: `https://dashoguzsowda.com.tm/horizon` (только admin).
+
+Логи контейнеров ротируются (по 10 МБ × 3), логи Laravel — по дням,
+14 дней (`LOG_DAILY_DAYS`).
+
+### Бэкапы
+
+Бэкапить: базу, том с загрузками, `.env.production`, ключ Firebase.
+
+```bash
+mkdir -p /srv/backups
+
+dc exec -T db sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines "$MYSQL_DATABASE"' \
+  | gzip > /srv/backups/db-$(date +%F).sql.gz
+
+docker run --rm -v dashoguzsowda_storage_app:/data:ro -v /srv/backups:/backup alpine \
+  tar czf /backup/storage-$(date +%F).tar.gz -C /data .
+```
+
+### Сертификаты
+
+Продление ручное: заменить файлы в `/etc/nginx/ssl/dashoguzsowda.com.tm/` и
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+openssl x509 -enddate -noout -in /etc/nginx/ssl/dashoguzsowda.com.tm/fullchain.pem
+```
+
+### Доступ к БД
+
+3306 наружу не публикуется. Консоль — `dc exec db mysql -u<DB_USERNAME> -p`,
+DBeaver — через SSH-туннель на сервер и `docker exec` в контейнер.
+
+---
+
+## OTP-шлюз
+
+Телефон Flutter SMS-шлюза подключается напрямую на `http://<IP_СЕРВЕРА>:3000`,
+передавая `OTP_SECRET` в `auth: {'secret': ...}` — контракт в
+[socket-server/README.md](../socket-server/README.md).
+
+Секрет — единственная защита: рассылка идёт через `io.emit(...)`, то есть
+**любой прошедший проверку сокет получает OTP-коды всех пользователей**.
+Порт опубликован Docker, а такие порты **обходят ufw** — правило
+`ufw allow from <IP> to any port 3000` ничего не ограничит. Если нужно
+пускать только телефон, правило ставится в цепочку Docker:
+
+```bash
+sudo iptables -I DOCKER-USER -p tcp --dport 3000 ! -s <IP_ТЕЛЕФОНА> -j DROP
+```
+
+(не переживает перезагрузку без `iptables-persistent`). Если у телефона
+динамический IP — остаётся только `OTP_SECRET`, держать его длинным.
+
+Диагностика:
+
+```bash
+dc logs -f sms-gateway
+#   [gateway] client connected: <id> (total: 1)              — телефон на связи
+#   [gateway] отклонено подключение с неверным секретом: <ip> — секрет не совпал
+curl -s http://127.0.0.1:3000/health        # {"status":"ok","clients":1}
+```
+
+Страница-тестер, симулирующая телефон в браузере: `SMS_GATEWAY_TEST_PAGE=true`
+в `.env.production`, `dc up -d sms-gateway`, открыть
+`https://dashoguzsowda.com.tm/test-otp.html` (её и `/otp/*` проксирует nginx
+на сервере). После отладки вернуть `false` — пока флаг включён, слушать коды
+может любой, кто знает секрет.
+
+---
+
+## Частые ошибки
+
+**`x509: certificate has expired or is not yet valid` при сборке** — отстают
+часы сервера, см. «Зеркала».
+
+**`FATAL: APP_KEY не задан`** — забыт шаг 4 или `dc` без `--env-file`.
+
+**502 Bad Gateway** — `dc ps`: не поднялся `app` (смотреть `dc logs app`)
+или контейнерный nginx (`dc logs nginx`).
+
+**Сайт открылся с пустой базой** — compose поднял стек под другим именем
+проекта. `docker volume ls`: данные в томах с другим префиксом. Убрать
+`COMPOSE_PROJECT_NAME` из `.env.production`, `dc down`, `dc up -d`.
+
+**Админка без чата и колокольчика** (в консоли браузера ошибка WebSocket) —
+образ собран с неверными `VITE_REVERB_*`. Поправить в `.env.production`,
+`dc build && dc up -d`.
+
+**Push не приходят** — `dc exec app ls storage/app/firebase/`: ключа нет на
+хосте в `/srv/dashoguzsowda/storage/app/firebase/`.
+
+**`npm ci` / `composer install` падают с `Connection refused`** — закрыт
+реестр, проверить зеркала (раздел «Зеркала»).

@@ -77,13 +77,14 @@ GET /health  →  {"status": "ok", "clients": 1}
 | Адрес | Когда |
 |---|---|
 | `http://<IP_СЕРВЕРА>:3000/test` | напрямую со шлюза — из LAN или через SSH-туннель |
-| `https://<домен>/test-otp.html` | через Caddy — из интернета, по TLS |
+| `https://<домен>/test-otp.html` | через nginx на сервере — из интернета, по TLS |
 
 Страницу отдаёт сам шлюз, а не `public/` Laravel: её origin обязан совпадать с
 адресом шлюза, иначе браузер режет ws-подключение как mixed content (страница по
 https + `ws://` на другой порт), а `POST /emit-otp` — по CORS. Во втором случае
-Caddy проксирует шлюз под префиксом `/otp` (`/otp/socket.io/*`, `/otp/emit-otp`
-— см. `docker/caddy/Caddyfile`), и страница сама подставляет нужные адреса.
+nginx на сервере проксирует шлюз под префиксом `/otp` (`/otp/socket.io/*`,
+`/otp/emit-otp` — см. `docker/nginx/host/dashoguzsowda.com.tm.conf`), и страница
+сама подставляет нужные адреса.
 
 Клиент socket.io грузится с самого шлюза (`/socket.io/socket.io.js`), а не с
 CDN, — страница работает и в закрытой сети.

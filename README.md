@@ -104,10 +104,10 @@ docker compose run --rm --no-deps app composer install
 docker compose up -d
 ```
 
-**Ошибка подключения к БД.** Значения в `.env` должны совпадать с
-`docker/db.env`: `DB_HOST=db`, пользователь `admin`, пароль `secret!`.
-Если `docker/db.env` правили уже после первого запуска — том с данными создан
-со старыми учётками, помогает только пересоздание:
+**Ошибка подключения к БД.** Контейнер `db` создаёт пользователя и базу из
+`DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` в `.env` (`DB_HOST=db`).
+Если их поменяли уже после первого запуска — том с данными создан со старыми
+учётками, помогает только пересоздание:
 
 ```bash
 docker compose down -v && docker compose up -d
@@ -238,20 +238,20 @@ CLAUDE.md              архитектурные правила проекта
 указывать нужно оба, иначе Compose ругнётся на сервисы без образа.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml build
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml build
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-Отличия от dev: код и собранные ассеты лежат внутри образа (ничего не
-монтируется с хоста), `storage/app` — в named-томе, общем для php-контейнеров,
-nginx отдаёт статику из своего образа, контейнеров `node` и dev-портов нет.
+Отличия от dev: окружение — `.env.production`, код и собранные ассеты лежат
+внутри образа (с хоста монтируется только ключ Firebase), `storage/app` и
+`storage/logs` — в named-томах, nginx отдаёт статику из своего образа и слушает
+только `127.0.0.1:8000` (TLS — nginx на самом сервере), контейнеров `node` и
+dev-портов нет.
 
-Пошаговая инструкция — **[docs/DEPLOY.md](docs/DEPLOY.md)**. Учтите: часть
-разделов там описывает прежнюю схему с Caddy и TLS, которой в текущих
-compose-файлах уже нет — перед деплоем сверяйтесь с самими compose-файлами.
+Пошаговая инструкция — **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
-Dev- и прод-стек используют одно имя проекта (`dzsowda`) и одинаковые
-`container_name`, поэтому одновременно на одной машине не запускаются.
+Dev- и прод-стек используют одинаковые `container_name`, поэтому одновременно
+на одной машине не запускаются.
 
 ---
 

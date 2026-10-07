@@ -88,7 +88,7 @@ allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git s
 Остановиться и **спросить пользователя**, если в изменениях:
 
 - секреты: `.env`, приватные ключи, сертификаты, токены, пароли, service-account JSON
-  (в этом проекте — `docker/caddy/certs/**`, `storage/app/firebase/**`, `docker/db.env`);
+  (в этом проекте — `storage/app/firebase/**`, `.env.production`);
 - отладочный мусор: `dd()`, `dump()`, `var_dump()`, `console.log`, закомментированный код,
   `Log::debug` со свежими правками;
 - файлы, которые скорее должны быть в `.gitignore`, чем в индексе.
