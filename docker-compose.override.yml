@@ -4,6 +4,8 @@ x-dev: &dev
     - /var/www/dzsowda/vendor
     - /var/www/dzsowda/bootstrap/cache
     - ./docker/php/php.ini:/usr/local/etc/php/conf.d/zz-app.ini:ro
+  environment:
+    OPTIMIZE_ON_BOOT: "false"
   restart: "no"
 
 services:
@@ -25,8 +27,8 @@ services:
     restart: "no"
     ports: ["3000:3000"]
     volumes:
-      - ./socket-server:/var/www/socket-server
-      - sms_node_modules:/var/www/socket-server/node_modules
+      - ./socket-server:/app
+      - sms_node_modules:/app/node_modules
     command: node index.js
 
   node:

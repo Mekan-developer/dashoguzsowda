@@ -1,42 +1,80 @@
-# Прод-оверрайд: docker compose -f docker-compose.yml -f docker-compose.prod.yml
+# Прод-оверрайд. Запуск только с обоими файлами и прод-окружением:
+#   docker compose --env-file .env.production \
+#     -f docker-compose.yml -f docker-compose.prod.yml up -d
+# (алиас dc — см. docs/DEPLOY.md)
 #
-# Код живёт в образе, с хоста монтируются только:
-#  - .env — его нет в образе (.dockerignore), а entrypoint и config:cache
-#    читают именно файл: env_file одних переменных окружения не хватает;
-#  - ключ Firebase — storage/app здесь именованный том, папка с хоста туда
-#    сама не попадает, а без ключа push не уходят;
-#  - storage_app — загрузки пользователей.
+# Код живёт в образе, с хоста в контейнеры попадают только:
+#  - .env.production — как переменные окружения (env_file), не файлом;
+#  - storage/app/firebase — ключ FCM, только чтение;
+#  - тома storage_app (загрузки) и storage_logs (логи Laravel).
+# Наружу смотрят только nginx (127.0.0.1:8000, дальше хостовый nginx с TLS)
+# и OTP-шлюз (3000, к нему подключается телефон).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-php-prod: &php-prod
+  env_file: !override [.env.production]
+  volumes: !override
+    - storage_app:/var/www/dzsowda/storage/app
+    - storage_logs:/var/www/dzsowda/storage/logs
+    - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+  logging: *logging
+
 services:
   app:
-    volumes: !override
-      - storage_app:/var/www/dzsowda/storage/app
-      - ./.env:/var/www/dzsowda/.env:ro
-      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+    <<: *php-prod
     # Миграции — только здесь, остальные PHP-контейнеры их не трогают
     environment:
       RUN_MIGRATIONS: "true"
-  horizon:
-    volumes: !override
-      - storage_app:/var/www/dzsowda/storage/app
-      - ./.env:/var/www/dzsowda/.env:ro
-      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+  horizon:   { <<: *php-prod }
+  scheduler: { <<: *php-prod }
+  artisan:   { <<: *php-prod }
+  # Reverb не пишет файлов и не шлёт push — ни загрузки, ни ключ ему не нужны
   reverb:
+    env_file: !override [.env.production]
     volumes: !override
-      - storage_app:/var/www/dzsowda/storage/app
-      - ./.env:/var/www/dzsowda/.env:ro
-      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
-  scheduler:
-    volumes: !override
-      - storage_app:/var/www/dzsowda/storage/app
-      - ./.env:/var/www/dzsowda/.env:ro
-      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
-  artisan:
-    volumes: !override
-      - storage_app:/var/www/dzsowda/storage/app
-      - ./.env:/var/www/dzsowda/.env:ro
-      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+      - storage_logs:/var/www/dzsowda/storage/logs
+    logging: *logging
 
-  # Пароль из REDIS_PASSWORD того же .env, что читает Laravel. Пусто или
+  # public/ и конфиг — внутри образа, кода на хосте нет
+  nginx:
+    image: dzsowda-nginx:local
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: nginx
+      args:
+        APT_MIRROR: ${APT_MIRROR:-https://nexus.telecom.tm/repository/debian-proxy}
+        COMPOSER_MIRROR: ${COMPOSER_MIRROR:-https://nexus.telecom.tm/repository/composer-proxy/}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://nexus.telecom.tm/repository/npm-proxy/}
+        VITE_REVERB_APP_KEY: ${VITE_REVERB_APP_KEY:-}
+        VITE_REVERB_HOST: ${VITE_REVERB_HOST:-}
+        VITE_REVERB_PORT: ${VITE_REVERB_PORT:-443}
+        VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME:-https}
+    volumes: !override
+      - storage_app:/var/www/dzsowda/storage/app:ro
+    # Только localhost: 80/443 держит хостовый nginx и проксирует сюда.
+    # Открытый наружу порт дал бы обход TLS по http://IP:8000
+    ports:
+      - "127.0.0.1:8000:80"
+    logging: *logging
+
+  # Телефон-шлюз подключается напрямую: http://<IP_СЕРВЕРА>:3000
+  sms-gateway:
+    ports:
+      - "3000:3000"
+    logging: *logging
+
+  db:
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+    logging: *logging
+
+  # Пароль из REDIS_PASSWORD — того же, что читает Laravel. Пусто или
   # «null» (так Laravel понимает «без пароля») — redis-server без пароля
   redis:
     environment:
@@ -47,26 +85,8 @@ services:
       - '[ "$$REDIS_PASSWORD" = null ] && REDIS_PASSWORD=; exec docker-entrypoint.sh redis-server --requirepass "$$REDIS_PASSWORD"'
     healthcheck:
       test: ["CMD-SHELL", "[ -n \"$$REDIS_PASSWORD\" ] && [ \"$$REDIS_PASSWORD\" != null ] && export REDISCLI_AUTH=\"$$REDIS_PASSWORD\"; redis-cli ping | grep -q PONG"]
-
-  sms-gateway:
-    ports:
-      - "3000:3000"
-
-  nginx:
-    image: dzsowda-nginx:local
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-      target: nginx
-      args:
-        COMPOSER_MIRROR: ${COMPOSER_MIRROR:-https://nexus.telecom.tm/repository/composer-proxy/}
-        NPM_REGISTRY: ${NPM_REGISTRY:-https://nexus.telecom.tm/repository/npm-proxy/}
-        VITE_REVERB_APP_KEY: ${VITE_REVERB_APP_KEY:-}
-        VITE_REVERB_HOST: ${VITE_REVERB_HOST:-}
-        VITE_REVERB_PORT: ${VITE_REVERB_PORT:-443}
-        VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME:-https}
-    volumes: !override
-      - storage_app:/var/www/dzsowda/storage/app:ro
+    logging: *logging
 
 volumes:
   storage_app:
+  storage_logs:

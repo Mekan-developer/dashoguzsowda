@@ -1,3 +1,12 @@
+# Базовый стек. Поверх него:
+#   dev  — docker-compose.override.yml (подключается сам: docker compose up)
+#   прод — docker-compose.prod.yml, см. docs/DEPLOY.md
+#
+# Имя проекта задаёт имена томов (<имя>_db_data …). Сменится — compose
+# создаст новые пустые тома, поэтому оно закреплено. Локально его
+# переопределяет COMPOSE_PROJECT_NAME из .env.
+name: dashoguzsowda
+
 x-php: &php
   image: dzsowda-php:local
   env_file: [.env]
@@ -26,16 +35,6 @@ services:
         VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME:-https}
     container_name: dzsowda_app
 
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: dzsowda_nginx
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8000:80"
-    volumes:
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
-    depends_on: [app]
-
   horizon:
     <<: *php
     container_name: dzsowda_horizon
@@ -58,34 +57,55 @@ services:
     container_name: dzsowda_scheduler
     command: php artisan schedule:work
 
+  # Разовые команды: docker compose run --rm artisan migrate:status
   artisan:
     <<: *php
     entrypoint: ["php", "/var/www/dzsowda/artisan"]
     profiles: ["tools"]
     restart: "no"
 
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: dzsowda_nginx
+    restart: unless-stopped
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on: [app, reverb]
+
   sms-gateway:
     build:
       context: ./socket-server
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://nexus.telecom.tm/repository/npm-proxy/}
     image: dzsowda-sms:local
     container_name: dzsowda_socket
     restart: unless-stopped
-    env_file: [./socket-server/.env]
     environment:
-      HOST: ${SMS_GATEWAY_HOST:-0.0.0.0}
+      HOST: 0.0.0.0
+      PORT: 3000
       OTP_SECRET: ${OTP_SECRET:?OTP_SECRET is required}
+      OTP_EVENT_NAME: ${SMS_GATEWAY_OTP_EVENT:-otp}
       ENABLE_TEST_PAGE: ${SMS_GATEWAY_TEST_PAGE:-false}
 
+  # Учётные данные — те же DB_*, что у Laravel. Применяются только при
+  # первой инициализации пустого тома, у живой базы ничего не меняют
   db:
     image: mysql:8.0
     container_name: dzsowda_mysql
     restart: unless-stopped
-    env_file: [docker/db.env]
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD --silent"]
+      # Без пароля: mysqladmin ping отвечает 0, если сервер жив, даже при
+      # отказе в доступе — проверка не зависит от того, с какими кредами
+      # инициализировали том
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
