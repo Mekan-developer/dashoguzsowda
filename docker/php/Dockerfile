@@ -16,8 +16,29 @@ ARG COMPOSER_MIRROR=https://nexus.telecom.tm/repository/composer-proxy/
 RUN if [ -n "$COMPOSER_MIRROR" ]; then composer config -g repo.packagist composer "$COMPOSER_MIRROR"; fi
 
 # Сначала только манифесты: слой с зависимостями переживает правки кода.
-# Расширений (gd, pcntl…) в образе composer нет — они есть в php-стадии.
 COPY composer.json composer.lock ./
+
+# В composer.lock у каждого пакета прямой адрес архива на codeload.github.com,
+# и composer качает по нему мимо зеркала — а с сервера GitHub закрыт.
+# Переписываем адреса на Nexus: он отдаёт те же архивы как
+# <зеркало>/<vendor>/<пакет>/<версия>/<vendor>-<пакет>-<версия>.zip.
+# Меняется только копия lock-файла внутри сборки
+RUN if [ -n "$COMPOSER_MIRROR" ]; then php -r ' \
+      $m = rtrim(getenv("COMPOSER_MIRROR"), "/"); \
+      $lock = json_decode(file_get_contents("composer.lock"), true); \
+      foreach (["packages", "packages-dev"] as $k) { \
+          foreach ($lock[$k] ?? [] as $i => $p) { \
+              if (!isset($p["dist"])) continue; \
+              $v = $p["version"]; \
+              $lock[$k][$i]["dist"] = ["type" => "zip", "shasum" => "", \
+                  "reference" => $p["dist"]["reference"] ?? null, \
+                  "url" => "$m/{$p["name"]}/$v/" . str_replace("/", "-", $p["name"]) . "-$v.zip"]; \
+          } \
+      } \
+      file_put_contents("composer.lock", json_encode($lock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)); \
+    '; fi
+
+# Расширений (gd, pcntl…) в образе composer нет — они есть в php-стадии.
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist \
         --no-interaction --ignore-platform-reqs
 
