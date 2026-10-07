@@ -1,9 +1,52 @@
+# Прод-оверрайд: docker compose -f docker-compose.yml -f docker-compose.prod.yml
+#
+# Код живёт в образе, с хоста монтируются только:
+#  - .env — его нет в образе (.dockerignore), а entrypoint и config:cache
+#    читают именно файл: env_file одних переменных окружения не хватает;
+#  - ключ Firebase — storage/app здесь именованный том, папка с хоста туда
+#    сама не попадает, а без ключа push не уходят;
+#  - storage_app — загрузки пользователей.
 services:
-  app:       { volumes: !override [ storage_app:/var/www/dzsowda/storage/app ] }
-  horizon:   { volumes: !override [ storage_app:/var/www/dzsowda/storage/app ] }
-  reverb:    { volumes: !override [ storage_app:/var/www/dzsowda/storage/app ] }
-  scheduler: { volumes: !override [ storage_app:/var/www/dzsowda/storage/app ] }
-  artisan:   { volumes: !override [ storage_app:/var/www/dzsowda/storage/app ] }
+  app:
+    volumes: !override
+      - storage_app:/var/www/dzsowda/storage/app
+      - ./.env:/var/www/dzsowda/.env:ro
+      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+    # Миграции — только здесь, остальные PHP-контейнеры их не трогают
+    environment:
+      RUN_MIGRATIONS: "true"
+  horizon:
+    volumes: !override
+      - storage_app:/var/www/dzsowda/storage/app
+      - ./.env:/var/www/dzsowda/.env:ro
+      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+  reverb:
+    volumes: !override
+      - storage_app:/var/www/dzsowda/storage/app
+      - ./.env:/var/www/dzsowda/.env:ro
+      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+  scheduler:
+    volumes: !override
+      - storage_app:/var/www/dzsowda/storage/app
+      - ./.env:/var/www/dzsowda/.env:ro
+      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+  artisan:
+    volumes: !override
+      - storage_app:/var/www/dzsowda/storage/app
+      - ./.env:/var/www/dzsowda/.env:ro
+      - ./storage/app/firebase:/var/www/dzsowda/storage/app/firebase:ro
+
+  # Пароль из REDIS_PASSWORD того же .env, что читает Laravel. Пусто или
+  # «null» (так Laravel понимает «без пароля») — redis-server без пароля
+  redis:
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command:
+      - sh
+      - -c
+      - '[ "$$REDIS_PASSWORD" = null ] && REDIS_PASSWORD=; exec docker-entrypoint.sh redis-server --requirepass "$$REDIS_PASSWORD"'
+    healthcheck:
+      test: ["CMD-SHELL", "[ -n \"$$REDIS_PASSWORD\" ] && [ \"$$REDIS_PASSWORD\" != null ] && export REDISCLI_AUTH=\"$$REDIS_PASSWORD\"; redis-cli ping | grep -q PONG"]
 
   sms-gateway:
     ports:

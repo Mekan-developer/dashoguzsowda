@@ -24,7 +24,7 @@ i=0
 until php -r '
     require "/var/www/dzsowda/vendor/autoload.php";
     Dotenv\Dotenv::createImmutable("/var/www/dzsowda")->safeLoad();
-    $dsn = sprintf("mysql:host=%s;port=%s", $_ENV["DB_HOST"] ?? "mysql", $_ENV["DB_PORT"] ?? 3306);
+    $dsn = sprintf("mysql:host=%s;port=%s", $_ENV["DB_HOST"] ?? "db", $_ENV["DB_PORT"] ?? 3306);
     try { new PDO($dsn, $_ENV["DB_USERNAME"] ?? "", $_ENV["DB_PASSWORD"] ?? ""); exit(0); }
     catch (Throwable $e) { exit(1); }
 ' 2>/dev/null; do
@@ -43,6 +43,13 @@ php artisan package:discover --ansi
 
 # Символическая ссылка public/storage → storage/app/public (том с загрузками).
 php artisan storage:link --force >/dev/null 2>&1 || true
+
+# RUN_MIGRATIONS=true задан только у app (docker-compose.prod.yml): без этого
+# новые миграции после деплоя не применялись, и код падал на старой схеме.
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+    echo "[entrypoint] миграции..."
+    php artisan migrate --force --no-interaction
+fi
 
 echo "[entrypoint] очистка старых кэшей..."
 php artisan optimize:clear
