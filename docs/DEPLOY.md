@@ -277,9 +277,11 @@ sudo mkdir -p /etc/nginx/ssl/dashoguzsowda.com.tm
 sudo cp docker/caddy/certs/fullchain.pem docker/caddy/certs/privkey.pem /etc/nginx/ssl/dashoguzsowda.com.tm/
 #    + конфиг, как в «Первая установка», шаг 6, но без reload
 sudo nginx -t
-docker rm -f dz_sowda_caddy && sudo systemctl restart nginx
+docker stop dz_sowda_caddy && sudo systemctl restart nginx
+#    Откат, если что-то не так: sudo systemctl stop nginx && docker start dz_sowda_caddy
 
 # 7. Проверка — «Первая установка», шаг 7. Затем убрать остатки Caddy
+docker rm dz_sowda_caddy
 docker volume rm dzsowda-prod_caddy_data dzsowda-prod_caddy_config
 docker network rm dzsowda-prod_laravel
 rm -rf docker/caddy      # сертификаты уже в /etc/nginx/ssl
