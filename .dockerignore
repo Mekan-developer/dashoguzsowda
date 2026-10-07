@@ -1,38 +1,28 @@
+# Что попадает в образ, решает белый список COPY в docker/php/Dockerfile.
+# Здесь — что даже не отправлять в контекст сборки: тяжёлое, секретное
+# и рантайм-мусор.
+
 .git
-.gitignore
-.gitattributes
 node_modules
 vendor
-public/storage
+public/build
 public/hot
+public/storage
 
-# Секреты и локальная конфигурация — .env монтируется в контейнер,
-# а не копируется в образ.
+# Секреты: окружение приходит через env_file, ключ Firebase монтируется
 .env
 .env.*
-!.env.example
 storage/app/firebase
-# Приватный TLS-ключ не должен попадать в слои образа: Caddy монтирует
-# этот каталог томом в рантайме, копия внутри образа не нужна.
-docker/caddy/certs
 
-# Данные рантайма
-storage/logs/*
-storage/app/public/*
-storage/app/temp/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/views/*
+# Рантайм
+storage
 bootstrap/cache/*.php
 
-# Не нужно в прод-образе. Пути с ведущим слэшем — только в корне:
-# public/docs (сгенерированная API-документация Scribe) остаётся в образе.
+# Не про PHP-образ
+/socket-server
+/mobile_docs
+/docs
 /tests
 /bruno
-/.scribe
-/docs
-.claude
-.editorconfig
-docker-compose*.yml
-phpunit.xml
-socket-server/node_modules
+/.claude
+/docker-compose*.yml
