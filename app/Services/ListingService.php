@@ -142,12 +142,17 @@ class ListingService
             ListingSearched::dispatch(trim($filters['search']));
         }
 
-        if (! empty($filters['category_id'])) {
-            $category = $this->categoryRepository->find((int) $filters['category_id']);
-            $filters['category_ids'] = [
-                $category->id,
-                ...$this->categoryRepository->descendants($category)->pluck('id')->all(),
-            ];
+        // category_id — раздел, category_ids[] — выбор внутри него (что он внутри,
+        // проверил SearchListingsRequest). Выбор сужает раздел, а без выбора — вся ветка.
+        $categoryIds = array_map('intval', $filters['category_ids'] ?? []);
+        unset($filters['category_ids']);
+
+        if ($categoryIds === [] && ! empty($filters['category_id'])) {
+            $categoryIds = [(int) $filters['category_id']];
+        }
+
+        if ($categoryIds !== []) {
+            $filters['category_ids'] = $this->categoryRepository->subtreeIds($categoryIds);
         }
 
         // Опт — по флагу тарифа can_see_wholesale (CLAUDE.md → «Магазины»)

@@ -84,4 +84,20 @@ class CategoryRepository implements CategoryRepositoryInterface
 
         return $all;
     }
+
+    public function subtreeIds(array $ids): array
+    {
+        $all = $ids;
+        $parentIds = $ids;
+
+        while ($parentIds !== []) {
+            $parentIds = Category::whereIn('parent_id', $parentIds)
+                ->whereNotIn('id', $all)
+                ->pluck('id')
+                ->all();
+            $all = [...$all, ...$parentIds];
+        }
+
+        return array_values(array_unique($all));
+    }
 }

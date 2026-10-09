@@ -14,6 +14,8 @@ params:query {
   limit: 20
   ~search: велосипед
   ~category_id: 1
+  ~category_ids[]: 1
+  ~category_ids[]: 2
   ~region_id: 1
   ~city_id: 1
   ~type: goods
@@ -35,7 +37,10 @@ docs {
 
   Фильтры (все опциональные):
   - search — по заголовку и описанию
-  - category_id — включает все подкатегории выбранной категории
+  - category_id — раздел, в котором находится клиент; включает все подкатегории
+  - category_ids[] — отмеченные подкатегории (до 50), каждая с поддеревом.
+    Вместе с category_id выбор сужает раздел; подкатегория из другого
+    раздела → 422 (category_ids.N). Без category_id — просто набор категорий
   - region_id, city_id — гео-фильтр
   - type: goods|services
   - price_min, price_max

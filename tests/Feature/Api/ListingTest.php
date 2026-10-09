@@ -176,6 +176,77 @@ it('filters by parent category including its subtree', function () {
         ->assertJsonCount(1, 'data');
 });
 
+it('filters by several categories at once, each with its subtree', function () {
+    actingAsClient();
+
+    makeListing(['title' => 'Велосипед']); // лист внутри rootCategory
+
+    $phones = Category::create(['name_ru' => 'Телефоны', 'name_tk' => 'Telefonlar', 'slug' => 'phones', 'level' => 1]);
+    makeListing(['category_id' => $phones->id, 'title' => 'Телефон']);
+
+    $furniture = Category::create(['name_ru' => 'Мебель', 'name_tk' => 'Mebel', 'slug' => 'furniture', 'level' => 1]);
+    makeListing(['category_id' => $furniture->id, 'title' => 'Не должно попасть']);
+
+    $response = $this->getJson("/api/v1/listings?category_ids[]={$this->rootCategory->id}&category_ids[]={$phones->id}")
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+
+    expect(collect($response->json('data'))->pluck('title')->sort()->values()->all())
+        ->toBe(['Велосипед', 'Телефон']);
+});
+
+it('combines category_ids with the price filter', function () {
+    actingAsClient();
+
+    makeListing(['title' => 'Дешёвый', 'price' => 100]);
+    makeListing(['title' => 'Дорогой', 'price' => 900]);
+
+    $this->getJson("/api/v1/listings?category_ids[]={$this->rootCategory->id}&price_max=500")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Дешёвый');
+});
+
+it('narrows the section to the subcategories picked inside it', function () {
+    actingAsClient();
+
+    makeListing(['title' => 'Велосипед']); // лист «Велосипеды» внутри rootCategory
+
+    $cars = Category::create([
+        'parent_id' => $this->rootCategory->id, 'name_ru' => 'Авто', 'name_tk' => 'Awto',
+        'slug' => 'cars', 'level' => 2,
+    ]);
+    makeListing(['category_id' => $cars->id, 'title' => 'Не должно попасть']);
+
+    $this->getJson("/api/v1/listings?category_id={$this->rootCategory->id}&category_ids[]={$this->leaf->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Велосипед');
+});
+
+it('rejects a subcategory from another section', function () {
+    actingAsClient();
+
+    $otherRoot = Category::create(['name_ru' => 'Оптом', 'name_tk' => 'Optom', 'slug' => 'optom', 'level' => 1]);
+    $foreign = Category::create([
+        'parent_id' => $otherRoot->id, 'name_ru' => 'Одежда', 'name_tk' => 'Egin-eşik',
+        'slug' => 'clothes', 'level' => 2,
+    ]);
+
+    $this->getJson("/api/v1/listings?category_id={$this->rootCategory->id}&category_ids[]={$this->leaf->id}&category_ids[]={$foreign->id}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['category_ids.1'])
+        ->assertJsonMissingValidationErrors(['category_ids.0']);
+});
+
+it('rejects unknown ids in category_ids', function () {
+    actingAsClient();
+
+    $this->getJson('/api/v1/listings?category_ids[]=999999')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['category_ids.0']);
+});
+
 it('returns the full 3-level category path', function () {
     actingAsClient();
 

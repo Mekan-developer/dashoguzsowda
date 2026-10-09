@@ -25,7 +25,7 @@ class ListingController extends Controller
      * Публичная выдача одобренных объявлений.
      * GET /api/v1/listings
      *
-     * Фильтры: search, category_id (включая подкатегории), region_id, city_id,
+     * Фильтры: search, category_id и/или category_ids[] (включая подкатегории), region_id, city_id,
      * type (goods|services), price_min, price_max,
      * sort (latest|price_asc|price_desc|nearest + lat/lng), page, limit.
      */

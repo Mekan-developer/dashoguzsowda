@@ -19,4 +19,11 @@ interface CategoryRepositoryInterface
     public function delete(Category $category): void;
     public function siblings(?int $parentId): Collection;
     public function descendants(Category $category): Collection;
+    /**
+     * Сами категории и все их потомки — id для фильтра выдачи.
+     *
+     * @param  int[]  $ids
+     * @return int[]
+     */
+    public function subtreeIds(array $ids): array;
 }
