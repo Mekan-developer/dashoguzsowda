@@ -15,6 +15,13 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+script:post-response {
+  // Свой id — в {{user_id}} для «Отзывы о пользователе»
+  if (res.getStatus() === 200) {
+    bru.setEnvVar("user_id", res.getBody().data.id);
+  }
+}
+
 docs {
   Профиль текущего пользователя.
 

@@ -23,6 +23,17 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+script:post-response {
+  // Первая запись списка — в {{video_id}}: карточка и действия берут id отсюда,
+  // а не захардкоженный, которого в этой базе может не быть (404)
+  if (res.getStatus() === 200) {
+    const rows = res.getBody().data;
+    if (rows && rows.length) {
+      bru.setEnvVar("video_id", rows[0].id);
+    }
+  }
+}
+
 docs {
   Вертикальная лента (ТЗ §7, экран 9): только approved-ролики,
   сортировка от новых к старым.

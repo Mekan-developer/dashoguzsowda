@@ -21,6 +21,17 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+script:post-response {
+  // Первая запись списка — в {{news_id}}: карточка и действия берут id отсюда,
+  // а не захардкоженный, которого в этой базе может не быть (404)
+  if (res.getStatus() === 200) {
+    const rows = res.getBody().data;
+    if (rows && rows.length) {
+      bru.setEnvVar("news_id", rows[0].id);
+    }
+  }
+}
+
 docs {
   Лента новостей.
 

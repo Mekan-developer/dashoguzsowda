@@ -21,6 +21,17 @@ headers {
   Authorization: Bearer {{token}}
 }
 
+script:post-response {
+  // Первая запись списка — в {{my_listing_id}}: карточка и действия берут id отсюда,
+  // а не захардкоженный, которого в этой базе может не быть (404)
+  if (res.getStatus() === 200) {
+    const rows = res.getBody().data;
+    if (rows && rows.length) {
+      bru.setEnvVar("my_listing_id", rows[0].id);
+    }
+  }
+}
+
 docs {
   Объявления текущего пользователя во всех статусах модерации.
   Фильтр status: pending | approved | rejected | suspended (опционально).
