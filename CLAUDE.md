@@ -281,6 +281,14 @@
 - Категория **обязательна** и только **1-го уровня** (`parent_id IS NULL`), в отличие от объявлений (там leaf).
 - API: `category_id` при create / chunked init; лента `GET /v1/videos` — `search` (title) + `category_id`.
 - Индекс ленты с фильтром: `videos_category_feed_index` (`category_id`, `status`, `created_at`).
+- **Воспроизведение — HLS** (адаптивный, качества 360p/540p/720p по короткой
+  стороне, без апскейла), отдаёт nginx статикой из `videos/{uuid}/hls/`, PHP
+  в отдаче не участвует. В API поле `hls` (master.m3u8); `video` (processed.mp4)
+  остаётся запасным — пока ролик в обработке, нарезка не удалась или клиент
+  старый. Оригинал удаляется после успешной нарезки.
+- Досборка HLS для старых роликов — `php artisan videos:build-hls` (вручную).
+- Очередь `media` — свой супервизор Horizon (`supervisor-media`, timeout 900);
+  `REDIS_QUEUE_RETRY_AFTER` обязан быть больше, иначе ролик кодируется дважды.
 
 ## Поднятие объявлений (boost)
 
@@ -419,7 +427,7 @@ rejected → pending (пользователь исправил и отправ�
 - `Mail::send()` / SMS / push напрямую — только через Events
 - Любой WebSocket провайдер кроме Reverb
 - Хардкодные строки в UI — только через `__()` и `vue-i18n`
-- Загрузка видеофайла целиком в память — только StreamedResponse
+- Загрузка видеофайла целиком в память — приём потоком (chunked), отдача — nginx статикой
 - Прямая запись в `fcm_tokens` вне `FcmTokenRepository`
 
 ! Na kazhdom session-e answer in russian language

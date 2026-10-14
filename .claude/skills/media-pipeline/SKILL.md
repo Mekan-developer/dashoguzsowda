@@ -18,11 +18,17 @@ description: Обработка фото и видео в проекте — ф�
 ## Работа с видео
 
 - Загрузка: **chunked upload** — клиент дробит файл на части, сервер собирает
-- Сжатие: FFmpeg через shell_exec / процесс
+- Сжатие: FFmpeg через фасад `Process` (в тестах — `Process::fake()`)
 - Максимальная длительность: **60 секунд** (проверяется при загрузке)
-- Отдача: **StreamedResponse** — никогда не грузить файл целиком в память
-- Обработка через Job: `ProcessVideoJob` → queue `media`
-- После обработки → `is_processed = true`, путь записывается в `processed_path`
+- Обработка через Job: `ProcessVideoJob` → queue `media` (супервизор `supervisor-media`)
+- Результат в папке ролика `videos/{uuid}/`: `processed.mp4` (запасной, поле
+  `video`), `hls/master.m3u8` + `{360p,540p,720p}.m3u8` + сегменты `.ts`
+  (поле `hls`, нарезка — `App\Services\Video\HlsTranscoder`, лестница
+  качеств — `config/video.php` → `hls`), `preview.jpg`. Оригинал удаляется
+  после успешной нарезки HLS.
+- Отдача — nginx статикой (`docker/nginx/conf.d/nginx.conf`: MIME и кэш для
+  `.m3u8`/`.ts`), через PHP видео не идёт. Админка играет через
+  `Components/HlsPlayer.vue` (hls.js, на Safari — нативно, запасной — mp4).
 
 ## Где смотреть
 
@@ -31,4 +37,4 @@ description: Обработка фото и видео в проекте — ф�
 - Актуальные поля — в миграциях `database/migrations/`, а не по памяти
 
 Запрет из корневого `CLAUDE.md` действует всегда: видеофайл целиком в память
-не загружать, только StreamedResponse.
+не загружать — приём потоком, отдача статикой.
