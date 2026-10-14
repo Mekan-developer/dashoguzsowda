@@ -67,7 +67,11 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Больше самого долгого job (ProcessVideoJob, 900 сек): иначе Redis
+            // отдаст ещё идущее задание второму воркеру и ролик начнёт
+            // кодироваться дважды. Короткие job это не замедляет — значение
+            // срабатывает, только если воркер умер посреди задания.
+            'retry_after' => env('REDIS_QUEUE_RETRY_AFTER', 960),
             'block_for' => null,
             'after_commit' => false,
         ],

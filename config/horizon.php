@@ -199,10 +199,9 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            // default/notifications/media — см. CLAUDE.md; раньше слушалась
-            // только default, из-за чего ProcessListingImagesJob/ProcessVideoJob
-            // и SendPushNotificationJob никогда не выполнялись
-            'queue' => ['default', 'notifications', 'media'],
+            // default/notifications — см. CLAUDE.md; раньше слушалась
+            // только default, из-за чего SendPushNotificationJob никогда не выполнялись
+            'queue' => ['default', 'notifications'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,
@@ -213,6 +212,22 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+
+        // media — отдельно: кодирование ролика идёт минутами и грузит CPU
+        // целиком, в общем пуле оно держало бы пуши и прочие быстрые job.
+        // timeout — вровень с ProcessVideoJob::$timeout, меньше retry_after.
+        'supervisor-media' => [
+            'connection' => 'redis',
+            'queue' => ['media'],
+            'balance' => false,
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 900,
+            'nice' => 10,
+        ],
     ],
 
     'environments' => [
@@ -222,12 +237,18 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            // ffmpeg сам занимает все ядра — два параллельных кодирования
+            // уже предел для VPS, больше только удлинят каждое
+            'supervisor-media' => [
+                'maxProcesses' => 2,
+            ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 3,
             ],
+            'supervisor-media' => [],
         ],
     ],
 
