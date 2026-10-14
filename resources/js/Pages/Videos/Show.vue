@@ -6,6 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import StatusBadge from '@/Components/StatusBadge.vue'
 import { confirmDialog } from '@/confirm'
 import Icon from '@/Components/Icon.vue'
+import HlsPlayer from '@/Components/HlsPlayer.vue'
 
 const { t, locale } = useI18n()
 const page = usePage()
@@ -110,14 +111,13 @@ async function doDelete() {
           <div>
             <!-- Вертикальный формат 9:16 — как в мобильной ленте -->
             <div class="mx-auto aspect-[9/16] w-full max-w-[200px] overflow-hidden rounded-[8px] bg-navy">
-              <video
+              <HlsPlayer
                 v-if="video.video_url"
-                :src="video.video_url"
-                :poster="video.preview_url || undefined"
-                controls
-                playsinline
+                :src="video.hls_url"
+                :fallback="video.video_url"
+                :poster="video.preview_url"
                 class="h-full w-full object-contain"
-              ></video>
+              />
               <div v-else class="flex h-full w-full items-center justify-center text-white/40">
                 <Icon kind="play" :size="32" />
               </div>
