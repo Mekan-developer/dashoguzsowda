@@ -1,4 +1,8 @@
 {
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "permissions": {
     "allow": [
       "Bash(cat /home/ser/.npm/_logs/2026-06-23T13_36_34_427Z-debug-0.log | grep \"Invalid Version\" -A3 | head -20)",
@@ -23,11 +27,9 @@
       "Bash(git commit -m ' *)",
       "Bash(git rm *)",
       "Bash(git restore *)",
-      "Bash(docker exec *)"
+      "Bash(docker exec *)",
+      "Read(//home/ser/**)",
+      "Read(//mnt/c/Users/**)"
     ]
-  },
-  "attribution": {
-    "commit": "",
-    "pr": ""
   }
 }
