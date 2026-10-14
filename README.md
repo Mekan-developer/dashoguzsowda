@@ -70,7 +70,7 @@ docker compose exec app php artisan storage:link
 | http://localhost:8000 | Админка и API (nginx → php-fpm) |
 | http://localhost:5173 | Vite dev-сервер (hot reload) |
 | http://localhost:3000 | Socket.IO OTP-шлюз, страница-тестер на `/test` |
-| `localhost:8070` | Reverb (WebSocket-чат) |
+| `localhost:8080` | Reverb (WebSocket-чат) |
 | `localhost:3366` | MySQL |
 | `localhost:6379` | Redis |
 
@@ -116,10 +116,11 @@ docker compose down -v && docker compose up -d
 **Порт занят.** Поменяйте левую часть в `ports:` в
 `docker-compose.override.yml` — например `"8001:80"` у `nginx`.
 
-**Чат не подключается.** Reverb опубликован наружу на `8070`, поэтому
-браузерная переменная в `.env` — `VITE_REVERB_PORT=8070`, а серверная
-`REVERB_PORT=8080` (по ней backend ходит внутри docker-сети). Значения `VITE_*`
-вкомпилируются в бандл, после правки нужен перезапуск сборщика:
+**Чат не подключается.** Браузер ходит в Reverb по внешнему порту из
+`docker-compose.override.yml` (сейчас `8080:8080`), поэтому `VITE_REVERB_PORT`
+в `.env` должен с ним совпадать — `8080`. Серверный `REVERB_PORT=8080` — порт
+внутри docker-сети, по нему ходит backend. Значения `VITE_*` вкомпилируются
+в бандл, после правки нужен перезапуск сборщика:
 
 ```bash
 docker compose restart node
@@ -153,7 +154,7 @@ docker compose build --build-arg DEBIAN_MIRROR=https://deb.debian.org app
 docker compose exec app php artisan migrate          # миграции
 docker compose exec app php artisan tinker           # консоль
 docker compose exec app php artisan queue:failed     # упавшие задачи
-docker compose exec app php artisan test             # тесты (Pest)
+docker compose exec app ./vendor/bin/pest           # тесты (Pest)
 
 docker compose logs -f app                           # логи
 docker compose down                                  # остановить
@@ -204,11 +205,13 @@ routes/
   web.php             админка
   api/v1.php          мобильное API
 
-docker/                Dockerfile и конфиги образов (php, nginx, mysql)
+docker/                Dockerfile и конфиги образов (php, nginx, mysql);
+                       docker/nginx/host — конфиг nginx самого сервера
 socket-server/         Socket.IO-шлюз для OTP
 bruno/                 коллекция запросов к API
-mobile_docs/           спецификация API для мобильного приложения
+mobile_docs/           спецификация API и задачи для мобильного приложения
 docs/DEPLOY.md         развёртывание на сервере
+docs/ARCHITECTURE.md   устройство backend-а подробнее
 CLAUDE.md              архитектурные правила проекта
 ```
 
@@ -227,6 +230,8 @@ CLAUDE.md              архитектурные правила проекта
 |---|---|
 | [bruno/](bruno/) | коллекция запросов, открывается в [Bruno](https://usebruno.com) |
 | [mobile_docs/BACKEND_API.md](mobile_docs/BACKEND_API.md) | спецификация эндпоинтов для мобильного приложения |
+| `mobile_docs/API_CHANGES_*.md` | что поменялось в API по каждой доработке — дополнения к `BACKEND_API.md` |
+| `mobile_docs/FLUTTER_*_PROMPT.md` | готовые задачи для Flutter-разработчика (Cursor) |
 | [docs/flutter-chat-integration.md](docs/flutter-chat-integration.md) | подключение чата со стороны Flutter |
 | [socket-server/README.md](socket-server/README.md) | контракт OTP-шлюза и пример клиента |
 
@@ -265,9 +270,8 @@ Socket.IO-шлюз: Laravel шлёт код в `sms-gateway`, тот перед�
 `SMS_GATEWAY_TEST_PAGE`).
 
 **Видео.** Загрузка кусками (chunked), сборка на сервере, обработка через
-FFmpeg в очереди `media`. Ограничение — 60 секунд. Внимание: `ffmpeg` в
-php-образ сейчас не устанавливается, поэтому `ProcessVideoJob` в докере упадёт —
-пакет нужно добавить в [docker/php/Dockerfile](docker/php/Dockerfile).
+FFmpeg в очереди `media` (`ffmpeg` уже есть в php-образе). Ограничение —
+60 секунд (`config/video.php`, `max_duration_seconds`).
 
 **Изображения.** Все фото конвертируются в WebP в трёх размерах. Требует
 PHP-расширения `gd` со сборкой `--with-webp` — в образе оно уже есть.
