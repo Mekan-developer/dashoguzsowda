@@ -37,9 +37,12 @@ class VideoResource extends JsonResource
                 fn () => (bool) $this->getAttributes()['is_liked'],
             ),
             // Сжатие идёт в фоновой очереди `media`: пока processing=true,
-            // video указывает на загруженный оригинал, preview ещё отсутствует
+            // video указывает на загруженный оригинал, preview и hls ещё отсутствуют
             'processing'       => ! $this->is_processed,
             'video'            => Storage::disk('public')->url($this->processed_path ?? $this->path),
+            // Адаптивный HLS (master.m3u8). Клиенту играть его, а `video` —
+            // только если hls = null (ролик в обработке или нарезка не удалась)
+            'hls'              => $this->hls_path ? Storage::disk('public')->url($this->hls_path) : null,
             'preview'          => $this->preview_path ? Storage::disk('public')->url($this->preview_path) : null,
             'user'             => $this->whenLoaded('user', fn () => [
                 'id'     => $this->user->id,

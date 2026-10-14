@@ -22,6 +22,34 @@ class FfprobeVideoProbe implements VideoProbeInterface
         return (float) $duration;
     }
 
+    public function streams(string $absolutePath): ?array
+    {
+        $cmd = sprintf(
+            'ffprobe -v error -show_entries stream=codec_type,width,height -of json %s 2>&1',
+            escapeshellarg($absolutePath),
+        );
+
+        exec($cmd, $output, $code);
+
+        $streams = json_decode(implode("\n", $output), true)['streams'] ?? null;
+
+        if ($code !== 0 || ! is_array($streams)) {
+            return null;
+        }
+
+        $video = collect($streams)->first(fn ($s) => ($s['codec_type'] ?? null) === 'video' && ! empty($s['width']));
+
+        if ($video === null) {
+            return null;
+        }
+
+        return [
+            'width'     => (int) $video['width'],
+            'height'    => (int) $video['height'],
+            'has_audio' => collect($streams)->contains(fn ($s) => ($s['codec_type'] ?? null) === 'audio'),
+        ];
+    }
+
     /** Проверяем наличие бинарника один раз за запрос */
     public function available(): bool
     {

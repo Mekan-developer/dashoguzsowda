@@ -145,6 +145,11 @@ class VideoRepository implements VideoRepositoryInterface
         return Video::whereIn('id', $ids)->update(['status' => $to]);
     }
 
+    public function idsWithoutHls(): array
+    {
+        return Video::where('is_processed', true)->whereNull('hls_path')->orderBy('id')->pluck('id')->all();
+    }
+
     public function sumLikes(): int
     {
         return (int) Video::sum('likes_count');
@@ -220,6 +225,7 @@ class VideoRepository implements VideoRepositoryInterface
         foreach ($videos as $video) {
             $video->setAttribute('preview_url', $video->preview_path ? Storage::disk('public')->url($video->preview_path) : null);
             $video->setAttribute('video_url', Storage::disk('public')->url($video->processed_path ?? $video->path));
+            $video->setAttribute('hls_url', $video->hls_path ? Storage::disk('public')->url($video->hls_path) : null);
 
             if (! $video->user) {
                 continue;

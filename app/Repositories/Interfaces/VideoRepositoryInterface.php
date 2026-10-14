@@ -28,6 +28,9 @@ interface VideoRepositoryInterface
     public function restoreNewestSuspended(int $userId, int $count): int;
     public function sumLikes(): int;
 
+    /** Обработанные ролики без HLS — загружены до него или нарезка не удалась */
+    public function idsWithoutHls(): array;
+
     /** @return array{is_liked: bool, likes_count: int} */
     public function toggleLike(Video $video, int $userId): array;
     public function loadLikeFlag(Video $video, ?int $viewerId): void;

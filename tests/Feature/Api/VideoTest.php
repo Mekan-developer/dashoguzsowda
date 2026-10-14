@@ -28,6 +28,11 @@ class FakeVideoProbe implements VideoProbeInterface
     {
         return static::$available;
     }
+
+    public function streams(string $absolutePath): ?array
+    {
+        return ['width' => 1080, 'height' => 1920, 'has_audio' => true];
+    }
 }
 
 beforeEach(function () {
@@ -216,6 +221,19 @@ it('feed returns only approved videos', function () {
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.title', 'Одобренный')
         ->assertJsonPath('meta.total', 1);
+});
+
+it('feed exposes HLS url once the video is sliced', function () {
+    actingAsClient();
+
+    makeVideo(['hls_path' => 'videos/abc/hls/master.m3u8', 'is_processed' => true]);
+    makeVideo(['title' => 'Старый']);
+
+    $byTitle = collect($this->getJson('/api/v1/videos')->assertOk()->json('data'))->keyBy('title');
+
+    expect($byTitle['Ролик']['hls'])->toEndWith('/storage/videos/abc/hls/master.m3u8')
+        ->and($byTitle['Старый']['hls'])->toBeNull()
+        ->and($byTitle['Старый']['video'])->not->toBeNull();
 });
 
 it('feed exposes is_liked for an authenticated viewer', function () {

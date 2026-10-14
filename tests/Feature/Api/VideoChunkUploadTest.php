@@ -26,6 +26,11 @@ class ChunkVideoProbe implements VideoProbeInterface
     {
         return static::$available;
     }
+
+    public function streams(string $absolutePath): ?array
+    {
+        return ['width' => 1080, 'height' => 1920, 'has_audio' => true];
+    }
 }
 
 beforeEach(function () {

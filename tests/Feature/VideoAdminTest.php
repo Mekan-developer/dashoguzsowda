@@ -204,6 +204,7 @@ it('lets admin create an approved video for a user', function () {
     $probe = new class implements \App\Services\Video\VideoProbeInterface {
         public function available(): bool { return true; }
         public function duration(string $absolutePath): ?float { return 28.0; }
+        public function streams(string $absolutePath): ?array { return ['width' => 1080, 'height' => 1920, 'has_audio' => true]; }
     };
     app()->instance(\App\Services\Video\VideoProbeInterface::class, $probe);
 
@@ -246,6 +247,7 @@ it('rejects admin video create when duration exceeds limit', function () {
     $probe = new class implements \App\Services\Video\VideoProbeInterface {
         public function available(): bool { return true; }
         public function duration(string $absolutePath): ?float { return 90.0; }
+        public function streams(string $absolutePath): ?array { return ['width' => 1080, 'height' => 1920, 'has_audio' => true]; }
     };
     app()->instance(\App\Services\Video\VideoProbeInterface::class, $probe);
 
