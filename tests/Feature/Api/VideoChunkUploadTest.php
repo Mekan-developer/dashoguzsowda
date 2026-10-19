@@ -44,7 +44,7 @@ beforeEach(function () {
 
     Tariff::create([
         'name_ru' => 'Free', 'name_tk' => 'Free', 'listings_limit' => 5, 'videos_limit' => 2,
-        'boost_limit' => 1, 'duration_days' => 30, 'is_free' => true, 'is_active' => true,
+        'boost_limit' => 1, 'duration_days' => null, 'is_free' => true, 'is_active' => true,
     ]);
 
     $this->user = User::factory()->create();

@@ -13,7 +13,7 @@ beforeEach(function () {
     $this->free = Tariff::create([
         'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt',
         'listings_limit' => 5, 'videos_limit' => 2, 'boost_limit' => 3,
-        'duration_days' => 30, 'is_free' => true, 'is_active' => true,
+        'duration_days' => null, 'is_free' => true, 'is_active' => true,
     ]);
 
     $this->region = Region::create(['name_ru' => 'Ахал', 'name_tk' => 'Ahal']);

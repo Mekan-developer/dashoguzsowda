@@ -138,7 +138,7 @@ it('reports is_premium false and no store on the free tariff', function () {
     Tariff::create([
         'name' => 'Basic', 'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt',
         'listings_limit' => 5, 'videos_limit' => 2, 'boost_limit' => 3,
-        'duration_days' => 30, 'is_free' => true, 'is_active' => true, 'can_have_store' => false,
+        'duration_days' => null, 'is_free' => true, 'is_active' => true, 'can_have_store' => false,
     ]);
 
     $this->getJson('/api/v1/profile')
@@ -178,7 +178,7 @@ it('rejects a nested store update on a tariff without can_have_store', function 
     Tariff::create([
         'name' => 'Basic', 'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt',
         'listings_limit' => 5, 'videos_limit' => 2, 'boost_limit' => 3,
-        'duration_days' => 30, 'is_free' => true, 'is_active' => true, 'can_have_store' => false,
+        'duration_days' => null, 'is_free' => true, 'is_active' => true, 'can_have_store' => false,
     ]);
 
     $this->putJson('/api/v1/profile', ['store' => ['name' => 'My shop']])

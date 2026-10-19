@@ -21,7 +21,7 @@ beforeEach(function () {
     // Дефолтный (бесплатный) тариф — activeTariff() падает на него при отсутствии личного
     $this->tariff = Tariff::create([
         'name_ru' => 'Free', 'name_tk' => 'Free', 'listings_limit' => 5, 'videos_limit' => 1,
-        'boost_limit' => 1, 'duration_days' => 30, 'is_free' => true, 'is_active' => true,
+        'boost_limit' => 1, 'duration_days' => null, 'is_free' => true, 'is_active' => true,
     ]);
 
     $this->region = Region::create(['name_ru' => 'Ахал', 'name_tk' => 'Ahal']);

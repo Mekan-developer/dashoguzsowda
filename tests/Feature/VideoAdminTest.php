@@ -12,7 +12,7 @@ beforeEach(function () {
 
     $this->tariff = Tariff::create([
         'name_ru' => 'Бесплатный', 'name_tk' => 'Mugt', 'listings_limit' => 5, 'videos_limit' => 2,
-        'boost_limit' => 1, 'duration_days' => 30, 'is_free' => true, 'is_active' => true,
+        'boost_limit' => 1, 'duration_days' => null, 'is_free' => true, 'is_active' => true,
     ]);
 
     $this->owner = User::factory()->create();
