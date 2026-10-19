@@ -51,8 +51,33 @@ it('uses the fixed test code without sending sms in test mode', function () {
     $this->postJson('/api/v1/auth/verify', ['phone' => PHONE, 'code' => '111222'])->assertOk();
 });
 
-it('ignores test mode in production', function () {
-    config(['sms.test_mode' => true, 'sms.test_code' => '111222']);
+it('limits test mode to listed phones', function () {
+    config(['sms.test_mode' => true, 'sms.test_code' => '111222', 'sms.test_phones' => [PHONE]]);
+    Event::fake([SmsCodeRequested::class]);
+
+    // Без «+» — тот же номер
+    $this->postJson('/api/v1/auth/send-code', ['phone' => ltrim(PHONE, '+')])->assertOk();
+    expect(storedCode(ltrim(PHONE, '+'))->code)->toBe('111222');
+
+    $this->postJson('/api/v1/auth/send-code', ['phone' => '+99361000002'])->assertOk();
+    expect(storedCode('+99361000002')->code)->not->toBe('111222');
+    Event::assertDispatchedTimes(SmsCodeRequested::class, 1);
+});
+
+it('matches a listed phone written without the country code', function () {
+    config(['sms.test_mode' => true, 'sms.test_code' => '111222', 'sms.test_phones' => ['62724494', '4']]);
+    Event::fake([SmsCodeRequested::class]);
+
+    $this->postJson('/api/v1/auth/send-code', ['phone' => '+99362724494'])->assertOk();
+    expect(storedCode('+99362724494')->code)->toBe('111222');
+
+    // Слишком короткий хвост в списке не открывает чужие номера
+    $this->postJson('/api/v1/auth/send-code', ['phone' => '+99361000004'])->assertOk();
+    expect(storedCode('+99361000004')->code)->not->toBe('111222');
+});
+
+it('ignores test mode in production without a phone list', function () {
+    config(['sms.test_mode' => true, 'sms.test_code' => '111222', 'sms.test_phones' => []]);
     Event::fake([SmsCodeRequested::class]);
     app()->detectEnvironment(fn () => 'production');
 
@@ -64,6 +89,21 @@ it('ignores test mode in production', function () {
 
     expect(storedCode()->code)->not->toBe('111222');
     Event::assertDispatched(SmsCodeRequested::class);
+});
+
+it('applies test mode in production for listed phones', function () {
+    config(['sms.test_mode' => true, 'sms.test_code' => '111222', 'sms.test_phones' => [PHONE]]);
+    Event::fake([SmsCodeRequested::class]);
+    app()->detectEnvironment(fn () => 'production');
+
+    try {
+        $this->postJson('/api/v1/auth/send-code', ['phone' => PHONE])->assertOk();
+    } finally {
+        app()->detectEnvironment(fn () => 'testing');
+    }
+
+    expect(storedCode()->code)->toBe('111222');
+    Event::assertNotDispatched(SmsCodeRequested::class);
 });
 
 it('rejects invalid phone format', function () {

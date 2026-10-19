@@ -36,8 +36,11 @@ return [
     /*
     | Тестовый вход: вместо случайного кода — всегда OTP_TEST, SMS не уходит.
     | Чтобы тестировщик мобилки входил без телефона-шлюза и без доступа к логам.
-    | В production игнорируется (SendSmsCodeAction).
+    | OTP_TEST_PHONES — номера через запятую, для которых он действует.
+    | В production без списка не действует ни для кого (SendSmsCodeAction),
+    | вне production пустой список = все номера.
     */
-    'test_mode' => (bool) env('OTP_GATEWAY_TEST', false),
-    'test_code' => (string) env('OTP_TEST', '123456'),
+    'test_mode'   => (bool) env('OTP_GATEWAY_TEST', false),
+    'test_code'   => (string) env('OTP_TEST', '123456'),
+    'test_phones' => array_values(array_filter(array_map('trim', explode(',', (string) env('OTP_TEST_PHONES', ''))))),
 ];
