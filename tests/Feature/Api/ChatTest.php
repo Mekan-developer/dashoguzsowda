@@ -4,7 +4,9 @@ use App\Events\MessagesReadEvent;
 use App\Events\NewMessageEvent;
 use App\Models\Message;
 use App\Models\User;
+use Illuminate\Contracts\Broadcasting\Factory as BroadcastFactory;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
@@ -93,4 +95,37 @@ it('does not broadcast a read receipt when there was nothing unread', function (
     $this->patchJson('/api/v1/chat/read')->assertOk();
 
     Event::assertNotDispatched(MessagesReadEvent::class);
+});
+
+/** Брокер WebSocket лёг: broadcast() бросает на любом событии */
+function breakBroadcaster(): void
+{
+    test()->mock(BroadcastFactory::class)
+        ->shouldReceive('event')
+        ->andThrow(new RuntimeException('Reverb недоступен'));
+}
+
+it('keeps the message and answers 201 when the websocket broker is down', function () {
+    breakBroadcaster();
+    Log::spy();
+    Sanctum::actingAs($this->user);
+
+    // Сообщение уже в БД — без этого отправитель увидел бы 500 и написал повторно
+    $this->postJson('/api/v1/chat', ['text' => 'Есть кто?'])->assertCreated();
+
+    $this->assertDatabaseHas('messages', ['user_id' => $this->user->id, 'text' => 'Есть кто?']);
+    Log::shouldHaveReceived('warning')->once();
+});
+
+it('marks replies as read even when the read receipt cannot be broadcast', function () {
+    breakBroadcaster();
+    Log::spy();
+    Message::create(['user_id' => $this->user->id, 'sender' => 'admin', 'text' => 'Ответ поддержки', 'is_read' => false]);
+
+    Sanctum::actingAs($this->user);
+
+    $this->patchJson('/api/v1/chat/read')->assertOk();
+
+    expect(Message::where('user_id', $this->user->id)->where('is_read', false)->count())->toBe(0);
+    Log::shouldHaveReceived('warning')->once();
 });

@@ -530,3 +530,44 @@ it('marks a listing as orderable only when it can actually be ordered', function
         ->assertOk()
         ->assertJsonPath('data.is_orderable', false);
 });
+
+it('lists the buyer orders newest first, filtered by status and paginated', function () {
+    Sanctum::actingAs($this->buyer);
+    foreach (range(1, 3) as $i) {
+        $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => $i]]))
+            ->assertCreated();
+    }
+    [$first, , $last] = Order::orderBy('id')->get();
+    $this->postJson("/api/v1/orders/{$first->id}/cancel")->assertOk();
+
+    // Чужой заказ в «Мои заказы» не попадает
+    Sanctum::actingAs(User::factory()->create());
+    $this->postJson('/api/v1/orders', orderPayload([['listing_id' => $this->listing->id, 'qty' => 1]]))
+        ->assertCreated();
+
+    Sanctum::actingAs($this->buyer);
+
+    $this->getJson('/api/v1/orders')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 3)
+        ->assertJsonPath('data.0.id', $last->id);
+
+    $this->getJson('/api/v1/orders?status=canceled')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 1)
+        ->assertJsonPath('data.0.id', $first->id)
+        ->assertJsonPath('data.0.status', 'canceled');
+
+    $this->getJson('/api/v1/orders?limit=2')
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('meta.per_page', 2)
+        ->assertJsonPath('meta.last_page', 2);
+});
+
+it('validates the my orders filters', function () {
+    Sanctum::actingAs($this->buyer);
+
+    $this->getJson('/api/v1/orders?status=shipped')->assertUnprocessable()->assertJsonValidationErrors('status');
+    $this->getJson('/api/v1/orders?limit=51')->assertUnprocessable()->assertJsonValidationErrors('limit');
+});
