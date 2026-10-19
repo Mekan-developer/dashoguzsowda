@@ -32,4 +32,12 @@ return [
     | Одно и то же значение должно стоять в .env сервера и в настройках телефона.
     */
     'otp_secret' => env('OTP_SECRET'),
+
+    /*
+    | Тестовый вход: вместо случайного кода — всегда OTP_TEST, SMS не уходит.
+    | Чтобы тестировщик мобилки входил без телефона-шлюза и без доступа к логам.
+    | В production игнорируется (SendSmsCodeAction).
+    */
+    'test_mode' => (bool) env('OTP_GATEWAY_TEST', false),
+    'test_code' => (string) env('OTP_TEST', '123456'),
 ];

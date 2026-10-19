@@ -4,6 +4,8 @@ use App\Models\FcmToken;
 use App\Models\User;
 use App\Repositories\Interfaces\SmsCodeRepositoryInterface;
 use App\Services\Sms\SmsCode;
+use App\Events\SmsCodeRequested;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 
 const PHONE = '+99361123456';
@@ -35,6 +37,33 @@ it('sends sms code and stores it', function () {
 
     // OTP пишется в laravel.log (dev-реализация LogSmsService)
     Log::shouldHaveReceived('info')->withArgs(fn ($msg) => str_contains($msg, $code->code))->once();
+});
+
+it('uses the fixed test code without sending sms in test mode', function () {
+    config(['sms.test_mode' => true, 'sms.test_code' => '111222']);
+    Event::fake([SmsCodeRequested::class]);
+
+    $this->postJson('/api/v1/auth/send-code', ['phone' => PHONE])->assertOk();
+
+    expect(storedCode()->code)->toBe('111222');
+    Event::assertNotDispatched(SmsCodeRequested::class);
+
+    $this->postJson('/api/v1/auth/verify', ['phone' => PHONE, 'code' => '111222'])->assertOk();
+});
+
+it('ignores test mode in production', function () {
+    config(['sms.test_mode' => true, 'sms.test_code' => '111222']);
+    Event::fake([SmsCodeRequested::class]);
+    app()->detectEnvironment(fn () => 'production');
+
+    try {
+        $this->postJson('/api/v1/auth/send-code', ['phone' => PHONE])->assertOk();
+    } finally {
+        app()->detectEnvironment(fn () => 'testing');
+    }
+
+    expect(storedCode()->code)->not->toBe('111222');
+    Event::assertDispatched(SmsCodeRequested::class);
 });
 
 it('rejects invalid phone format', function () {

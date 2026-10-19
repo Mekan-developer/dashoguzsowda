@@ -39,5 +39,6 @@
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="SMS_DRIVER" value="log"/>
         <env name="SMS_GATEWAY_URL" value=""/>
+        <env name="OTP_GATEWAY_TEST" value="false"/>
     </php>
 </phpunit>

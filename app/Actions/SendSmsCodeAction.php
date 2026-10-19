@@ -19,11 +19,20 @@ class SendSmsCodeAction
         // Старые коды гасим — активен всегда только последний
         $this->smsCodeRepository->invalidateActive($phone);
 
-        $code = $this->generateCode();
+        $testMode = $this->isTestMode();
+        $code = $testMode ? (string) config('sms.test_code') : $this->generateCode();
         $this->smsCodeRepository->create($phone, $code, config('sms.ttl'));
         $this->smsCodeRepository->startResendCooldown($phone, config('sms.resend_cooldown'));
 
-        SmsCodeRequested::dispatch($phone, $code);
+        // Тестовый код известен заранее — слать его некуда и незачем
+        if (! $testMode) {
+            SmsCodeRequested::dispatch($phone, $code);
+        }
+    }
+
+    private function isTestMode(): bool
+    {
+        return config('sms.test_mode') && ! app()->environment('production');
     }
 
     private function ensureCooldownPassed(string $phone): void
