@@ -56,6 +56,12 @@ class TariffRepository implements TariffRepositoryInterface
 
     public function catalogActive(): Collection
     {
-        return Tariff::where('is_active', true)->whereNotNull('name')->orderBy('id')->get();
+        // Бесплатный в каталог не идёт: он есть у каждого с регистрации и
+        // возвращается сам, когда кончается платный, — выбирать его незачем
+        return Tariff::where('is_active', true)
+            ->where('is_free', false)
+            ->whereNotNull('name')
+            ->orderBy('id')
+            ->get();
     }
 }

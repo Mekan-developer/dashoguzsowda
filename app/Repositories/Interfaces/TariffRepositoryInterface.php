@@ -20,6 +20,6 @@ interface TariffRepositoryInterface
     /** Тариф по мобильному slug (name) — PUT /v1/profile/subscription. */
     public function findByName(string $name): ?Tariff;
 
-    /** Активные тарифы со slug — каталог для GET /v1/tariffs (без slug не попадают). */
+    /** Активные платные тарифы со slug — каталог для GET /v1/tariffs (бесплатный и без slug не попадают). */
     public function catalogActive(): Collection;
 }

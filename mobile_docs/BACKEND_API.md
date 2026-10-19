@@ -468,7 +468,11 @@ Alias: мобилка читает `tariff` или `subscription`.
 
 ### `GET /v1/tariffs`
 
-Список доступных тарифных планов для выбора в профиле.
+Список платных тарифных планов для выбора в профиле.
+
+Бесплатного тарифа (`Basic`) в списке **нет**: он есть у каждого пользователя
+с регистрации и возвращается сам, когда истекает платный. Текущий тариф
+пользователя — `GET /v1/profile/tariff`.
 
 **Auth:** Bearer token  
 **Response `data`:** массив Tariff
@@ -477,16 +481,7 @@ Alias: мобилка читает `tariff` или `subscription`.
 {
   "data": [
     {
-      "name": "Basic",
-      "ads_limit": 5,
-      "ads_used": 0,
-      "videos_limit": 1,
-      "videos_used": 0,
-      "boosts_limit": 0,
-      "days_left": 30
-    },
-    {
-      "name": "Standard",
+      "name": "Standard
       "ads_limit": 20,
       "ads_used": 0,
       "videos_limit": 5,
@@ -517,7 +512,6 @@ Alias: мобилка читает `tariff` или `subscription`.
 ```
 
 > Для каталога планов `ads_used`/`videos_used` могут быть `0`.
-> У бесплатного тарифа `days_left = 0` — он бессрочный, срока действия у него нет.
 
 Каждый план дополнительно отдаёт:
 

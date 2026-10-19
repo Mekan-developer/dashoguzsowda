@@ -36,21 +36,17 @@ it('requires auth to read the tariff catalog', function () {
     $this->getJson('/api/v1/tariffs')->assertUnauthorized();
 });
 
-it('lists only active tariffs with a mobile slug, with zeroed usage', function () {
+it('lists only active paid tariffs with a mobile slug, with zeroed usage', function () {
     Sanctum::actingAs($this->user);
 
     $response = $this->getJson('/api/v1/tariffs')->assertOk();
 
-    $names = collect($response->json('data'))->pluck('name');
-    expect($names)->toContain('Basic')->toContain('Premium')->not->toContain(null);
+    // Бесплатный есть у каждого с регистрации — выбирать его в каталоге незачем
+    expect(collect($response->json('data'))->pluck('name')->all())->toBe(['Premium']);
 
-    $response->assertJsonPath('data.0.name', 'Basic')
-        ->assertJsonPath('data.0.ads_limit', 5)
+    $response->assertJsonPath('data.0.ads_limit', 100)
         ->assertJsonPath('data.0.ads_used', 0)
-        ->assertJsonPath('data.0.can_see_wholesale', false)
-        ->assertJsonPath('data.1.name', 'Premium')
-        ->assertJsonPath('data.1.ads_used', 0)
-        ->assertJsonPath('data.1.can_see_wholesale', true);
+        ->assertJsonPath('data.0.can_see_wholesale', true);
 });
 
 it('creates a request instead of granting a paid tariff', function () {
