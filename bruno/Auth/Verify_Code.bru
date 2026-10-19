@@ -17,8 +17,8 @@ headers {
 
 body:json {
   {
-    "phone": "+99361123456",
-    "code": "018926",
+    "phone": "{{phone}}",
+    "code": "{{otp_code}}",
     "fcm_token": null
   }
 }
@@ -42,7 +42,9 @@ tests {
 }
 
 docs {
-  Код взять из storage/logs/laravel.log (dev-режим).
+  Номер и код — переменные окружения {{phone}} и {{otp_code}}.
+  В тестовом режиме код — OTP_TEST (123456), иначе — из SMS или,
+  в dev без тестового режима, из storage/logs/laravel.log.
   Новый номер — регистрация (is_new=true), существующий — вход.
   Токен автоматически сохраняется в переменную окружения {{token}}.
 }

@@ -16,13 +16,16 @@ headers {
 
 body:json {
   {
-    "phone": "+99361123456"
+    "phone": "{{phone}}"
   }
 }
 
 docs {
   Регистрация и вход — один сценарий. Код приходит по SMS.
-  Dev-режим: код пишется в storage/logs/laravel.log (LogSmsService).
+  Номер — переменная окружения {{phone}}.
+  Тестовый вход (OTP_GATEWAY_TEST=true): SMS не уходит, код всегда OTP_TEST.
+  На проде — только для номеров из OTP_TEST_PHONES.
+  Без тестового режима в dev код пишется в storage/logs/laravel.log.
   Повторная отправка — не чаще одного раза в 60 сек (config sms.resend_cooldown):
   раньше срока — 422 по полю phone с указанием, сколько секунд ждать.
   Сверху ещё лимит частоты: 5 запросов в минуту с одного IP (429).
