@@ -154,7 +154,7 @@ docker compose build --build-arg DEBIAN_MIRROR=https://deb.debian.org app
 docker compose exec app php artisan migrate          # миграции
 docker compose exec app php artisan tinker           # консоль
 docker compose exec app php artisan queue:failed     # упавшие задачи
-docker compose exec app ./vendor/bin/pest           # тесты (Pest)
+php vendor/bin/pest                                  # тесты (Pest) — на хосте: в контейнере vendor без dev-пакетов
 
 docker compose logs -f app                           # логи
 docker compose down                                  # остановить
