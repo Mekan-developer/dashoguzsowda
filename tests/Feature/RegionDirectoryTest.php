@@ -100,3 +100,38 @@ it('lets only an admin delete directory entries', function () {
 
     expect(Region::count())->toBe(0);
 });
+
+it('creates, renames and deletes a city', function () {
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->post(route('cities.store'), ['region_id' => $this->region->id, 'name_ru' => 'Абадан', 'name_tk' => 'Abadan'])
+        ->assertRedirect();
+    $city = City::where('name_ru', 'Абадан')->sole();
+    expect($city->region_id)->toBe($this->region->id);
+
+    $this->put(route('cities.update', $city), ['region_id' => $this->region->id, 'name_ru' => 'Рухабат', 'name_tk' => 'Ruhabat'])
+        ->assertRedirect();
+    expect($city->fresh()->name_tk)->toBe('Ruhabat');
+
+    $this->delete(route('cities.destroy', $city))->assertRedirect();
+    expect(City::find($city->id))->toBeNull();
+});
+
+it('requires an existing region for a city', function () {
+    $this->actingAs(User::factory()->admin()->create())
+        ->post(route('cities.store'), ['region_id' => 999, 'name_ru' => 'Абадан', 'name_tk' => 'Abadan'])
+        ->assertSessionHasErrors('region_id');
+});
+
+it('hides, shows and deletes a district', function () {
+    $this->actingAs(User::factory()->admin()->create());
+
+    $this->patch(route('districts.toggle', $this->district))->assertRedirect();
+    expect($this->district->fresh()->is_hidden)->toBeTrue();
+
+    $this->patch(route('districts.toggle', $this->district))->assertRedirect();
+    expect($this->district->fresh()->is_hidden)->toBeFalse();
+
+    $this->delete(route('districts.destroy', $this->district))->assertRedirect();
+    expect(District::find($this->district->id))->toBeNull();
+});
