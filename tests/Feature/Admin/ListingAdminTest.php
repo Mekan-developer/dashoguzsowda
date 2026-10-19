@@ -1,14 +1,19 @@
 <?php
 
+use App\Events\ListingRejected;
 use App\Jobs\ProcessListingImagesJob;
+use App\Jobs\SendPushNotificationJob;
 use App\Models\Category;
 use App\Models\City;
+use App\Models\FcmToken;
 use App\Models\Listing;
 use App\Models\ListingMedia;
 use App\Models\Region;
+use App\Models\RejectionReason;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -225,4 +230,73 @@ it('loads the create form dictionaries only on request', function () {
         ->assertOk()
         ->assertJsonPath('props.createForm.categories.0.id', $this->leaf->parent_id)
         ->assertJsonPath('props.createForm.regions.0.id', $this->region->id);
+});
+
+function pendingAdminListing(array $overrides = []): Listing
+{
+    return Listing::create(array_merge([
+        'user_id'     => test()->owner->id,
+        'category_id' => test()->leaf->id,
+        'region_id'   => test()->region->id,
+        'city_id'     => test()->city->id,
+        'title'       => 'На модерации',
+        'description' => 'Описание',
+        'type'        => 'goods',
+        'phone'       => test()->owner->phone,
+        'status'      => 'pending',
+    ], $overrides));
+}
+
+it('lets a manager approve a listing and pushes the owner', function () {
+    FcmToken::create(['user_id' => $this->owner->id, 'token' => 'owner-device']);
+    // Прошлый отказ не должен висеть на одобренном объявлении
+    $reason  = RejectionReason::create(['name_ru' => 'Дубль', 'name_tk' => 'Gaýtalama', 'type' => 'listing', 'is_active' => true]);
+    $listing = pendingAdminListing(['rejection_reason_id' => $reason->id]);
+
+    $this->actingAs(User::factory()->manager()->create());
+
+    $this->patch(route('listings.approve', $listing))->assertRedirect();
+
+    $listing->refresh();
+    expect($listing->status)->toBe('approved')
+        ->and($listing->rejection_reason_id)->toBeNull();
+    Queue::assertPushed(SendPushNotificationJob::class, 1);
+});
+
+it('rejects a listing with a reason and fires ListingRejected', function () {
+    Event::fake([ListingRejected::class]);
+    $reason  = RejectionReason::create(['name_ru' => 'Запрещённый товар', 'name_tk' => 'Gadagan haryt', 'type' => 'listing', 'is_active' => true]);
+    $listing = pendingAdminListing();
+
+    $this->actingAs(User::factory()->manager()->create());
+
+    $this->patch(route('listings.reject', $listing), ['rejection_reason_id' => $reason->id])
+        ->assertRedirect();
+
+    $listing->refresh();
+    expect($listing->status)->toBe('rejected')
+        ->and($listing->rejection_reason_id)->toBe($reason->id);
+    Event::assertDispatched(ListingRejected::class, fn ($e) => $e->listing->is($listing));
+});
+
+it('requires an existing reason to reject a listing', function () {
+    Event::fake([ListingRejected::class]);
+    $listing = pendingAdminListing();
+
+    $this->actingAs($this->admin);
+
+    $this->patch(route('listings.reject', $listing), [])->assertSessionHasErrors('rejection_reason_id');
+    $this->patch(route('listings.reject', $listing), ['rejection_reason_id' => 999])->assertSessionHasErrors('rejection_reason_id');
+
+    expect($listing->fresh()->status)->toBe('pending');
+    Event::assertNotDispatched(ListingRejected::class);
+});
+
+it('forbids a regular user from moderating listings', function () {
+    $listing = pendingAdminListing();
+
+    $this->actingAs($this->owner);
+
+    $this->patch(route('listings.approve', $listing))->assertForbidden();
+    expect($listing->fresh()->status)->toBe('pending');
 });

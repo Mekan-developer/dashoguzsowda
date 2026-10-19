@@ -99,6 +99,20 @@ it('refuses to process the same request twice', function () {
     $this->patch(route('tariff-requests.approve', $this->request))->assertSessionHasErrors('status');
 });
 
+it('refuses to reject a request that is already closed', function () {
+    Event::fake([TariffRequestRejected::class]);
+    actingAsTariffRequestRole('admin');
+
+    $this->patch(route('tariff-requests.approve', $this->request))->assertRedirect();
+    $this->patch(route('tariff-requests.reject', $this->request), ['comment' => 'Передумали'])
+        ->assertSessionHasErrors('status');
+
+    // Выданный тариф остаётся, отказ не уходит пользователю push-ем
+    expect($this->request->fresh()->status)->toBe('approved')
+        ->and($this->applicant->fresh()->tariff_id)->toBe($this->premium->id);
+    Event::assertNotDispatched(TariffRequestRejected::class);
+});
+
 /** Заявки — это деньги, поэтому менеджеру закрыты целиком (CLAUDE.md → «Роли»). */
 it('closes tariff requests to a manager', function () {
     actingAsTariffRequestRole('manager');
