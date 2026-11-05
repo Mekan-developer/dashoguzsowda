@@ -27,7 +27,7 @@
   |---|---|
   | `dashoguzsowda_db_data` | MySQL |
   | `dashoguzsowda_redis_data` | Redis (очереди, кэш, сессии, OTP) |
-  | `dashoguzsowda_storage_app` | загрузки: фото, видео, аватары |
+  | `dashoguzsowda_storage_app` | загрузки: фото, видео, аватары; обучающие материалы |
   | `dashoguzsowda_storage_logs` | логи Laravel |
 
   Префикс — имя проекта, закреплённое в `docker-compose.yml` (`name:`).
@@ -329,6 +329,25 @@ Horizon-дашборд: `https://dashoguzsowda.com.tm/horizon` (только adm
 
 Логи контейнеров ротируются (по 10 МБ × 3), логи Laravel — по дням,
 14 дней (`LOG_DAILY_DAYS`).
+
+### Обучающие материалы
+
+Раздел админки «Обучение» показывает файлы из `storage/app/lessons`. В git и в
+образе их нет, поэтому `git pull` их не привезёт — заливаются один раз вручную и
+потом при каждом обновлении материалов. В томе они переживают пересборку.
+
+```bash
+# На машине, где лежат материалы (из корня проекта)
+tar -czf lessons.tar.gz --exclude='*:Zone.Identifier' -C storage/app lessons
+scp lessons.tar.gz <сервер>:/srv/dashoguzsowda/
+
+# На сервере
+cd /srv/dashoguzsowda
+dc exec -T app tar -xz -C storage/app < lessons.tar.gz
+rm lessons.tar.gz
+```
+
+Браузер кэширует файлы на час: обновлённый урок может появиться не сразу.
 
 ### Бэкапы
 

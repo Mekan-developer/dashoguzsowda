@@ -162,6 +162,7 @@ const sections = computed(() => [
         { label: t('nav.statistics'), routeName: 'statistics.index',  icon: 'chart' },
         ...(isAdmin.value ? [
             { label: t('nav.push'),     routeName: 'push.index',     icon: 'bell' },
+            { label: t('nav.lessons'),  routeName: 'lessons.index',  icon: 'lesson' },
             { label: t('nav.settings'), routeName: 'settings.index', icon: 'settings' },
         ] : []),
     ]},

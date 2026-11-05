@@ -17,6 +17,7 @@ export default {
         tariffRequests: 'Tarif arzalary',
         statistics: 'Statistika',
         push: 'Push-bildirişler',
+        lessons: 'Okuw',
         settings: 'Sazlamalar',
     },
     status: {
@@ -756,6 +757,12 @@ export default {
         testMode: 'Synag tertibi',
         syncedAt: 'Sinhronlandy: {at}',
         noSync: 'Häzirlikçe sinhronlanmady',
+    },
+    lessons: {
+        title: 'Okuw',
+        openInNewTab: 'Täze goýmada açmak',
+        emptyTitle: 'Materiallar ýüklenmedik',
+        emptyText: 'Serwerde okuw materiallary ýok. Olary storage/app/lessons bukjasyna goýmaly.',
     },
     statistics: {
         day: 'Gün',

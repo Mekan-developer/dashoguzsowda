@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\ComplaintController;
 use App\Http\Controllers\Admin\ComplaintReasonController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DistrictController;
+use App\Http\Controllers\Admin\LessonController;
 use App\Http\Controllers\Admin\ListingController;
 use App\Http\Controllers\Admin\LocaleController;
 use App\Http\Controllers\Admin\NewsController;
@@ -215,6 +216,11 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,manager'])->group(functi
         Route::post('payment-methods',                         [PaymentMethodController::class, 'store'])->name('payment-methods.store');
         Route::put('payment-methods/{payment_method}',          [PaymentMethodController::class, 'update'])->name('payment-methods.update');
         Route::delete('payment-methods/{payment_method}',       [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
+
+        // Обучение: страница с iframe и файлы материалов. Файлы отдаёт роут, а не
+        // public/, чтобы они оставались за проверкой роли (см. LessonService)
+        Route::get('lessons',              [LessonController::class, 'index'])->name('lessons.index');
+        Route::get('lessons/files/{path}', [LessonController::class, 'file'])->where('path', '.*')->name('lessons.file');
 
         // Настройки (мониторинг, права менеджера, локализация, SMS-шлюз)
         Route::get('settings',                       [SettingsController::class, 'index'])->name('settings.index');

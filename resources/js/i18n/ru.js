@@ -17,6 +17,7 @@ export default {
         tariffRequests: 'Заявки на тариф',
         statistics: 'Статистика',
         push: 'Push-уведомления',
+        lessons: 'Обучение',
         settings: 'Настройки',
     },
     status: {
@@ -756,6 +757,12 @@ export default {
         testMode: 'Тестовый режим',
         syncedAt: 'Синхронизировано: {at}',
         noSync: 'Синхронизаций ещё не было',
+    },
+    lessons: {
+        title: 'Обучение',
+        openInNewTab: 'Открыть в новой вкладке',
+        emptyTitle: 'Материалы не загружены',
+        emptyText: 'На сервере нет обучающих материалов. Их нужно положить в папку storage/app/lessons.',
     },
     statistics: {
         day: 'День',

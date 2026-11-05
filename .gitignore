@@ -19,6 +19,9 @@ yarn-error.log
 
 local_zapusk.md
 
+# Архив обучающих материалов для заливки на сервер (см. docs/DEPLOY.md)
+/lessons.tar.gz
+
 # Окружения Bruno: у каждого разработчика свой base_url (свой IP в сети, свой порт)
 bruno/environments/*.bru
 

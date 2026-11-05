@@ -28,6 +28,10 @@ const ICONS = {
         { isCircle: true, cx: 12, cy: 12, r: 9 },
         { isPath: true, d: 'M10 8.8l5.2 3.2-5.2 3.2z' },
     ],
+    lesson: [
+        { isPath: true, d: 'M2 9.5L12 5l10 4.5L12 14z' },
+        { isPath: true, d: 'M6 11.5V16c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.5' },
+    ],
     chat: [
         { isPath: true, d: 'M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5z' },
     ],
