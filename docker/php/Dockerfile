@@ -88,11 +88,13 @@ ARG GID=1000
 # Каталог Debian целиком (тот, что у deb.debian.org — /debian). Nexus в сети
 # telecom.tm в десятки раз быстрее; запасной — https://mirror.yandex.ru/debian
 ARG APT_MIRROR=https://nexus.telecom.tm/repository/debian-proxy
+ARG APT_SECURITY_MIRROR=https://nexus.telecom.tm/repository/debian-security
 
 RUN rm -f /etc/apt/sources.list.d/debian.sources \
  && printf '%s\n' \
       "deb ${APT_MIRROR} trixie main" \
       "deb ${APT_MIRROR} trixie-updates main" \
+      "deb ${APT_SECURITY_MIRROR} trixie-security main" \
       > /etc/apt/sources.list
 
 # Расширения собираются из -dev пакетов, после сборки -dev удаляются, а
